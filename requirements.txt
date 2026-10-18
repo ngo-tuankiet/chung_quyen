@@ -1,0 +1,3 @@
+# Ghim chính xác vnstock: cài từ vnstocks.com (bản trên PyPI đang bị cách ly; bản < 4.0.9 từng tự ghi vào file cấu hình trợ lý AI).
+# Muốn nâng cấp: chạy thử bản mới trước, rồi mới sửa số ở đây. pandas đi kèm vnstock (pandas>=2.0), để pip tự chọn bản hợp với Python của máy.
+vnstock==5.1.0

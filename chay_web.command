@@ -13,8 +13,8 @@ if [ ! -x .venv/bin/python ]; then
   "$PY" -m venv .venv || dung "LỖI: Không tạo được môi trường Python."
 fi
 
-echo "[2/3] Cài/cập nhật vnstock (lần đầu mất vài phút)..."
-.venv/bin/python -m pip install -q -U --extra-index-url https://vnstocks.com/api/packages vnstock certifi
+echo "[2/3] Cài vnstock theo requirements.txt (lần đầu mất vài phút)..."
+.venv/bin/python -m pip install -q --extra-index-url https://vnstocks.com/api/packages -r requirements.txt certifi
 .venv/bin/python -m pip show vnstock >/dev/null 2>&1 && .venv/bin/python -c "import certifi" 2>/dev/null \
   || dung "LỖI: Cài vnstock thất bại - chụp màn hình thông báo phía trên gửi người hỗ trợ."
 # Python tải từ python.org trên Mac không dùng chứng chỉ của hệ thống -> chỉ cho nó bộ chứng chỉ certifi

@@ -26,8 +26,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Cai / cap nhat vnstock - lan dau mat vai phut...
-.venv\Scripts\python -m pip install -q -U --extra-index-url https://vnstocks.com/api/packages vnstock
+echo [2/3] Cai vnstock theo requirements.txt - lan dau mat vai phut...
+.venv\Scripts\python -m pip install -q --extra-index-url https://vnstocks.com/api/packages -r requirements.txt
 .venv\Scripts\python -m pip show vnstock >nul 2>nul
 if errorlevel 1 (
   echo LOI: Cai vnstock that bai - kiem tra mang Internet, chup man hinh thong bao phia tren gui cho nguoi ho tro.

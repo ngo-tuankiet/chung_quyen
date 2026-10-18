@@ -11,6 +11,7 @@ cw_scanner/
 ├── cw_scanner.py        ← chương trình chính (~200 dòng, chú thích tiếng Việt từng phần)
 ├── web.py               ← giao diện web: bấm nút để quét, xem bảng kết quả
 ├── test_cw_scanner.py   ← kiểm tra công thức có tính đúng không
+├── requirements.txt     ← phiên bản vnstock được ghim (đổi số ở đây khi muốn nâng cấp)
 ├── cw_da_biet.txt       ← (tự sinh) danh sách CW đã thấy, dùng để phát hiện CW mới
 └── ket_qua/
     ├── cw_YYYY-MM-DD.csv        ← (tự sinh) kết quả mỗi ngày, mở bằng Excel
@@ -119,8 +120,8 @@ cd cw_scanner
 python -m venv .venv
 # Windows:      .venv\Scripts\activate
 # macOS/Linux:  source .venv/bin/activate
-pip install -U --extra-index-url https://vnstocks.com/api/packages vnstock
-pip show vnstock      # kiểm tra: Version phải >= 5.0 (đã chạy thử với 5.0.3 và 5.1.0)
+pip install --extra-index-url https://vnstocks.com/api/packages -r requirements.txt   # vnstock ghim đúng 5.1.0
+pip show vnstock      # kiểm tra: Version: 5.1.0
 ```
 Chương trình **không cần thư viện nào khác** (pandas đi kèm vnstock; phần còn lại dùng thư viện có sẵn của Python).
 
