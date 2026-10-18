@@ -1,0 +1,2 @@
+# Chỉ cần khi chạy test bằng pytest (người dùng thường không cần). Cài: pip install -r requirements-dev.txt
+pytest==9.1.1

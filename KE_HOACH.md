@@ -12,6 +12,7 @@ cw_scanner/
 ├── web.py               ← giao diện web: bấm nút để quét, xem bảng kết quả
 ├── test_cw_scanner.py   ← kiểm tra công thức có tính đúng không
 ├── requirements.txt     ← phiên bản vnstock được ghim (đổi số ở đây khi muốn nâng cấp)
+├── requirements-dev.txt ← pytest, chỉ cần khi sửa code
 ├── cw_da_biet.txt       ← (tự sinh) danh sách CW đã thấy, dùng để phát hiện CW mới
 └── ket_qua/
     ├── cw_YYYY-MM-DD.csv        ← (tự sinh) kết quả mỗi ngày, mở bằng Excel
@@ -147,6 +148,8 @@ File `.gitignore` đã chặn `.env` để không lỡ đưa key lên GitHub. N�
 python test_cw_scanner.py
 ```
 Thấy `OK - công thức đúng` là được.
+
+Dành cho người sửa code: cài pytest một lần (`pip install -r requirements-dev.txt`) rồi chạy `python -m pytest -q` để xem từng ca kiểm tra đạt/trượt.
 
 ### Bước 4 — Chạy thử
 ```bash
