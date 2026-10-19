@@ -241,6 +241,21 @@ def lech_theo_cs(P0, S0, ngay0, P, S, ngay, K, ty_le, dao_han, r):
     return math.nan, None
 
 
+def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=20):
+    """Độ lệch so với CS qua `so_phien` phiên gần nhất. gia_cw, kl_cw, gia_cs: {ngày 'YYYY-MM-DD': giá VND / khối lượng}.
+    Mốc = phiên đầu tiên khớp ≥ MIN_KHOI_LUONG (bỏ phiên mới lên sàn khớp rất ít, vd CHPG2638 29-30/09/2026).
+    Trả về (mốc, [(ngày, CS %, CW thực tế %, CW lẽ ra %, lệch)]); mốc None nếu không có phiên đủ thanh khoản."""
+    ngay_chung = [d for d in sorted(gia_cw) if d in gia_cs][-(so_phien + 1) :]
+    moc = next((d for d in ngay_chung if kl_cw.get(d, 0) >= MIN_KHOI_LUONG), None)
+    hang = []
+    for d in [d for d in ngay_chung if moc and d >= moc]:
+        P0, S0, Pd, Sd = gia_cw[moc], gia_cs[moc], gia_cw[d], gia_cs[d]
+        lech, _ = lech_theo_cs(P0, S0, date.fromisoformat(moc), Pd, Sd, date.fromisoformat(d), K, ty_le, dao_han, r)
+        if not math.isnan(lech):
+            hang.append((d, Sd / S0 - 1, Pd / P0 - 1, Pd / (1 + lech) / P0 - 1, lech))
+    return moc, hang
+
+
 def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
     """IV (%) từng ngày từ {ngày 'YYYY-MM-DD': giá VND} của CW và cổ phiếu cơ sở. Trả về [[ngày, IV %], ...].
     Giá CS phải là giá đã điều chỉnh quyền: khi đó dùng điều khoản HIỆN TẠI (K, tỷ lệ đã điều chỉnh) cho cả các ngày trước sự kiện

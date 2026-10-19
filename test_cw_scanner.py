@@ -24,6 +24,7 @@ from cw_scanner import (
     doc_env,
     doc_ty_le,
     gia_mua,
+    lech_20_phien,
     lech_theo_cs,
     lich_su_iv,
     mo_phong_gia,
@@ -254,6 +255,21 @@ def test_lech_theo_cs():
     assert abs(lech_theo_cs(P0, 23000, d0, 0.8 * le_ra, 25000, d1, K, n, dh, r)[0] + 0.20) < 1e-4
     # giá mốc 1.250 dưới mức tối thiểu (~2.198 cho 1 CP) -> tính bằng r = 0
     assert lech_theo_cs(1250, 24500, d0, 1300, 24600, d1, K, n, dh, r)[1] == 0.0
+
+
+def test_lech_20_phien():
+    # Giá CW tạo từ sigma 30% mỗi ngày -> lệch 0; phiên đầu khớp ít (500 CW) không được làm mốc; ngày thiếu giá CS bỏ qua
+    K, n, dh, r = 22605, 1.5863, date(2027, 2, 17), 0.04
+    gia_cs = {"2026-10-13": 24000.0, "2026-10-14": 24400.0, "2026-10-15": 24300.0, "2026-10-16": 24500.0}
+    gia_cw = {
+        d: black_scholes_call(S, K, (dh - date.fromisoformat(d)).days / 365, r, 0.30)[0] / n for d, S in gia_cs.items()
+    }
+    gia_cw["2026-10-12"] = 999.0  # không có giá CS
+    kl = {"2026-10-13": 500, "2026-10-14": 50_000, "2026-10-15": 40_000, "2026-10-16": 30_000}
+    moc, hang = lech_20_phien(gia_cw, kl, gia_cs, K, n, dh, r)
+    assert moc == "2026-10-14" and [h[0] for h in hang] == ["2026-10-14", "2026-10-15", "2026-10-16"]
+    assert all(abs(h[4]) < 1e-4 for h in hang) and abs(hang[-1][1] - (24500 / 24400 - 1)) < 1e-12
+    assert lech_20_phien(gia_cw, {}, gia_cs, K, n, dh, r) == (None, [])  # không phiên nào đủ thanh khoản
 
 
 def test_lich_su_iv():

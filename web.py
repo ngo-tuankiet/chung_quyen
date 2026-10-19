@@ -934,20 +934,11 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "</section>"
     )
 
-    # Lệch so với cổ phiếu cơ sở 20 phiên: mốc = phiên đầu tiên khớp ≥ MIN_KHOI_LUONG (bỏ phiên mới lên sàn khớp rất ít)
-    lech_ls, hang_lech, moc = [], [], None
-    if bo_nho:
-        gcs = dict(lich_su)
-        ngay_chung = [d for d in sorted(bo_nho["gia"]) if d in gcs][-21:]
-        moc = next((d for d in ngay_chung if bo_nho["kl"].get(d, 0) >= C.MIN_KHOI_LUONG), None)
-        for d in [d for d in ngay_chung if moc and d >= moc]:
-            P0, S0, Pd, Sd = bo_nho["gia"][moc], gcs[moc], bo_nho["gia"][d], gcs[d]
-            lech, _ = C.lech_theo_cs(
-                P0, S0, date.fromisoformat(moc), Pd, Sd, date.fromisoformat(d), K, ty_le, ngay_dao_han, r
-            )
-            if not math.isnan(lech):
-                lech_ls.append([d, round(lech * 100, 1)])
-                hang_lech.append((d, Sd / S0 - 1, Pd / P0 - 1, Pd / (1 + lech) / P0 - 1, lech))
+    # Lệch so với cổ phiếu cơ sở 20 phiên (mốc = phiên đầu tiên đủ thanh khoản)
+    moc, hang_lech = (
+        C.lech_20_phien(bo_nho["gia"], bo_nho["kl"], dict(lich_su), K, ty_le, ngay_dao_han, r) if bo_nho else (None, [])
+    )
+    lech_ls = [[d, round(lech * 100, 1)] for d, *_, lech in hang_lech]
     nguong_lech = danh_muc.CANH_BAO_LECH * 100
     mau_bang = hang_lech[:: max(len(hang_lech) // 4, 1)][:4] + hang_lech[-1:] if hang_lech else []
     phan.append(

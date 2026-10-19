@@ -174,6 +174,54 @@ def test_canh_bao_lech_so_voi_cs():
     )  # không có lịch sử
 
 
+def test_cw_moi_vao_nhom_va_muc_bao_cao():
+    # A: Theo dõi -> Nên xem xét (có); B: Bỏ qua -> Nên xem xét (có); C: đã Nên xem xét từ trước (không);
+    # D: mới niêm yết, chưa có ở lần trước (không, đã có mục CW mới); E: Nên xem xét -> Theo dõi (không)
+    truoc = pd.DataFrame({"Mã CW": list("ABCE"), "Đánh giá": ["THEO DÕI", "BỎ QUA", "NÊN XEM XÉT", "NÊN XEM XÉT"]})
+    nay = pd.DataFrame(
+        {
+            "Mã CW": list("ABCDE"),
+            "Mã CS": ["VPB"] * 5,
+            "TCPH": ["SSI"] * 5,
+            "Mới": ["", "", "", "MỚI", ""],
+            "Đánh giá": ["NÊN XEM XÉT"] * 4 + ["THEO DÕI"],
+            "Ngày còn lại": [100] * 5,
+            "Giá CS": [24000] * 5,
+            "Giá thực hiện": [22000] * 5,
+            "Tỷ lệ CĐ": [2.0] * 5,
+            "Giá mua": [1200] * 5,
+            "Giá hợp lý": [1300] * 5,
+            "Đắt/rẻ %": [-7.7] * 5,
+            "IV − HV": [-2.0] * 5,
+            "CS tăng % để hòa vốn": [1.7] * 5,
+            "Đòn bẩy": [8.5] * 5,
+            "IV %": [27.0, 30.0, 31.0, 32.0, 33.0],
+            "IV cùng mã %": [47.0, float("nan"), 45.0, 45.0, 45.0],
+            "Cảnh báo": [""] * 5,
+        }
+    )
+    moi = D.cw_moi_vao_nhom(nay, truoc)
+    assert list(moi["Mã CW"]) == ["A", "B"] and list(moi["Từ nhóm"]) == ["THEO DÕI", "BỎ QUA"]
+    assert D.cw_moi_vao_nhom(nay, None).empty  # lần quét đầu: chưa có gì để so
+    bc = D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi, {"A": -0.032})
+    assert bc.index("🔔") < bc.index("💼")  # mục đầu tiên
+    dong = {d.split()[0]: d.split() for d in bc.split("🔔")[1].split("💼")[0].splitlines() if d[:1] in ("A", "B")}
+    assert dong["A"][-3:] == ["TD", "27/47", "-3,2%"] and dong["B"][-3:] == ["BQ", "—", "—"]  # thiếu số liệu -> "—"
+    with mock.patch.object(D, "MAX_MA_MOI_VAO", 1):
+        assert "và 1 mã khác" in D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi, {})
+    assert "🔔" not in D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi.iloc[0:0], {})
+
+
+def test_doc_ket_qua_truoc():
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
+        for ngay, nhom in (("2026-10-16", "BỎ QUA"), ("2026-10-19", "THEO DÕI"), ("2026-10-20", "NÊN XEM XÉT")):
+            pd.DataFrame({"Mã CW": ["A"], "Đánh giá": [nhom]}).to_csv(
+                Path(tmp) / f"cw_{ngay}.csv", index=False, encoding="utf-8-sig"
+            )
+        assert D.doc_ket_qua_truoc(date(2026, 10, 20))["Đánh giá"][0] == "THEO DÕI"  # bỏ qua file của chính hôm nay
+        assert D.doc_ket_qua_truoc(date(2026, 10, 16)) is None
+
+
 def test_chi_gui_canh_bao_vua_xuat_hien():
     a, b = ("CVPB2615", "cat_lo", "..."), ("CVPB2615", "gd_cuoi", "...")
     moi, dang_bao = D.chon_canh_bao_moi([a], [])

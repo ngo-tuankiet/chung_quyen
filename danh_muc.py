@@ -16,7 +16,7 @@ import re
 import shutil
 import sys
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from datetime import time as gio
 
 import pandas as pd
@@ -31,7 +31,8 @@ CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá th�
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 GAN_NGUONG = 0.10  # báo cáo ngày: liệt kê vị thế còn cách ngưỡng chốt lời/cắt lỗ ≤ 10 điểm %
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
-SO_MA_NOI_BAT = 5  # báo cáo ngày: số mã "Nên xem xét" đưa vào
+SO_MA_NOI_BAT = 5
+MAX_MA_MOI_VAO = 10  # báo cáo ngày: tối đa số mã "mới vào nhóm Nên xem xét" liệt kê (mỗi mã tốn 1 lượt vnstock để tính độ lệch)  # báo cáo ngày: số mã "Nên xem xét" đưa vào
 URL_DISCORD_HOP_LE = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
 
 FILE_DANH_MUC = C.THU_MUC / "danh_muc.csv"
@@ -426,12 +427,54 @@ def _hang_cw(h):
     ]
 
 
-def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
+def doc_ket_qua_truoc(ngay):
+    """Bảng kết quả của lần quét gần nhất TRƯỚC ngày `ngay` (quét lại trong ngày vẫn so với ngày giao dịch trước); chưa có -> None."""
+    cu = [f for f in sorted(C.THU_MUC_KET_QUA.glob("cw_*.csv")) if f.stem[3:] < str(ngay)]
+    return pd.read_csv(cu[-1], encoding="utf-8-sig", keep_default_na=False) if cu else None
+
+
+def cw_moi_vao_nhom(df_nay, df_truoc):
+    """CW hôm nay ở nhóm NÊN XEM XÉT mà lần quét trước ở THEO DÕI / BỎ QUA (mã mới niêm yết không tính: đã có mục CW mới).
+    Thêm cột "Từ nhóm"; giữ thứ tự của df_nay (IV − HV thấp nhất trước)."""
+    if df_truoc is None:
+        return df_nay.iloc[0:0]
+    truoc = dict(zip(df_truoc["Mã CW"], df_truoc["Đánh giá"]))
+    moi = df_nay[
+        (df_nay["Đánh giá"] == "NÊN XEM XÉT") & df_nay["Mã CW"].map(lambda m: truoc.get(m) in ("THEO DÕI", "BỎ QUA"))
+    ]
+    return moi.assign(**{"Từ nhóm": moi["Mã CW"].map(truoc)})
+
+
+def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc, moi_vao=None, lech_moi_vao=None):
     """Nội dung báo cáo tổng hợp hằng ngày (dùng riêng, có số tiền)."""
     phan = [
         f"📊 **Báo cáo CW {luc:%H:%M %d/%m/%Y}** – quét {ngay_quet:%d/%m}: "
         + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items())
     ]
+    # 0. Mới vào nhóm Nên xem xét (so với lần quét trước): độ lệch 20 phiên và IV so với CW cùng mã để tham khảo
+    if moi_vao is not None and len(moi_vao):
+        hien = moi_vao.head(MAX_MA_MOI_VAO)
+        tv = lambda h: (
+            f"{h['IV %']:.0f}/{h['IV cùng mã %']:.0f}"
+            if not math.isnan(h.get("IV cùng mã %", math.nan)) and not math.isnan(h["IV %"])
+            else "—"
+        )
+        lech = lambda m: "—" if math.isnan((lech_moi_vao or {}).get(m, math.nan)) else pt(lech_moi_vao[m], 1)
+        phan.append(
+            f"🔔 **Mới vào nhóm Nên xem xét** ({len(moi_vao)} mã)\n"
+            + bang(COT_CW, [_hang_cw(h) for _, h in hien.iterrows()])
+            + "\n"
+            + bang(
+                ["Mã CW", "Từ", "IV/TV cùng mã", "Lệch 20p"],
+                [
+                    [h["Mã CW"], {"THEO DÕI": "TD", "BỎ QUA": "BQ"}.get(h["Từ nhóm"], "?"), tv(h), lech(h["Mã CW"])]
+                    for _, h in hien.iterrows()
+                ],
+            )
+            + (f"\nvà {len(moi_vao) - len(hien)} mã khác" if len(moi_vao) > len(hien) else "")
+            + "\n_Từ: nhóm lần quét trước (TD theo dõi, BQ bỏ qua) · IV/TV: IV của CW / trung vị IV các CW cùng mã · "
+            "Lệch 20p: so với mức lẽ ra theo CS trong 20 phiên (tham khảo, không phải tín hiệu mua)_"
+        )
     # 1. Danh mục
     phan.append("💼 **Danh mục**")
     co_gia = [d for d in dong if d.get("co_gia")]
@@ -520,6 +563,30 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
     return "\n\n".join(phan)
 
 
+def tinh_lech_20_phien(h, ngay_quet, lich_su):
+    """Độ lệch 20 phiên của 1 CW (dòng trong bảng quét): 1 lượt vnstock lấy lịch sử giá CW. Lỗi -> NaN và ghi log."""
+    try:
+        d = C.lay_gia_dong_cua(h["Mã CW"])
+        he_so = 10 ** round(math.log10(h["Giá CW"] / float(d["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
+        gia = {str(t)[:10]: float(g) * he_so for t, g in zip(d["time"], d["close"])}
+        kl = {str(t)[:10]: float(v) for t, v in zip(d["time"], d["volume"])}
+        dao_han = ngay_quet + timedelta(days=int(h["Ngày còn lại"]))
+        _, hang = C.lech_20_phien(
+            gia,
+            kl,
+            dict(lich_su.get(h["Mã CS"], [])),
+            h["Giá thực hiện"],
+            h["Tỷ lệ CĐ"],
+            dao_han,
+            float(h["r %"]) / 100,
+        )
+        return hang[-1][4] if hang else math.nan
+    # lỗi mạng / hết lượt gọi: chỉ cột Lệch của mã này ghi "—", báo cáo vẫn gửi
+    except Exception as e:  # noqa: BLE001
+        print(f"  [!] Không tính được độ lệch {h['Mã CW']}: {e}")
+        return math.nan
+
+
 def gui_bao_cao_ngay(luc=None):
     """Lập và gửi báo cáo ngày lên Discord (sau lần quét theo lịch)."""
     luc = luc or datetime.now()
@@ -541,7 +608,15 @@ def gui_bao_cao_ngay(luc=None):
     if not url:
         print(f"{luc:%d/%m %H:%M} [!] Chưa có DISCORD_WEBHOOK_URL trong .env, không gửi báo cáo")
         return
-    tin = chia_tin(bao_cao_ngay(df, ngay, dong, canh_bao, sum(v["lai_da_chot"] for v in tat_ca.values()), luc))
+    moi_vao, lech_moi_vao = cw_moi_vao_nhom(df, doc_ket_qua_truoc(ngay)), {}
+    ls = doc_lich_su(ngay)
+    for _, h in moi_vao.head(MAX_MA_MOI_VAO).iterrows():
+        lech_moi_vao[h["Mã CW"]] = tinh_lech_20_phien(h, ngay, ls)
+    tin = chia_tin(
+        bao_cao_ngay(
+            df, ngay, dong, canh_bao, sum(v["lai_da_chot"] for v in tat_ca.values()), luc, moi_vao, lech_moi_vao
+        )
+    )
     for t in tin:
         gui_discord(t, url)
     print(f"{luc:%d/%m %H:%M} Đã gửi báo cáo ngày ({len(tin)} tin)")
