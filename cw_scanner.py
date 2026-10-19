@@ -50,7 +50,7 @@ MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
 
-THU_MUC = Path(__file__).parent  # dùng đường dẫn tuyệt đối để chạy tự động (cron/Task Scheduler) không bị lạc thư mục
+THU_MUC = Path(__file__).parent  # dùng đường dẫn tuyệt đối để chạy tự động (launchd/cron/Task Scheduler) không bị lạc thư mục
 FILE_CW_DA_BIET = THU_MUC / "cw_da_biet.txt"
 THU_MUC_KET_QUA = THU_MUC / "ket_qua"
 

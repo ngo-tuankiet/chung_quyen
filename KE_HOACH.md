@@ -111,7 +111,7 @@ Giá hợp lý 1 CW            = Giá quyền / n
 ### Bước 1 — Cài Python
 Tải Python 3.10 trở lên tại python.org. Trên Windows nhớ tick **"Add Python to PATH"**.
 
-> **macOS — cách nhanh nhất:** mở Terminal, dán lệnh `cd ~/Downloads; [ -f cw_scanner.zip ] && unzip -oq cw_scanner.zip; bash cw_scanner/chay_web.command` rồi Enter. Lệnh này tự giải nén, tự cài và mở giao diện web. Cần Python 3.10+ từ python.org (Python có sẵn của Apple là 3.9, không dùng được).
+> **macOS — cách nhanh nhất:** mở Terminal, dán lệnh `cd ~; [ -f ~/Downloads/cw_scanner.zip ] && unzip -oq ~/Downloads/cw_scanner.zip; bash ~/cw_scanner/chay_web.command` rồi Enter. Lệnh này tự giải nén, tự cài và mở giao diện web. Cần Python 3.10+ từ python.org (Python có sẵn của Apple là 3.9, không dùng được). Thư mục dự án nằm ở `~/cw_scanner` (không để trong Downloads/Documents nếu muốn quét tự động, xem Phần 5).
 >
 > **Windows — cách nhanh nhất:** sau khi cài Python, nhấp đúp `chay_web.bat`. File này tự làm Bước 2 (lần đầu) rồi mở giao diện web (Bước 5). Bỏ qua Bước 2–4 nếu dùng cách này.
 
@@ -261,12 +261,23 @@ Thị trường đóng cửa 14:45, nên đặt chạy **15:15 từ thứ Hai đ
    - Arguments: `cw_scanner.py`
    - Start in: `C:\duong_dan\cw_scanner`
 
-### macOS / Linux — cron
+### macOS — launchd (khuyên dùng)
+Đặt thư mục dự án **ngoài** `~/Downloads`, `~/Documents`, `~/Desktop` (ví dụ `~/cw_scanner`): macOS chặn tác vụ chạy nền đọc các thư mục đó
+(lỗi "Operation not permitted", launchd báo mã thoát 78). Rồi chạy một lần:
+```bash
+bash ~/cw_scanner/cai_lich_quet.sh
+```
+- Quét lúc 15:15 thứ Hai–Sáu theo giờ của máy (đặt máy về giờ Việt Nam). Máy ngủ lúc 15:15 thì launchd chạy bù khi máy thức dậy.
+- Mỗi lần chạy `chay_quet_tu_dong.sh` quét xong thì sao lưu `ket_qua/` và `cw_da_biet.txt` sang `~/cw_scanner_sao_luu/` (không bao giờ xóa bản cũ).
+- Nhật ký trong `log.txt`. Ngày lễ vẫn chạy (bảng giá giữ phiên gần nhất) - không ảnh hưởng.
+- Gỡ lịch: `bash ~/cw_scanner/cai_lich_quet.sh go`.
+
+### Linux — cron
 Chạy `crontab -e` rồi thêm 1 dòng (giờ theo múi giờ máy, đặt máy về giờ Việt Nam):
 ```
-15 15 * * 1-5  /duong_dan/cw_scanner/.venv/bin/python /duong_dan/cw_scanner/cw_scanner.py >> /duong_dan/cw_scanner/log.txt 2>&1
+15 15 * * 1-5  /bin/bash /duong_dan/cw_scanner/chay_quet_tu_dong.sh >> /duong_dan/cw_scanner/log.txt 2>&1
 ```
-Kết quả mỗi ngày nằm trong `ket_qua/`, nhật ký trong `log.txt`.
+Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scanner_sao_luu/`), nhật ký trong `log.txt`.
 
 ---
 
