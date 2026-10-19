@@ -1,11 +1,16 @@
 """Kiểm tra công thức. Chạy: python -m pytest -q   hoặc   python test_cw_scanner.py (không cần cài pytest)."""
+import contextlib
+import io
 import math
+import re
 import tempfile
-from datetime import date
+from datetime import date, timedelta
+from unittest import mock
 from pathlib import Path
 
 import pandas as pd
 
+import cw_scanner
 from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
                         gia_mua, mo_phong_gia, rui_ro_theo_tien, so_iv_cung_ma, tong_kl)
 
@@ -98,6 +103,49 @@ def test_doc_von():
     from web import doc_von
     assert doc_von("/cw/CVPB2615?von=50") == 50 and doc_von("/cw/CVPB2615") == 10
     assert all(doc_von(f"/cw/CVPB2615?von={x}") == 10 for x in ("-5", "abc", "0", "10001", "1e3", "5.5", "%3Cscript%3E"))
+
+
+def test_doc_ghi_file_luon_co_encoding():
+    # Windows không mặc định UTF-8: đọc/ghi file thiếu encoding thì tiếng Việt trong JSON (danh sách HOSE) làm lỗi lưu/đọc
+    for ten in ("cw_scanner.py", "web.py"):
+        for so_dong, dong in enumerate((Path(__file__).parent / ten).read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"\.(read|write)_text\(", dong):
+                assert "encoding=" in dong, f"{ten}:{so_dong} thiếu encoding"
+
+
+def test_ly_do_dinh_dang_so_viet_nam():
+    assert danh_gia(120, -0.05, 0.08, 5_700)[1] == "ít giao dịch (5.700 CW)"
+
+
+def test_main_bo_qua_ma_khong_co_lich_su():
+    # Mã cơ sở BBB không có lịch sử giá -> nhật ký báo "bị bỏ qua" thì CW của BBB KHÔNG được có trong kết quả
+    dao_han = (date.today() + timedelta(days=120)).strftime("%Y%m%d")
+    cw = lambda cs: ({"underlyingSymbol": cs, "exercisePrice": 20000, "exerciseRatio": "2:1", "maturityDate": dao_han, "refPrice": 1500,
+                      "issuerName": "TEST", "listedShare": 1_000_000, "lastTradingDate": dao_han},
+                     {"matchPrice": 1500, "accumulatedVolume": 50_000}, SO_LENH)
+    bang = {"CAAA2601": cw("AAA"), "CBBB2601": cw("BBB"), "AAA": ({"refPrice": 21000}, {"matchPrice": 21000}, {}),
+            "BBB": ({"refPrice": 21000}, {"matchPrice": 21000}, {})}
+
+    class Quote:
+        def __init__(self, source, symbol):
+            self.ma = symbol
+
+        def history(self, **_):
+            if self.ma == "BBB":
+                return pd.DataFrame({"time": [], "close": []})
+            return pd.DataFrame({"time": [date.today() - timedelta(days=i) for i in range(30, 0, -1)],
+                                 "close": [21 + (i % 3) * 0.3 for i in range(30)]})  # nghìn đồng như vnstock
+
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.multiple(
+            cw_scanner, doc_env=lambda: {}, Quote=Quote, lay_bang_gia=lambda ds, cho=30: {m: bang[m] for m in ds},
+            Listing=lambda source: mock.Mock(all_covered_warrant=lambda: ["CAAA2601", "CBBB2601"]),
+            tai_du_lieu_hose_cw=lambda **_: {"data": {"list": []}},
+            THU_MUC_KET_QUA=Path(tmp), FILE_CW_DA_BIET=Path(tmp) / "cw_da_biet.txt"), \
+            contextlib.redirect_stdout(io.StringIO()) as nhat_ky:
+        cw_scanner.main()
+        ket_qua = pd.read_csv(next(Path(tmp).glob("cw_*.csv")), encoding="utf-8-sig")
+    assert "Không lấy được lịch sử giá BBB (các CW của mã này bị bỏ qua)" in nhat_ky.getvalue()
+    assert list(ket_qua["Mã CW"]) == ["CAAA2601"]
 
 
 def test_doc_cw_sap_ra_mat():

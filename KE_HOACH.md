@@ -273,12 +273,13 @@ Kết quả mỗi ngày nằm trong `ket_qua/`, nhật ký trong `log.txt`.
 ## Phần 6. Giới hạn của mô hình — BẮT BUỘC đọc
 
 1. **σ lịch sử ≠ biến động tương lai.** Đây là nguồn sai số lớn nhất. Một CW "rẻ 40%" có thể chỉ vì TCPH dùng σ thấp hơn, hoặc năm qua cổ phiếu có biến cố lớn khiến σ lịch sử bị phóng đại.
-2. **Bỏ qua cổ tức.** Mô hình hơi đánh giá cao CW khi cổ phiếu sắp trả cổ tức tiền (TCPH sẽ điều chỉnh giá thực hiện/tỷ lệ sau sự kiện).
-3. **Giá thanh toán là trung bình 5 phiên**, không phải giá 1 ngày — mô hình bỏ qua chi tiết này (sai số nhỏ).
-4. **Chưa tính phí và thuế** (phí môi giới tùy công ty, thuế TNCN 0,1% khi bán) — với CW giá vài trăm đồng, bước giá 10đ và phí ăn mòn lợi nhuận đáng kể.
+2. **Cổ tức không cần đưa vào mô hình.** Khi cổ phiếu cơ sở trả cổ tức tiền, cổ tức bằng cổ phiếu hay thưởng cổ phiếu, TCPH điều chỉnh giá thực hiện và tỷ lệ chuyển đổi theo hệ số giá tham chiếu tại ngày GDKHQ (TT 107/2016 Điều 10, nay là TT 122/2025). Ví dụ VPB năm 2026: cổ tức tiền 500 đ (GDKHQ 15/05, hệ số 0,982548) và cổ tức cổ phiếu 26,04% (GDKHQ 24/09, hệ số 0,793165) đưa CVPB2608 từ 30.000 đ, tỷ lệ 2:1 về 23.379 đ, tỷ lệ 1,5586:1. Lịch sử giá lấy từ KBS cũng đã được điều chỉnh theo các sự kiện này, nên σ không bị phóng đại bởi khoảng trống giá.
+3. **Giá thanh toán là trung bình 5 phiên**, không phải giá 1 ngày — mô hình bỏ qua chi tiết này (sai số nhỏ). CW đáo hạn giữa tháng 2/2027 có 5 phiên này nằm sát kỳ nghỉ Tết Nguyên đán (mùng 1 Tết ≈ 06/02/2027): xem lịch nghỉ của HOSE.
+4. **4 tiêu chí chưa tính phí và thuế** (phí môi giới tùy công ty, thuế TNCN 0,1% khi bán). Mục "Rủi ro với số tiền của bạn" ở trang phân tích có tính, theo `PHI_GIAO_DICH` và `THUE_BAN` ở đầu `cw_scanner.py` (giả định, chỉnh theo công ty chứng khoán của bạn). Với CW giá vài trăm đồng, bước giá 10đ và phí ăn mòn lợi nhuận đáng kể.
 5. **Thanh khoản chỉ đo trong 1 phiên.** Chạy trước giờ giao dịch thì KL = 0 cho mọi mã, và sổ lệnh có thể trống → giá mua rơi về giá khớp/tham chiếu (cột *Nguồn giá mua* ghi rõ). Giá chào bán có thể cao hơn giá khớp hơn 10% (CTCB2619 ngày 16/10/2026: khớp 980đ, chào bán 1.100đ), nên kết quả từ bản này **không so trực tiếp** với file CSV cũ định giá theo giá khớp.
 6. **Dữ liệu từ API không chính thức** (Vietcap, KBS) có thể đổi định dạng hoặc lỗi tạm thời. Khi chạy thử, một số API của Vietcap trả lỗi 500 từ vài phút đến hơn 20 phút. Nếu bảng giá Vietcap lỗi, lần quét đó thất bại và báo lỗi — chờ rồi chạy lại.
-7. Đây là **công cụ sàng lọc**, không phải khuyến nghị đầu tư. Luôn kiểm tra lại điều khoản CW trên website TCPH/HOSE trước khi mua.
+7. **Giá CW do tổ chức phát hành chi phối.** TCPH là bên bán chính và không bắt buộc yết giá theo giá trị lý thuyết; Việt Nam lại không cho bán khống nên không ai kéo giá về giá hợp lý. Giá có thể nằm dưới giá hợp lý rất lâu, ví dụ ACBS với CVPB2608/CVPB2615: IV từ khoảng 41% lúc lên sàn xuống 12–14% vào tháng 10/2026, kể cả khi ACBS phát hành bổ sung 5 triệu CVPB2608 giá 760 đ. Phần "rẻ" chỉ chắc thu về được nếu giữ đến đáo hạn.
+8. Đây là **công cụ sàng lọc**, không phải khuyến nghị đầu tư. Luôn kiểm tra lại điều khoản CW trên website TCPH/HOSE trước khi mua.
 
 ---
 

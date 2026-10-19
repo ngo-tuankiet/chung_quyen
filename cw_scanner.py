@@ -220,7 +220,7 @@ def danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, khoi_luong):
     if tang_de_hoa_von > MAX_TANG_DE_HOA_VON:
         loi.append(f"CP cơ sở phải tăng {tang_de_hoa_von:.0%} mới hòa vốn")
     if khoi_luong < MIN_KHOI_LUONG:
-        loi.append(f"ít giao dịch ({khoi_luong:,} CW)")
+        loi.append(f"ít giao dịch ({khoi_luong:,} CW)".replace(",", "."))  # số kiểu Việt Nam: 5.700
     return KET_LUAN[min(len(loi), 2)], "; ".join(loi) or "đạt cả 4 tiêu chí"
 
 
@@ -338,15 +338,17 @@ def main():
     sigma, so_phien, lich_su = {}, {}, {}
     for ma in ma_co_so:
         try:
-            sigma[ma], so_phien[ma], ls = bien_dong_lich_su(ma)
+            s, n, ls = bien_dong_lich_su(ma)
             # vnstock có thể trả giá theo nghìn đồng: đưa về cùng đơn vị VND với bảng giá để vẽ biểu đồ
             he_so = 10 ** round(math.log10(gia_hien_tai(*bang_cs[ma]) / ls[-1][1]))
             lich_su[ma] = [[ngay, round(gia * he_so)] for ngay, gia in ls]
+            # chỉ ghi nhận sigma khi mọi bước trên đã xong: mã lỗi thật sự bị bỏ qua (trước đây sigma NaN vẫn được dùng -> sập cả lần quét)
+            sigma[ma], so_phien[ma] = s, n
         except Exception as e:
             print(f"  [!] Không lấy được lịch sử giá {ma} (các CW của mã này bị bỏ qua): {e}")
 
     # Bước 6a: CW mới = chưa có trong danh sách đã lưu (lần chạy đầu tiên chỉ lưu, không đánh dấu)
-    da_biet = set(FILE_CW_DA_BIET.read_text().split()) if FILE_CW_DA_BIET.exists() else set(ma_cw)
+    da_biet = set(FILE_CW_DA_BIET.read_text(encoding="utf-8").split()) if FILE_CW_DA_BIET.exists() else set(ma_cw)
 
     # Bước 4 + 5: định giá và chấm điểm từng CW
     dong = []
@@ -372,7 +374,7 @@ def main():
     THU_MUC_KET_QUA.mkdir(exist_ok=True)
     file_ket_qua = THU_MUC_KET_QUA / f"cw_{hom_nay}.csv"
     df.to_csv(file_ket_qua, index=False, encoding="utf-8-sig")  # utf-8-sig để Excel hiển thị đúng tiếng Việt
-    (THU_MUC_KET_QUA / f"lich_su_{hom_nay}.json").write_text(json.dumps(lich_su))  # cho biểu đồ ở trang chi tiết
+    (THU_MUC_KET_QUA / f"lich_su_{hom_nay}.json").write_text(json.dumps(lich_su), encoding="utf-8")  # cho biểu đồ ở trang chi tiết
     # Giả định đã dùng cho lần quét này: đổi cấu hình về sau vẫn truy lại được vì sao ra các con số trong file CSV
     gia_dinh = {
         "thoi_diem_quet": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -393,11 +395,11 @@ def main():
     # Bước 6c: lưu danh sách CW sắp ra mắt từ HOSE (để trang "CW sắp ra mắt" vẫn có dữ liệu khi HOSE chậm); lỗi thì bỏ qua
     try:
         du_lieu_hose = tai_du_lieu_hose_cw()
-        (THU_MUC_KET_QUA / f"sap_ra_mat_{hom_nay}.json").write_text(json.dumps(du_lieu_hose, ensure_ascii=False))
+        (THU_MUC_KET_QUA / f"sap_ra_mat_{hom_nay}.json").write_text(json.dumps(du_lieu_hose, ensure_ascii=False), encoding="utf-8")
         print(f"Đã lưu danh sách {len(doc_cw_sap_ra_mat(du_lieu_hose))} CW được HOSE chấp thuận (để xem CW sắp ra mắt).")
     except Exception as e:
         print(f"  [!] Không tải được danh sách CW sắp ra mắt từ HOSE (không ảnh hưởng kết quả quét): {e}")
-    FILE_CW_DA_BIET.write_text("\n".join(sorted(da_biet | set(ma_cw))))
+    FILE_CW_DA_BIET.write_text("\n".join(sorted(da_biet | set(ma_cw))), encoding="utf-8")
 
     # In tóm tắt
     cot = ["Mã CW", "Mã CS", "Ngày còn lại", "Giá mua", "Giá hợp lý", "Đắt/rẻ %", "IV − HV", "CS tăng % để hòa vốn", "Đòn bẩy", "Lý do"]

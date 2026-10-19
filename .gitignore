@@ -7,3 +7,4 @@ cw_da_biet.txt
 log.txt
 .DS_Store
 .claude/settings.local.json
+.claude/launch.json

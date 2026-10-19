@@ -595,7 +595,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
 
     # Biểu đồ giá cổ phiếu cơ sở
     file_ls = C.THU_MUC_KET_QUA / f"lich_su_{ngay}.json"
-    lich_su = json.loads(file_ls.read_text()).get(cs) if file_ls.exists() else None
+    lich_su = json.loads(file_ls.read_text(encoding="utf-8")).get(cs) if file_ls.exists() else None
     phan.append(f'<section class="the"><h2>Giá {ESC(cs)} 1 năm qua</h2>'
                 f'<p class="phu">Muốn có lãi khi giữ đến đáo hạn, giá {ESC(cs)} phải nằm trên đường <b>hòa vốn</b>. Rê chuột lên biểu đồ để xem giá từng ngày.</p>'
                 + (bieu_do(lich_su, [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn", hoa_von, "tc-hoa-von")], cs) if lich_su
@@ -647,7 +647,7 @@ def trang_sap_ra_mat(tai_moi=False):
     try:
         # đã quét hôm nay thì dùng ngay danh sách vừa lưu (máy chủ HOSE thường chậm); muốn mới nhất thì bấm "tải lại"
         if luu and luu[-1].stem[11:] == str(date.today()) and not tai_moi:
-            ds, nguon = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text())), "hsx.vn, danh sách lưu lúc quét hôm nay" + tai_lai
+            ds, nguon = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text(encoding="utf-8"))), "hsx.vn, danh sách lưu lúc quét hôm nay" + tai_lai
         else:
             ds, nguon = C.doc_cw_sap_ra_mat(C.tai_du_lieu_hose_cw(cho=12)), "hsx.vn (Niêm yết mới → DS CW được chấp thuận chính thức), tải trực tiếp lúc mở trang"
     except Exception as e:
@@ -655,7 +655,7 @@ def trang_sap_ra_mat(tai_moi=False):
             phan.append(f'<p class="loi" role="alert">Không tải được danh sách từ HOSE ({ESC(str(e))}). Máy chủ HOSE có thể đang chậm, '
                         'hãy tải lại trang sau ít phút hoặc bấm Quét ngay ở trang chính.</p>')
             return trang("CW sắp ra mắt", "".join(phan), "/sap-ra-mat")
-        ds = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text()))
+        ds = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text(encoding="utf-8")))
         nguon = f"không tải được trực tiếp từ HOSE ({ESC(str(e))}), dùng danh sách lưu lúc quét ngày {date.fromisoformat(luu[-1].stem[11:]):%d/%m/%Y}" + tai_lai
 
     # Bỏ mã đã hết hạn và mã đã lên sàn (cùng mã CS + giá thực hiện + ngày đáo hạn với một CW trong lần quét gần nhất)
