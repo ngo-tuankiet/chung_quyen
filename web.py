@@ -253,14 +253,15 @@ def doc_ket_qua():
     if not cac_file:
         return None, None
     # keep_default_na=False để ô chữ trống giữ là "", riêng 2 cột IV có ô trống (không giải được) thì đọc thành NaN
-    df = pd.read_csv(cac_file[-1], encoding="utf-8-sig", keep_default_na=False, na_values={"IV %": [""], "IV − HV": [""]})
-    for cot in ("KL niêm yết", "KL chào bán", "KL chờ mua", "Delta", "IV %", "IV − HV"):  # file quét bằng bản cũ chưa có các cột này -> hiện "—"
+    df = pd.read_csv(cac_file[-1], encoding="utf-8-sig", keep_default_na=False, na_values={"IV %": [""], "IV − HV": [""], "IV cùng mã %": [""]})
+    for cot in ("KL niêm yết", "KL chào bán", "KL chờ mua", "Delta", "IV %", "IV − HV", "IV cùng mã %"):  # file quét bằng bản cũ chưa có các cột này -> hiện "—"
         if cot not in df:
             df[cot] = math.nan
     if "Giá mua" not in df:  # bản cũ định giá theo giá khớp
         df["Giá mua"], df["Nguồn giá mua"] = df["Giá CW"], "khớp"
-    if "Ghi chú IV" not in df:
-        df["Ghi chú IV"] = ""
+    for cot in ("Ghi chú IV", "Cảnh báo"):
+        if cot not in df:
+            df[cot] = ""
     return df, date.fromisoformat(cac_file[-1].stem[3:])
 
 
@@ -272,6 +273,8 @@ def bang(df, ma_dang_xem="", id_bang=""):
         ma = ESC(h["Mã CW"])
         chu_dat_re, lop = dat_re(h["Đắt/rẻ %"])
         moi = '<span class="chip">Mới</span>' if h["Mới"] == "MỚI" else ""
+        if h["Cảnh báo"]:  # IV bất thường so với các CW cùng mã CS
+            moi += f'<span class="chip" style="color:var(--chu-am)" title="{ESC(h["Cảnh báo"])}" aria-label="Cảnh báo: {ESC(h["Cảnh báo"])}">⚠</span>'
         nguon = {"khớp": ' <small class="phu">khớp</small>', "tham chiếu": ' <small class="phu">TC</small>'}.get(h["Nguồn giá mua"], "")
         iv, iv_hv = h["IV %"], h["IV − HV"]
         o_iv = f'<td class="so" data-v="{v(iv)}">{so(iv, 0) + "%" if math.isfinite(iv) else "—"}</td>'
@@ -395,6 +398,7 @@ def trang_chi_tiet(ma):
     ngay_dao_han = ngay + timedelta(days=ngay_con_lai)
     iv = cw_scanner.bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
     toi_thieu = cw_scanner.can_duoi(S, K, T, r)  # giá tối thiểu của quyền trên 1 cổ phiếu theo mô hình
+    tv_cung_ma, canh_bao_iv = cw_scanner.so_iv_cung_ma(df, ma, cs, iv * 100 if iv else math.nan)  # IV so với CW khác cùng mã CS
     # IV − HV (điểm %): ưu tiên số trong CSV để khớp với kết luận lúc quét; file cũ chưa có cột này thì tính lại
     iv_hv = float(h["IV − HV"]) if math.isfinite(h["IV − HV"]) else ((iv - sigma_ls) * 100 if iv else math.nan)
     mo_ta_gia = (f"giá chào bán thấp nhất lúc quét; giá khớp gần nhất {so(P_khop)} đ" if nguon_gia == "ask"
@@ -437,6 +441,7 @@ def trang_chi_tiet(ma):
            f'S − K × e<sup>−rT</sup> = {so(toi_thieu)} đ (lãi suất giả định {so(r * 100, 1)}%). Không có mức dao động nào cho ra giá này, nên chữ '
            f'“{chu_dat_re}” chủ yếu đến từ giả định (lãi suất, mức dao động 1 năm qua), không chắc là món hời. '
            f'Hãy so với các CW khác của {ESC(cs)} và đọc thông báo của {ESC(h["TCPH"])} trước khi mua.</p>' if P * ty_le < toi_thieu else "")
+        + (f'<p class="ghi-chu-canh-bao" role="note"><b>⚠ IV bất thường:</b> {ESC(canh_bao_iv)}.</p>' if canh_bao_iv else "")
         + f'<ul class="tieu-chi">{dong_tc}</ul>'
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>')
@@ -455,7 +460,8 @@ def trang_chi_tiet(ma):
                 + o_so("Đòn bẩy", f"{so(h['Đòn bẩy'], 1)}x", f"{ESC(cs)} tăng/giảm 1% → CW tăng/giảm khoảng {so(h['Đòn bẩy'], 1)}%")
                 + o_so("Delta", so(delta, 2), f"{ESC(cs)} tăng/giảm 1.000 đ → 1 CW tăng/giảm khoảng {so(delta / ty_le * 1000)} đ")
                 + o_so("Mất giá theo thời gian", f"{so(mat_gia, 1 if mat_gia < 10 else 0)} đ/ngày", f"≈ {so(mat_gia / P * 100, 2 if mat_gia / P < 0.001 else 1)}% giá CW mỗi ngày nếu {ESC(cs)} đứng yên")
-                + o_so("Biến động ngầm định (IV)", f"{so(iv * 100, 0)}%" if iv else "—", f"Lịch sử 1 năm (HV): {so(sigma_ls * 100, 0)}%. {so_sanh_bd}")
+                + o_so("Biến động ngầm định (IV)", f"{so(iv * 100, 0)}%" if iv else "—", f"Lịch sử 1 năm (HV): {so(sigma_ls * 100, 0)}%. {so_sanh_bd}"
+                       + (f" Trung vị IV các CW {ESC(cs)} khác: {so(tv_cung_ma, 0)}%." if math.isfinite(tv_cung_ma) else ""))
                 + "</div>")
 
     # Giá hợp lý được tính thế nào: từng bước bằng số thật của mã này, nói bằng lời thường

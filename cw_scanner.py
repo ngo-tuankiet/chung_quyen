@@ -37,6 +37,10 @@ MIN_NGAY_CON_LAI = 60  # CW mất giá trị thời gian rất nhanh khi gần �
 # IV không cao hơn biến động lịch sử quá 3 điểm %. Dùng IV thay cho "% đắt hơn giá hợp lý" vì cùng đắt 10% về giá,
 # CW ngoài tiền chỉ ≈ +1,6 điểm IV còn CW sâu trong tiền tới ≈ +14 điểm; +3 điểm ≈ đắt 10% ở CW quanh tiền (KE_HOACH Phần 4)
 MAX_IV_TRU_HV = 0.03
+# Cảnh báo (không đổi kết luận) khi IV < 50% trung vị IV các CW khác cùng mã CS (cần ≥ 3 CW để so). Ngày 18/10/2026:
+# 99% CW có tỷ số ≥ 0,6, chỉ CVPB2608 (ACBS) là 0,12 - giá do tổ chức phát hành tự bán ra, không phải món hời chắc chắn
+MIN_IV_SO_VOI_CUNG_MA = 0.5
+MIN_SO_CW_CUNG_MA = 3
 MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 15% là hòa vốn lúc đáo hạn
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
@@ -266,6 +270,19 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     }
 
 
+def so_iv_cung_ma(df, ma, cs, iv):
+    """So IV (%) của 1 CW với trung vị IV các CW khác cùng mã CS trong bảng df (cột "Mã CW", "Mã CS", "IV %").
+    Trả về (trung vị %, cảnh báo): trung vị NaN nếu không đủ CW để so; cảnh báo "" nếu không bất thường."""
+    khac = df.loc[(df["Mã CS"] == cs) & (df["Mã CW"] != ma), "IV %"].dropna()
+    if len(khac) < MIN_SO_CW_CUNG_MA:
+        return math.nan, ""
+    tv = khac.median()
+    if math.isfinite(iv) and iv < MIN_IV_SO_VOI_CUNG_MA * tv:
+        return tv, (f"IV {iv:.0f}% chỉ bằng {iv / tv:.0%} trung vị {tv:.0f}% của {len(khac)} CW {cs} khác: giá có thể do tổ chức "
+                    "phát hành tự bán ra hoặc sắp có thay đổi, không chắc là món hời - đọc thông báo của TCPH trước khi mua")
+    return tv, ""
+
+
 # ============ PHẦN 4: CHƯƠNG TRÌNH CHÍNH ============
 def main():
     hom_nay = date.today()
@@ -316,6 +333,9 @@ def main():
     if not dong:  # mọi lần lấy lịch sử giá đều lỗi -> không có gì để lưu
         raise RuntimeError("Không định giá được CW nào (máy chủ dữ liệu đang lỗi?). Hãy thử lại sau ít phút.")
     df = pd.DataFrame(dong)
+    so_sanh = [so_iv_cung_ma(df, ma, cs, iv) for ma, cs, iv in zip(df["Mã CW"], df["Mã CS"], df["IV %"])]
+    df["IV cùng mã %"] = [round(tv, 1) for tv, _ in so_sanh]  # trung vị IV các CW khác cùng mã CS
+    df["Cảnh báo"] = [cb for _, cb in so_sanh]
     df["Đánh giá"] = pd.Categorical(df["Đánh giá"], KET_LUAN, ordered=True)  # để sắp xếp theo thứ tự tốt -> xấu
     # trong mỗi nhóm: IV − HV thấp nhất trước (so sánh được giữa CW gần và xa giá thực hiện); không giải được IV xếp cuối
     df = df.sort_values(["Đánh giá", "IV − HV"], na_position="last")
@@ -335,6 +355,7 @@ def main():
         "gia_mua": "giá chào bán thấp nhất trong sổ lệnh; sổ lệnh trống thì giá khớp; chưa khớp thì giá tham chiếu",
         "tieu_chi": {"MIN_NGAY_CON_LAI": MIN_NGAY_CON_LAI, "MAX_IV_TRU_HV": MAX_IV_TRU_HV,
                      "MAX_TANG_DE_HOA_VON": MAX_TANG_DE_HOA_VON, "MIN_KHOI_LUONG": MIN_KHOI_LUONG},
+        "canh_bao_iv_cung_ma": {"MIN_IV_SO_VOI_CUNG_MA": MIN_IV_SO_VOI_CUNG_MA, "MIN_SO_CW_CUNG_MA": MIN_SO_CW_CUNG_MA},
         "nguon": {"danh_sach_cw": "vnstock Listing(KBS)", "bang_gia": URL_BANG_GIA, "lich_su_gia": "vnstock Quote(KBS), 1D"},
         "vnstock": importlib.metadata.version("vnstock"),
     }
@@ -354,6 +375,8 @@ def main():
     print(f"\nĐã định giá {len(df)} CW: " + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items()))
     print("Giá dùng để định giá: " + ", ".join(f"{v} CW giá {k}" for k, v in df["Nguồn giá mua"].value_counts().items())
           + f"; {(df['Ghi chú IV'] != '').sum()} CW không giải được biến động ngầm định (xem cột Ghi chú IV)")
+    for _, h in df[df["Cảnh báo"] != ""].iterrows():
+        print(f"  ⚠ {h['Mã CW']}: {h['Cảnh báo']}")
     moi = df[df["Mới"] == "MỚI"]
     if len(moi):
         print(f"\n=== {len(moi)} CW MỚI PHÁT HÀNH ===")

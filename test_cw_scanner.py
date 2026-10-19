@@ -4,8 +4,10 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
+
 from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
-                        gia_mua, mo_phong_gia, tong_kl)
+                        gia_mua, mo_phong_gia, so_iv_cung_ma, tong_kl)
 
 # Sổ lệnh mẫu (CVPB2615 cuối phiên 16/10/2026, mức thứ 3 thiếu khối lượng)
 SO_LENH = {"askPrices": [{"price": 1250, "volume": 30300}, {"price": 1260, "volume": 30000}, {"price": 1290, "volume": None}]}
@@ -64,6 +66,17 @@ def test_dinh_gia_cvpb2615():
     assert kq["CS tăng % để hòa vốn"] == 0.4  # (22.605 + 1.250 × 1,5863) / 24.500 − 1 = 0,36%
     assert math.isnan(kq["IV %"]) and kq["Ghi chú IV"].startswith("giá mua dưới mức tối thiểu")
     assert kq["Đánh giá"] == "NÊN XEM XÉT"  # dưới mức tối thiểu được tính là đạt tiêu chí 2
+
+
+def test_so_iv_cung_ma():
+    # A rẻ bất thường: IV 5% < 50% × trung vị (40, 45, 50) = 22,5%; B bình thường; FPT chỉ có 1 CW khác -> không so
+    df = pd.DataFrame({"Mã CW": ["A", "B", "C", "D", "E", "F1", "F2"], "Mã CS": ["VPB"] * 5 + ["FPT"] * 2,
+                       "IV %": [5.0, 40.0, 45.0, 50.0, math.nan, 30.0, 3.0]})
+    tv, cb = so_iv_cung_ma(df, "A", "VPB", 5.0)
+    assert tv == 45 and cb.startswith("IV 5% chỉ bằng 11% trung vị 45% của 3 CW VPB khác")
+    assert so_iv_cung_ma(df, "B", "VPB", 40.0) == (45, "")  # trung vị (5, 45, 50) = 45; 40 ≥ 22,5
+    assert so_iv_cung_ma(df, "E", "VPB", math.nan)[1] == ""  # không giải được IV: đã có cảnh báo riêng
+    assert math.isnan(so_iv_cung_ma(df, "F2", "FPT", 3.0)[0])
 
 
 def test_doc_cw_sap_ra_mat():
