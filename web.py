@@ -20,12 +20,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pandas as pd
 
 import cw_scanner
+import danh_muc
 
 CONG = 8000
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
 BO_NHO_IV = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
 NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
+LOI_DANH_MUC = ""  # lỗi của lần thêm/xóa lệnh gần nhất (hiện 1 lần ở trang Danh mục)
 ESC = html.escape
 # kết luận -> (lớp màu, biểu tượng, nhãn). Màu luôn đi kèm biểu tượng + chữ, không dùng màu một mình
 KET_LUAN = {"NÊN XEM XÉT": ("tot", "✓", "Nên xem xét"), "THEO DÕI": ("canh-bao", "!", "Theo dõi"), "BỎ QUA": ("bo-qua", "✕", "Bỏ qua")}
@@ -152,6 +154,9 @@ tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%
 .bang-chu td, .bang-chu th { white-space: normal; vertical-align: top; }
 .muc-luc { columns: 2 240px; margin: 8px 0 0; }
 footer { color: var(--chu-phu); font-size: 12px; margin-top: 32px; }
+.form-lenh label { display: inline-flex; flex-direction: column; gap: 2px; margin: 10px 12px 0 0; font-size: 13px; color: var(--chu-phu); }
+.form-lenh input, .form-lenh select { padding: 6px 8px; border: 1px solid var(--truc); border-radius: 6px; background: var(--be-mat); color: var(--chu); font: inherit; }
+.nut-nho { all: unset; cursor: pointer; color: var(--chu-am); font-size: 13px; text-decoration: underline; }
 """
 
 JS = """
@@ -241,12 +246,13 @@ def o_so(nhan, gia_tri, goi_y=""):
 def trang(tieu_de, than, duong_dan=""):
     """Khung chung của mọi trang: thanh điều hướng trên cùng + nội dung + lưu ý cuối trang."""
     menu = "".join(f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}>{ten}</a>'
-                   for dd, ten in (("/", "Danh sách chứng quyền"), ("/sap-ra-mat", "🆕 CW sắp ra mắt"), ("/huong-dan", "❓ Hướng dẫn sử dụng")))
+                   for dd, ten in (("/", "Danh sách chứng quyền"), ("/danh-muc", "💼 Danh mục"), ("/sap-ra-mat", "🆕 CW sắp ra mắt"),
+                                     ("/huong-dan", "❓ Hướng dẫn sử dụng")))
     return (f'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{ESC(tieu_de)}</title><link rel="icon" href="data:,"><style>{CSS}</style></head><body><main>'
             f'<nav class="thanh-tren" aria-label="Điều hướng">{menu}</nav>{than}'
             f'<footer>Công cụ sàng lọc theo mô hình Black-Scholes, không phải khuyến nghị đầu tư. Luôn kiểm tra điều khoản CW trên website '
-            f'tổ chức phát hành / HOSE trước khi mua. Chưa tính phí giao dịch và thuế.</footer></main><script>{JS}</script></body></html>')
+            f'tổ chức phát hành / HOSE trước khi mua. 4 tiêu chí chấm điểm chưa tính phí giao dịch và thuế.</footer></main><script>{JS}</script></body></html>')
 
 
 # ============ DỮ LIỆU ============
@@ -868,6 +874,9 @@ def trang_huong_dan():
          "dùng giá khớp hoặc giá tham chiếu và ghi chữ nhỏ \"khớp\" / \"TC\" cạnh giá."),
         ("\"Đắt > 1.000%\" là sao?", "CW gần hết hạn và giá cổ phiếu còn quá xa giá thực hiện, nên giá hợp lý gần 0 đ. Gần như chắc chắn nên bỏ qua."),
         ("\"Giá hợp lý\" có chắc đúng không?", "Không. Nó dựa trên giả định mức dao động của cổ phiếu 1 năm qua sẽ lặp lại. Hãy coi nó là một ý kiến tham khảo, không phải sự thật."),
+        ("Theo dõi CW đang nắm ở đâu?", "Trang \"💼 Danh mục\": nhập lệnh mua/bán, xem lãi/lỗ nếu bán ngay, mức tiếp xúc với từng cổ phiếu cơ sở và "
+         "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo được gửi lên Discord (chỉ mã, %, giá, lý do; không gửi số tiền) khi vừa xuất hiện: "
+         "còn ít ngày tới ngày giao dịch cuối, cổ phiếu gần giá thực hiện, chạm chốt lời/cắt lỗ, không ai đặt mua, IV bất thường, phát hành thêm."),
         ("Tắt chương trình thế nào?", "Đóng cửa sổ Terminal (Mac) hoặc cửa sổ đen (Windows), hoặc nhấn Ctrl + C trong cửa sổ đó."),
     ]
     phan.append('<section class="the" id="hoi-dap"><h2>9. Câu hỏi thường gặp</h2>'
@@ -876,11 +885,124 @@ def trang_huong_dan():
     return trang("Hướng dẫn sử dụng", "".join(phan), "/huong-dan")
 
 
+# ============ TRANG DANH MỤC ============
+def trang_danh_muc():
+    """Danh mục CW đang nắm: thêm/xóa lệnh, vị thế và cảnh báo theo giá trực tiếp."""
+    global LOI_DANH_MUC
+    C, D = cw_scanner, danh_muc
+    df, _ = doc_ket_qua()
+    phi_thue = f"phí {so(C.PHI_GIAO_DICH * 100, 2)}% + thuế {so(C.THUE_BAN * 100, 1)}%"
+    phan = ['<div class="dau-trang"><div><h1>Danh mục của tôi</h1><p class="phu">Lệnh lưu trong file <code>danh_muc.csv</code> trên máy này '
+            f'(không đưa lên git, sao lưu mỗi ngày cùng kết quả quét). Lãi/lỗ tính <b>nếu bán ngay</b> ở giá chờ mua tốt nhất, đã trừ {phi_thue}; '
+            'giá vốn bình quân đã gồm phí mua. Cảnh báo gửi Discord khi vừa xuất hiện (xem Hướng dẫn).</p></div></div>']
+    if LOI_DANH_MUC:
+        phan.append(f'<p class="loi" role="alert">{ESC(LOI_DANH_MUC)}</p>')
+        LOI_DANH_MUC = ""
+    try:
+        ds = D.doc_lenh()
+        tat_ca = D.tinh_vi_the(ds)
+    except Exception as e:  # file bị sửa tay sai định dạng: dừng lại, không ghi đè lên dữ liệu
+        phan.append(f'<p class="loi" role="alert">File danh_muc.csv bị lỗi, hãy sửa lại bằng tay (bản trước: danh_muc.csv.bak): {ESC(str(e))}</p>')
+        return trang("Danh mục", "".join(phan), "/danh-muc")
+    vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
+
+    # Vị thế đang nắm (giá trực tiếp)
+    if vt:
+        try:
+            bang_gia = D.tai_bang_gia(list(vt), df, cho=5)
+            nguon = f"bảng giá Vietcap lúc {datetime.now():%H:%M %d/%m/%Y}"
+        except Exception as e:  # mất mạng: chỉ hiện số đang nắm và giá vốn
+            bang_gia, nguon = None, f"KHÔNG tải được giá trực tiếp ({ESC(str(e)[:120])})"
+        if bang_gia is not None:
+            tt = json.loads(D.FILE_TRANG_THAI.read_text(encoding="utf-8")) if D.FILE_TRANG_THAI.exists() else {}
+            dong, canh_bao, _ = D.danh_gia_danh_muc(vt, bang_gia, df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"]),
+                                                    date.today(), tt.get("kl_niem_yet", {}))
+        else:
+            dong, canh_bao = [{"ma": m, **v, "co_gia": False} for m, v in sorted(vt.items())], []
+        if canh_bao:
+            phan.append('<section class="the"><h2>⚠ Cảnh báo hiện tại</h2><ul>'
+                        + "".join(f'<li><b>{ESC(m)}</b>: {ESC(nd)}</li>' for m, _, nd in canh_bao) + "</ul></section>")
+        hang = []
+        for d in dong:
+            ma = ESC(d["ma"])
+            if not d["co_gia"]:
+                hang.append(f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td></td><td class="so">{so(d["so_luong"])}</td>'
+                            f'<td class="so">{so(d["gia_von"], 1)}</td><td colspan="6">không có giá trực tiếp</td></tr>')
+                continue
+            lop = "duong" if d["lai"] > 0 else ("am" if d["lai"] < 0 else "")
+            hang.append(
+                f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td>{ESC(d["cs"])}</td><td class="so">{so(d["so_luong"])}</td>'
+                f'<td class="so">{so(d["gia_von"], 1)}</td><td class="so">{so(d["gia_ban"])}{"" if d["co_nguoi_mua"] else " <small class=am>không ai mua</small>"}</td>'
+                f'<td class="so {lop}">{so(d["lai"], 0, True)}<br><small>{so(d["lai_pct"] * 100, 1, True)}%</small></td>'
+                f'<td class="so">+{so(d["chot_loi"] * 100, 0)}% / −{so(d["cat_lo"] * 100, 0)}%</td>'
+                f'<td class="so">{so(d["S"])} / {so(d["K"])}<br><small>{so(d["cach_K"] * 100, 1, True)}%</small></td>'
+                f'<td>{f"{d['ngay_gd_cuoi']:%d/%m/%Y}<br><small>còn {d['con_ngay']} ngày</small>" if d["ngay_gd_cuoi"] else "—"}</td>'
+                f'<td class="so">{so(d["don_bay"], 1)}x</td></tr>')
+        co_gia = [d for d in dong if d["co_gia"]]
+        tiep_xuc = {}
+        for d in co_gia:
+            tiep_xuc[d["cs"]] = tiep_xuc.get(d["cs"], 0) + d["tiep_xuc"]
+        von = sum(d["so_luong"] * d["gia_von"] for d in dong)
+        phan.append(
+            f'<section class="the"><h2>Đang nắm ({len(dong)} mã)</h2><p class="phu">Giá: {nguon}.</p><div class="luoi-o">'
+            + o_so("Tiền vốn đang nằm trong CW", f"{so(von / 1e6, 1)} triệu đ", "theo giá vốn bình quân, đã gồm phí mua")
+            + (o_so("Lãi/lỗ nếu bán hết ngay", f'<span class="{"duong" if sum(d["lai"] for d in co_gia) >= 0 else "am"}">'
+                    f'{so(sum(d["lai"] for d in co_gia) / 1e6, 2, True)} triệu đ</span>', f"đã trừ {phi_thue} khi bán") if co_gia else "")
+            + o_so("Tương đương nắm cổ phiếu cơ sở", " · ".join(f"{ESC(cs)} {so(v / 1e6, 0)} tr" for cs, v in sorted(tiep_xuc.items())) or "—",
+                   "giá trị cổ phiếu mà các CW đang đại diện (thường gấp 5–15 lần tiền vốn)")
+            + "</div>"
+            '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Số lượng</th><th class="so">Giá vốn</th>'
+            '<th class="so">Giá bán được</th><th class="so">Lãi/lỗ nếu bán ngay</th><th class="so">Chốt lời / cắt lỗ</th>'
+            '<th class="so">Giá CS / giá TH</th><th>Ngày GD cuối</th><th class="so">Đòn bẩy</th></tr></thead>'
+            f'<tbody>{"".join(hang)}</tbody></table></div></section>')
+    lai_chot = sum(v["lai_da_chot"] for v in tat_ca.values())
+
+    # Thêm lệnh
+    hom_nay, ds_ma = date.today(), sorted(df["Mã CW"]) if df is not None else []
+    phan.append(
+        '<form method="post" action="/danh-muc/them" class="the form-lenh"><h2>Thêm lệnh</h2>'
+        f'<label>Ngày<input type="date" name="ngay" value="{hom_nay}" max="{hom_nay}" required></label>'
+        '<label>Mã CW<input name="ma_cw" list="ds-ma" required size="10" pattern="[Cc][A-Za-z]{3}[0-9]{4}" placeholder="CVPB2615"></label>'
+        f'<datalist id="ds-ma">{"".join(f"<option value={ESC(m)}>" for m in ds_ma)}</datalist>'
+        '<label>Loại<select name="loai"><option value="MUA">Mua</option><option value="BAN">Bán</option></select></label>'
+        '<label>Số lượng (lô 100)<input type="number" name="so_luong" min="100" step="100" required></label>'
+        '<label>Giá khớp (đ)<input type="number" name="gia" min="10" step="10" required></label>'
+        f'<label>Chốt lời % (lệnh mua)<input type="number" name="chot_loi" min="1" max="1000" placeholder="{so(danh_muc.CHOT_LOI_MAC_DINH * 100, 0)}"></label>'
+        f'<label>Cắt lỗ % (lệnh mua)<input type="number" name="cat_lo" min="1" max="100" placeholder="{so(danh_muc.CAT_LO_MAC_DINH * 100, 0)}"></label>'
+        '<label>Ghi chú<input name="ghi_chu" maxlength="200" size="18"></label>'
+        '<p><button class="nut">Lưu lệnh</button></p>'
+        '<p class="phu">Chốt lời / cắt lỗ để trống thì dùng mức mặc định ở đầu file danh_muc.py. Lệnh bán không được vượt số đang nắm.</p></form>')
+
+    # Lịch sử lệnh
+    if ds:
+        hang = "".join(
+            f'<tr><td class="so">{d["id"]}</td><td>{d["ngay"][8:]}/{d["ngay"][5:7]}/{d["ngay"][:4]}</td><td>{ESC(d["ma_cw"])}</td>'
+            f'<td>{"Mua" if d["loai"] == "MUA" else "Bán"}</td><td class="so">{so(d["so_luong"])}</td><td class="so">{so(d["gia"])}</td>'
+            f'<td class="so">{"" if d["chot_loi"] is None else f"+{so(d['chot_loi'] * 100, 0)}%"}'
+            f'{"" if d["cat_lo"] is None else f" / −{so(d['cat_lo'] * 100, 0)}%"}</td><td class="ly-do">{ESC(d["ghi_chu"])}</td>'
+            f'<td><form method="post" action="/danh-muc/xoa" onsubmit="return confirm(\'Xóa lệnh số {d["id"]}?\')">'
+            f'<input type="hidden" name="id" value="{d["id"]}"><button class="nut-nho">Xóa</button></form></td></tr>'
+            for d in sorted(ds, key=lambda d: (d["ngay"], d["id"]), reverse=True))
+        phan.append(f'<section class="the"><h2>Lịch sử lệnh ({len(ds)})</h2><p class="phu">Lãi/lỗ đã chốt (các lệnh bán): '
+                    f'<b class="{"duong" if lai_chot >= 0 else "am"}">{so(lai_chot, 0, True)} đ</b>. Xóa nhầm thì bản trước nằm trong danh_muc.csv.bak.</p>'
+                    '<div class="cuon"><table><thead><tr><th class="so">Số</th><th>Ngày</th><th>Mã CW</th><th>Loại</th><th class="so">Số lượng</th>'
+                    f'<th class="so">Giá</th><th class="so">Chốt / cắt</th><th>Ghi chú</th><th></th></tr></thead><tbody>{hang}</tbody></table></div></section>')
+    return trang("Danh mục", "".join(phan), "/danh-muc")
+
+
+def nguon_hop_le(headers):
+    """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này."""
+    nguon = headers.get("Origin") or headers.get("Referer") or ""
+    goc = (f"http://localhost:{CONG}", f"http://127.0.0.1:{CONG}")
+    return nguon in goc or nguon.startswith(tuple(g + "/" for g in goc))
+
+
 class XuLy(BaseHTTPRequestHandler):
     def do_GET(self):
         duong_dan = self.path.split("?")[0]
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         noi_dung = (trang_chinh() if duong_dan == "/" else trang_huong_dan() if duong_dan == "/huong-dan"
+                    else trang_danh_muc() if duong_dan == "/danh-muc"
                     else trang_sap_ra_mat("tai_moi=1" in self.path) if duong_dan == "/sap-ra-mat"
                     else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None)
         self.send_response(200 if noi_dung else 404)
@@ -889,17 +1011,41 @@ class XuLy(BaseHTTPRequestHandler):
         self.wfile.write((noi_dung or trang("Không tìm thấy", '<h1>Không tìm thấy</h1><p><a href="/">← Về danh sách chứng quyền</a></p>')).encode("utf-8"))
 
     def do_POST(self):
-        global LOI, NHAT_KY
-        bo_dem = io.StringIO()
-        try:
-            with contextlib.redirect_stdout(bo_dem):  # gom lời nhắn của cw_scanner để hiện lên trang
-                cw_scanner.main()
-            LOI = ""
-        except Exception as e:  # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ
-            LOI = f"Lỗi khi quét: {e}"
-        NHAT_KY = bo_dem.getvalue()
-        self.send_response(303)  # quay về trang chính để bấm F5 không bị quét lại
-        self.send_header("Location", "/")
+        global LOI, NHAT_KY, LOI_DANH_MUC
+        duong_dan = urlsplit(self.path).path
+        if not nguon_hop_le(self.headers):  # trang web lạ không được tự bấm "Quét ngay" hay thêm/xóa lệnh hộ bạn
+            self.send_response(403)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write("Từ chối: yêu cầu không gửi từ trang cw_scanner.".encode("utf-8"))
+            return
+        ve_trang = "/"
+        if duong_dan == "/quet":
+            bo_dem = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(bo_dem):  # gom lời nhắn của cw_scanner để hiện lên trang
+                    cw_scanner.main()
+                LOI = ""
+            except Exception as e:  # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ
+                LOI = f"Lỗi khi quét: {e}"
+            NHAT_KY = bo_dem.getvalue()
+        elif duong_dan in ("/danh-muc/them", "/danh-muc/xoa"):
+            ve_trang = "/danh-muc"
+            form = parse_qs(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 10_000)).decode("utf-8"))
+            try:
+                if duong_dan.endswith("them"):
+                    df, _ = doc_ket_qua()
+                    LOI_DANH_MUC = "; ".join(danh_muc.them_lenh(form, set(df["Mã CW"]) if df is not None else set(), date.today()))
+                else:
+                    so_lenh = (form.get("id") or [""])[0]
+                    LOI_DANH_MUC = danh_muc.xoa_lenh(int(so_lenh)) if so_lenh.isdigit() else "số lệnh không hợp lệ"
+            except Exception as e:  # vd file danh_muc.csv bị sửa tay sai định dạng: báo lên trang, không ghi gì
+                LOI_DANH_MUC = f"Không lưu được: {e}"
+        else:
+            self.send_error(404)
+            return
+        self.send_response(303)  # quay về trang để bấm F5 không gửi lại form
+        self.send_header("Location", ve_trang)
         self.end_headers()
 
 

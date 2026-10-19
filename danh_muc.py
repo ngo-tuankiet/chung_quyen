@@ -51,9 +51,13 @@ def doc_lenh(file=None):
     if not file.exists():
         return []
     with open(file, encoding="utf-8-sig", newline="") as f:
+        doc = csv.DictReader(f)
+        # sai dòng tiêu đề mà coi như danh sách rỗng thì lần lưu kế tiếp sẽ ghi đè mất toàn bộ lịch sử lệnh -> phải báo lỗi
+        if doc.fieldnames != COT:
+            raise ValueError(f"dòng tiêu đề phải là {','.join(COT)}")
         so_hay_rong = lambda x: float(x) if x else None
         return [{**d, "id": int(d["id"]), "so_luong": int(d["so_luong"]), "gia": float(d["gia"]),
-                 "chot_loi": so_hay_rong(d["chot_loi"]), "cat_lo": so_hay_rong(d["cat_lo"])} for d in csv.DictReader(f)]
+                 "chot_loi": so_hay_rong(d["chot_loi"]), "cat_lo": so_hay_rong(d["cat_lo"])} for d in doc]
 
 
 def ghi_lenh(ds, file=None):

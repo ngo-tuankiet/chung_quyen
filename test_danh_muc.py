@@ -145,6 +145,66 @@ def test_lay_bang_gia_bo_ma_khong_ton_tai():
         assert list(cw_scanner.lay_bang_gia(["CVPB2401", "VPB"])) == ["VPB"]
 
 
+def test_nguon_hop_le():
+    import web
+    assert web.nguon_hop_le({"Origin": "http://localhost:8000"}) and web.nguon_hop_le({"Referer": "http://127.0.0.1:8000/danh-muc"})
+    assert not any(web.nguon_hop_le(h) for h in ({}, {"Origin": "null"}, {"Origin": "https://trang-la.com"},
+                                                  {"Origin": "http://localhost:8000.trang-la.com"}, {"Referer": "http://localhost:80001/"}))
+
+
+def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
+    # Máy chủ thật (cổng ngẫu nhiên): POST có Origin lạ -> 403, không ghi gì; Origin của chính trang -> 303 và lưu lệnh
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+    import web
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(D, "FILE_DANH_MUC", Path(tmp) / "dm.csv"), \
+            mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)):
+        may_chu = HTTPServer(("127.0.0.1", 0), web.XuLy)
+        threading.Thread(target=may_chu.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{may_chu.server_port}/danh-muc/them"
+        than = b"ngay=2026-10-01&ma_cw=CVPB2615&loai=MUA&so_luong=1000&gia=1200"
+        gui = lambda nguon: urllib.request.urlopen(urllib.request.Request(url, data=than, headers={"Origin": nguon}), timeout=5)
+        try:
+            gui("https://trang-la.com")
+            assert False, "phải bị chặn"
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+        assert D.doc_lenh() == []
+        with mock.patch.object(urllib.request.HTTPRedirectHandler, "redirect_request", return_value=None):
+            try:
+                gui("http://localhost:8000")
+            except urllib.error.HTTPError as e:
+                assert e.code == 303 and e.headers["Location"] == "/danh-muc"
+        may_chu.shutdown()
+        assert [(d["ma_cw"], d["so_luong"]) for d in D.doc_lenh()] == [("CVPB2615", 1000)] and web.LOI_DANH_MUC == ""
+
+
+def test_trang_danh_muc():
+    import web
+    with tempfile.TemporaryDirectory() as tmp, \
+            mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"), \
+            mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)), \
+            mock.patch.object(cw_scanner, "lay_bang_gia", side_effect=lambda ds, cho=30: {
+                m: v for m, v in bang_gia_mau(700, 25000, HOM_NAY + timedelta(days=60)).items() if m in ds}):
+        assert "Thêm lệnh" in web.trang_danh_muc() and "Đang nắm" not in web.trang_danh_muc()  # chưa có lệnh
+        D.ghi_lenh([lenh(1, "2026-10-01", "MUA", 1000, 1000), lenh(2, "2026-10-02", "BAN", 0 + 100, 1200)])
+        trang = web.trang_danh_muc()
+        # còn 900 CW, giá vốn 1.001,5; bán được 700 -> lỗ (700 × 0,9975 − 1.001,5) × 900 = −303,25 × 900 = −272.925 đ (−30,3%)
+        assert "Đang nắm (1 mã)" in trang and "-272.925" in trang and "lỗ nếu bán ngay" in trang
+        # đã chốt: bán 100 @1.200 -> 100 × (1.200 × 0,9975 − 1.001,5) = +19.550 đ
+        assert "Lịch sử lệnh (2)" in trang and "+19.550 đ" in trang
+        D.FILE_DANH_MUC.write_text("hỏng", encoding="utf-8")  # sai tiêu đề: phải báo lỗi, KHÔNG coi là rỗng
+        assert "File danh_muc.csv bị lỗi" in web.trang_danh_muc()
+        form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["1000"]}
+        try:
+            D.them_lenh(form, {"CVPB2615"}, HOM_NAY)
+            assert False, "phải từ chối ghi khi file hỏng"
+        except ValueError:
+            assert D.FILE_DANH_MUC.read_text(encoding="utf-8") == "hỏng"  # không bị ghi đè
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):
