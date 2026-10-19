@@ -215,6 +215,57 @@ def danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, khoi_luong):
     return KET_LUAN[min(len(loi), 2)], "; ".join(loi) or "đạt cả 4 tiêu chí"
 
 
+def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
+    """Định giá + chấm điểm 1 CW từ dữ liệu bảng giá (niêm yết, khớp lệnh, sổ lệnh), giá CS và sigma.
+    Trả về dict đúng tên cột CSV, để main() ghi file và trang chi tiết định giá lại theo giá trực tiếp."""
+    r = LAI_SUAT_PHI_RUI_RO if r is None else r
+    K = ny["exercisePrice"]  # giá thực hiện (VND)
+    P = gia_hien_tai(ny, kl)  # giá khớp gần nhất của CW (VND)
+    P_mua, nguon_gia = gia_mua(ny, kl, so_lenh)  # giá phải trả nếu mua ngay: dùng cho mọi chỉ số định giá bên dưới
+    ty_le = doc_ty_le(ny["exerciseRatio"])
+    ngay_con_lai = (datetime.strptime(ny["maturityDate"], "%Y%m%d").date() - hom_nay).days
+    T = ngay_con_lai / 365
+
+    gia_quyen_chon, delta = black_scholes_call(S, K, T, r, sigma)
+    gia_hop_ly = gia_quyen_chon / ty_le  # 1 CW chỉ bằng 1/tỷ lệ của 1 quyền chọn trên 1 cổ phiếu
+    chenh_lech = P_mua / gia_hop_ly - 1 if gia_hop_ly > 0 else math.inf
+    tang_de_hoa_von = (K + P_mua * ty_le) / S - 1
+    iv = bien_dong_ngam_dinh(P_mua, S, K, T, r, ty_le)
+    duoi_toi_thieu = P_mua * ty_le < can_duoi(S, K, T, r)
+    ghi_chu_iv = "" if iv is not None else (
+        "giá mua dưới mức tối thiểu S − K·e^(−rT)" if duoi_toi_thieu else "giá mua cao bất thường")
+    # làm tròn 0,1 điểm như cột CSV để kết luận khớp số hiển thị; không giải được IV: dưới mức tối thiểu = rẻ hơn mọi mức biến động
+    iv_tru_hv = round(iv - sigma, 3) if iv is not None else (-math.inf if duoi_toi_thieu else math.inf)
+    ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
+    return {
+        "Mã CS": ny["underlyingSymbol"],
+        "TCPH": ny["issuerName"],
+        "Ngày còn lại": ngay_con_lai,
+        "Giá CS": S,
+        "Giá thực hiện": K,
+        "Tỷ lệ CĐ": ty_le,
+        "Giá CW": P,
+        "Giá mua": P_mua,
+        "Nguồn giá mua": nguon_gia,
+        "Giá hợp lý": round(gia_hop_ly),
+        "Đắt/rẻ %": round(chenh_lech * 100, 1),
+        "CS tăng % để hòa vốn": round(tang_de_hoa_von * 100, 1),
+        "Đòn bẩy": round(delta * S / (P_mua * ty_le), 1),
+        "Delta": round(delta, 2),
+        "Biến động %/năm": round(sigma * 100, 1),
+        "IV %": round(iv * 100, 1) if iv is not None else math.nan,
+        "IV − HV": round(iv_tru_hv * 100, 1) if iv is not None else math.nan,  # điểm %: âm = thị trường định giá thấp hơn lịch sử
+        "Ghi chú IV": ghi_chu_iv,
+        "KL khớp": kl["accumulatedVolume"],
+        "KL niêm yết": ny.get("listedShare") or 0,  # tổng số CW được phép bán (nguồn miễn phí không có số nhà đầu tư đang nắm)
+        "KL chào bán": tong_kl(so_lenh, "askPrices"),  # lượng có thể mua ngay ở 3 giá bán thấp nhất
+        "KL chờ mua": tong_kl(so_lenh, "bidPrices"),  # lượng có thể bán ra ngay ở 3 giá mua cao nhất
+        "Đánh giá": ket_luan,
+        "Lý do": ly_do,
+        "r %": round(r * 100, 2),  # để tự tính lại từng dòng trong Excel
+    }
+
+
 # ============ PHẦN 4: CHƯƠNG TRÌNH CHÍNH ============
 def main():
     hom_nay = date.today()
@@ -259,55 +310,8 @@ def main():
         if cs not in sigma or cs not in bang_cs:
             continue
         S = gia_hien_tai(*bang_cs[cs])  # giá cổ phiếu cơ sở (VND)
-        K = ny["exercisePrice"]  # giá thực hiện (VND)
-        P = gia_hien_tai(ny, kl)  # giá khớp gần nhất của CW (VND)
-        P_mua, nguon_gia = gia_mua(ny, kl, so_lenh)  # giá phải trả nếu mua ngay: dùng cho mọi chỉ số định giá bên dưới
-        ty_le = doc_ty_le(ny["exerciseRatio"])
-        ngay_con_lai = (datetime.strptime(ny["maturityDate"], "%Y%m%d").date() - hom_nay).days
-        T, r = ngay_con_lai / 365, LAI_SUAT_PHI_RUI_RO
-
-        gia_quyen_chon, delta = black_scholes_call(S, K, T, r, sigma[cs])
-        gia_hop_ly = gia_quyen_chon / ty_le  # 1 CW chỉ bằng 1/tỷ lệ của 1 quyền chọn trên 1 cổ phiếu
-        chenh_lech = P_mua / gia_hop_ly - 1 if gia_hop_ly > 0 else math.inf
-        tang_de_hoa_von = (K + P_mua * ty_le) / S - 1
-        iv = bien_dong_ngam_dinh(P_mua, S, K, T, r, ty_le)
-        duoi_toi_thieu = P_mua * ty_le < can_duoi(S, K, T, r)
-        ghi_chu_iv = "" if iv is not None else (
-            "giá mua dưới mức tối thiểu S − K·e^(−rT)" if duoi_toi_thieu else "giá mua cao bất thường")
-        # làm tròn 0,1 điểm như cột CSV để kết luận khớp số hiển thị; không giải được IV: dưới mức tối thiểu = rẻ hơn mọi mức biến động
-        iv_tru_hv = round(iv - sigma[cs], 3) if iv is not None else (-math.inf if duoi_toi_thieu else math.inf)
-        ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
-
-        dong.append({
-            "Mã CW": ma,
-            "Mới": "MỚI" if ma not in da_biet else "",
-            "Mã CS": cs,
-            "TCPH": ny["issuerName"],
-            "Ngày còn lại": ngay_con_lai,
-            "Giá CS": S,
-            "Giá thực hiện": K,
-            "Tỷ lệ CĐ": ty_le,
-            "Giá CW": P,
-            "Giá mua": P_mua,
-            "Nguồn giá mua": nguon_gia,
-            "Giá hợp lý": round(gia_hop_ly),
-            "Đắt/rẻ %": round(chenh_lech * 100, 1),
-            "CS tăng % để hòa vốn": round(tang_de_hoa_von * 100, 1),
-            "Đòn bẩy": round(delta * S / (P_mua * ty_le), 1),
-            "Delta": round(delta, 2),
-            "Biến động %/năm": round(sigma[cs] * 100, 1),
-            "IV %": round(iv * 100, 1) if iv is not None else math.nan,
-            "IV − HV": round(iv_tru_hv * 100, 1) if iv is not None else math.nan,  # điểm %: âm = thị trường định giá thấp hơn lịch sử
-            "Ghi chú IV": ghi_chu_iv,
-            "KL khớp": kl["accumulatedVolume"],
-            "KL niêm yết": ny.get("listedShare") or 0,  # tổng số CW được phép bán (nguồn miễn phí không có số nhà đầu tư đang nắm)
-            "KL chào bán": tong_kl(so_lenh, "askPrices"),  # lượng có thể mua ngay ở 3 giá bán thấp nhất
-            "KL chờ mua": tong_kl(so_lenh, "bidPrices"),  # lượng có thể bán ra ngay ở 3 giá mua cao nhất
-            "Đánh giá": ket_luan,
-            "Lý do": ly_do,
-            "r %": round(r * 100, 2),  # để tự tính lại từng dòng trong Excel
-            "Số phiên σ": so_phien[cs],
-        })
+        dong.append({"Mã CW": ma, "Mới": "MỚI" if ma not in da_biet else "",
+                     **dinh_gia(ny, kl, so_lenh, S, sigma[cs], hom_nay), "Số phiên σ": so_phien[cs]})
 
     if not dong:  # mọi lần lấy lịch sử giá đều lỗi -> không có gì để lưu
         raise RuntimeError("Không định giá được CW nào (máy chủ dữ liệu đang lỗi?). Hãy thử lại sau ít phút.")

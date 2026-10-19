@@ -4,7 +4,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
+from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
                         gia_mua, mo_phong_gia, tong_kl)
 
 # Sổ lệnh mẫu (CVPB2615 cuối phiên 16/10/2026, mức thứ 3 thiếu khối lượng)
@@ -52,6 +52,18 @@ def test_cvpb2615_tinh_tay():
     # Giá chào bán 1.250 đ × 1,5863 = 1.982,9 đ < 2.197,7 đ -> không có sigma nào khớp
     assert bien_dong_ngam_dinh(1250, 24500, 22605, T, 0.04, 1.5863) is None
     assert can_duoi(20000, 22605, T, 0.04) == 0 and can_duoi(24500, 22605, 0, 0.04) == 1895  # ngoài tiền -> 0; đáo hạn -> nội tại
+
+
+def test_dinh_gia_cvpb2615():
+    # Số liệu thật cuối phiên 16/10/2026, định giá ngày 18/10 (còn 122 ngày), sigma VPB 31,8%, r 4%
+    ny = {"exercisePrice": 22605, "exerciseRatio": "1.5863:1", "maturityDate": "20270217", "refPrice": 1230,
+          "underlyingSymbol": "VPB", "issuerName": "ACBS", "listedShare": 18_000_000}
+    kq = dinh_gia(ny, {"matchPrice": 1240, "accumulatedVolume": 891_900}, SO_LENH, 24500, 0.318, date(2026, 10, 18), 0.04)
+    assert kq["Ngày còn lại"] == 122 and kq["Giá mua"] == 1250 and kq["Nguồn giá mua"] == "ask"
+    assert kq["Giá hợp lý"] == 1910 and kq["Delta"] == 0.73 and kq["Đòn bẩy"] == 9.0  # delta 0,727 × 24.500 / (1.250 × 1,5863)
+    assert kq["CS tăng % để hòa vốn"] == 0.4  # (22.605 + 1.250 × 1,5863) / 24.500 − 1 = 0,36%
+    assert math.isnan(kq["IV %"]) and kq["Ghi chú IV"].startswith("giá mua dưới mức tối thiểu")
+    assert kq["Đánh giá"] == "NÊN XEM XÉT"  # dưới mức tối thiểu được tính là đạt tiêu chí 2
 
 
 def test_doc_cw_sap_ra_mat():
