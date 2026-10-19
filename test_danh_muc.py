@@ -2,6 +2,7 @@
 
 import io
 import json
+import math
 import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -145,6 +146,32 @@ def test_canh_bao_tai_bien_nguong():
     loai, kl_moi = canh_bao(1000, 25000, 60, kl_truoc={"CVPB2615": 15_000_000}, kl=20_000_000)
     assert "phat_hanh_them" in loai and kl_moi == {"CVPB2615": 20_000_000}
     assert canh_bao(1000, 25000, 60)[0] == set()  # bình thường: không báo gì
+
+
+def test_canh_bao_lech_so_voi_cs():
+    # Mua 01/10 đúng giá Black-Scholes (sigma 30%, VPB 24.000, K 20.000, tỷ lệ 2). 19/10 VPB 25.000:
+    # giá khớp = giá lẽ ra -> lệch ~0, không báo; = 80% giá lẽ ra -> lệch −20% -> "lech_am"; = 120% -> "lech_duong"
+    dh = date(2027, 2, 17)
+    P0 = cw_scanner.black_scholes_call(24000, 20000, (dh - date(2026, 10, 1)).days / 365, 0.04, 0.30)[0] / 2
+    le_ra = cw_scanner.black_scholes_call(25000, 20000, (dh - HOM_NAY).days / 365, 0.04, 0.30)[0] / 2
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, P0)])
+    ls = {
+        "VPB": [["2026-09-30", 23500], ["2026-10-01", 24000], ["2026-10-02", 24100]]
+    }  # lấy giá ngày mua, không lấy ngày sau
+    loai = lambda gia: {
+        l
+        for _, l, _ in D.danh_gia_danh_muc(
+            vt, bang_gia_mau(gia, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {}, ls
+        )[1]
+    }
+    dong = D.danh_gia_danh_muc(
+        vt, bang_gia_mau(round(le_ra), 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {}, ls
+    )[0]
+    assert abs(dong[0]["lech"]) < 0.002 and not loai(round(le_ra)) & {"lech_am", "lech_duong"}
+    assert "lech_am" in loai(round(0.8 * le_ra)) and "lech_duong" in loai(round(1.2 * le_ra))
+    assert math.isnan(
+        D.danh_gia_danh_muc(vt, bang_gia_mau(900, 25000, HOM_NAY), DF, HOM_NAY, {})[0][0]["lech"]
+    )  # không có lịch sử
 
 
 def test_chi_gui_canh_bao_vua_xuat_hien():

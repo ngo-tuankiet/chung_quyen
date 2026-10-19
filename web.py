@@ -1324,7 +1324,7 @@ def trang_danh_muc():
     """Danh mục CW đang nắm: thêm/xóa lệnh, vị thế và cảnh báo theo giá trực tiếp."""
     global LOI_DANH_MUC
     C, D = cw_scanner, danh_muc
-    df, _ = doc_ket_qua()
+    df, ngay_quet = doc_ket_qua()
     phi_thue = f"phí {so(C.PHI_GIAO_DICH * 100, 2)}% + thuế {so(C.THUE_BAN * 100, 1)}%"
     phan = [
         (
@@ -1361,6 +1361,7 @@ def trang_danh_muc():
                 df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"]),
                 date.today(),
                 tt.get("kl_niem_yet", {}),
+                D.doc_lich_su(ngay_quet),
             )
         else:
             dong, canh_bao = [{"ma": m, **v, "co_gia": False} for m, v in sorted(vt.items())], []

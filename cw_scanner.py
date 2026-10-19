@@ -227,6 +227,20 @@ def lay_gia_dong_cua(ma):
         return lay()
 
 
+def lech_theo_cs(P0, S0, ngay0, P, S, ngay, K, ty_le, dao_han, r):
+    """CW đi lệch bao nhiêu so với cổ phiếu cơ sở kể từ ngày mốc: lấy IV tại mốc (giá CW P0, giá CS S0), tính giá CW lẽ ra
+    với giá CS và thời gian hôm nay; lệch = P / giá lẽ ra − 1 (âm: CW không theo kịp CS). Đã gồm đòn bẩy và mất giá theo thời gian.
+    Giá mốc dưới mức tối thiểu (không giải được IV) thì tính bằng r = 0 cho cả hai đầu. Trả về (lệch, r đã dùng); không tính được -> (NaN, None).
+    """
+    T0, T = (dao_han - ngay0).days / 365, (dao_han - ngay).days / 365
+    for r_dung in (r, 0.0):
+        iv0 = bien_dong_ngam_dinh(P0, S0, K, T0, r_dung, ty_le)
+        if iv0 is not None:
+            le_ra = black_scholes_call(S, K, T, r_dung, iv0)[0] / ty_le
+            return (P / le_ra - 1 if le_ra > 0 else math.nan), r_dung
+    return math.nan, None
+
+
 def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
     """IV (%) từng ngày từ {ngày 'YYYY-MM-DD': giá VND} của CW và cổ phiếu cơ sở. Trả về [[ngày, IV %], ...].
     Giá CS phải là giá đã điều chỉnh quyền: khi đó dùng điều khoản HIỆN TẠI (K, tỷ lệ đã điều chỉnh) cho cả các ngày trước sự kiện

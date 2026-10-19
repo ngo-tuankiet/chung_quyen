@@ -24,6 +24,7 @@ from cw_scanner import (
     doc_env,
     doc_ty_le,
     gia_mua,
+    lech_theo_cs,
     lich_su_iv,
     mo_phong_gia,
     rui_ro_theo_tien,
@@ -239,6 +240,20 @@ def test_main_bo_qua_ma_khong_co_lich_su():
         ket_qua = pd.read_csv(next(Path(tmp).glob("cw_*.csv")), encoding="utf-8-sig")
     assert "Không lấy được lịch sử giá BBB (các CW của mã này bị bỏ qua)" in nhat_ky.getvalue()
     assert list(ket_qua["Mã CW"]) == ["CAAA2601"]
+
+
+def test_lech_theo_cs():
+    # CVPB2615: mốc 01/10 giá CW tạo từ sigma 30%; 19/10 VPB 25.000. Giá thực tế đúng bằng giá lẽ ra -> lệch 0;
+    # bằng 80% giá lẽ ra -> lệch −20%
+    K, n, dh, r = 22605, 1.5863, date(2027, 2, 17), 0.04
+    d0, d1 = date(2026, 10, 1), date(2026, 10, 19)
+    P0 = black_scholes_call(23000, K, (dh - d0).days / 365, r, 0.30)[0] / n
+    le_ra = black_scholes_call(25000, K, (dh - d1).days / 365, r, 0.30)[0] / n
+    lech, r_dung = lech_theo_cs(P0, 23000, d0, le_ra, 25000, d1, K, n, dh, r)
+    assert abs(lech) < 1e-4 and r_dung == r
+    assert abs(lech_theo_cs(P0, 23000, d0, 0.8 * le_ra, 25000, d1, K, n, dh, r)[0] + 0.20) < 1e-4
+    # giá mốc 1.250 dưới mức tối thiểu (~2.198 cho 1 CP) -> tính bằng r = 0
+    assert lech_theo_cs(1250, 24500, d0, 1300, 24600, d1, K, n, dh, r)[1] == 0.0
 
 
 def test_lich_su_iv():

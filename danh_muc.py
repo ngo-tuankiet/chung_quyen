@@ -30,6 +30,7 @@ CANH_BAO_NGAY_GD_CUOI = 20  # báo khi còn ≤ 20 ngày (lịch) tới ngày gi
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 GAN_NGUONG = 0.10  # báo cáo ngày: liệt kê vị thế còn cách ngưỡng chốt lời/cắt lỗ ≤ 10 điểm %
+CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 SO_MA_NOI_BAT = 5  # báo cáo ngày: số mã "Nên xem xét" đưa vào
 URL_DISCORD_HOP_LE = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
 
@@ -170,10 +171,14 @@ def tinh_vi_the(ds):
     như app công ty chứng khoán. Lệnh bán vượt số đang nắm -> ValueError (dữ liệu sai phải nổi lên)."""
     vt = {}
     for l in sorted(ds, key=lambda l: (l["ngay"], l["id"])):
-        v = vt.setdefault(l["ma_cw"], {"so_luong": 0, "von": 0.0, "lai_da_chot": 0.0, "chot_loi": None, "cat_lo": None})
+        v = vt.setdefault(
+            l["ma_cw"],
+            {"so_luong": 0, "von": 0.0, "lai_da_chot": 0.0, "chot_loi": None, "cat_lo": None, "ngay_mua": None},
+        )
         if l["loai"] == "MUA":
             v["von"] += l["so_luong"] * l["gia"] * (1 + C.PHI_GIAO_DICH)
             v["so_luong"] += l["so_luong"]
+            v["ngay_mua"] = l["ngay"]  # mốc đo độ lệch so với CS: lệnh mua gần nhất
             v["chot_loi"] = (
                 l["chot_loi"] if l["chot_loi"] is not None else v["chot_loi"]
             )  # ngưỡng của lệnh mua gần nhất có đặt
@@ -192,10 +197,11 @@ def tinh_vi_the(ds):
     return vt
 
 
-def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
+def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
     """Chỉ số theo giá trực tiếp + cảnh báo cho các vị thế còn nắm.
     bang_gia: kết quả lay_bang_gia (CW + cổ phiếu cơ sở); df: bảng lần quét gần nhất (sigma, r, IV cùng mã);
-    kl_truoc: {mã: khối lượng niêm yết lần kiểm tra trước} để phát hiện phát hành thêm.
+    kl_truoc: {mã: khối lượng niêm yết lần kiểm tra trước} để phát hiện phát hành thêm;
+    lich_su: {mã CS: [[ngày, giá đã điều chỉnh quyền]]} của lần quét (giá CS ngày mua, để đo độ lệch so với CS).
     Trả về (dòng, cảnh báo [(mã, loại, nội dung)], khối lượng niêm yết mới)."""
     dong, canh_bao, kl_moi = [], [], {}
     for ma, v in sorted(vt.items()):
@@ -230,6 +236,23 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
             iv, don_bay = dg["IV %"], dg["Đòn bẩy"]
             canh_bao_iv = C.so_iv_cung_ma(df, ma, cs, iv)[1]
         chot_loi, cat_lo = v["chot_loi"] or CHOT_LOI_MAC_DINH, v["cat_lo"] or CAT_LO_MAC_DINH
+        # Lệch so với CS từ lệnh mua gần nhất: mốc = giá vốn bình quân (bỏ phí) và giá CS đóng cửa ngày mua
+        lech, r_lech = float("nan"), None
+        S0 = [g for d, g in (lich_su or {}).get(cs, []) if d <= (v["ngay_mua"] or "")]
+        if S0 and ny.get("maturityDate"):
+            md = ny["maturityDate"]
+            lech, r_lech = C.lech_theo_cs(
+                v["gia_von"] / (1 + C.PHI_GIAO_DICH),
+                S0[-1],
+                date.fromisoformat(v["ngay_mua"]),
+                C.gia_hien_tai(ny, kl),
+                S,
+                hom_nay,
+                K,
+                C.doc_ty_le(ny["exerciseRatio"]),
+                date(int(md[:4]), int(md[4:6]), int(md[6:])),
+                float(quet["r %"].iloc[0]) / 100 if len(quet) and "r %" in quet else C.LAI_SUAT_PHI_RUI_RO,
+            )
         kl_moi[ma] = ny.get("listedShare") or 0
         dong.append(
             {
@@ -251,6 +274,8 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
                 "chot_loi": chot_loi,
                 "cat_lo": cat_lo,
                 "tiep_xuc": v["so_luong"] / C.doc_ty_le(ny["exerciseRatio"]) * S,
+                "lech": lech,
+                "lech_r0": r_lech == 0.0,
             }
         )
         # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord)
@@ -278,6 +303,17 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
             canh_bao.append(
                 (ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), giá chờ mua {so(gia_ban)} đ")
             )
+        if not math.isnan(lech) and abs(round(lech, 9)) >= CANH_BAO_LECH:
+            ngay_mua = f"{v['ngay_mua'][8:]}/{v['ngay_mua'][5:7]}"
+            canh_bao.append(
+                (ma, "lech_am", f"CW không theo kịp {cs}: thấp hơn mức lẽ ra {pt(lech, 1)} kể từ ngày mua {ngay_mua}")
+                if lech < 0
+                else (
+                    ma,
+                    "lech_duong",
+                    f"CW cao hơn mức lẽ ra theo {cs} {pt(lech, 1)} kể từ ngày mua {ngay_mua}: dễ bị kéo về",
+                )
+            )
         if gia_bid is None:
             canh_bao.append((ma, "khong_nguoi_mua", "sổ lệnh không có giá chờ mua: hiện không bán ra được"))
         if canh_bao_iv:
@@ -294,6 +330,12 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
                 )
             )
     return dong, canh_bao, kl_moi
+
+
+def doc_lich_su(ngay):
+    """Lịch sử giá CS (đã điều chỉnh quyền) lưu ở lần quét ngày `ngay`: {mã CS: [[ngày, giá]]}; chưa có -> {}."""
+    file = C.THU_MUC_KET_QUA / f"lich_su_{ngay}.json"
+    return json.loads(file.read_text(encoding="utf-8")) if ngay and file.exists() else {}
 
 
 def tai_bang_gia(ds_ma, df, cho=15):
@@ -412,16 +454,22 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
             ],
         )
         phan[-1] += "\n" + bang(
-            ["Mã CW", "Giá CS", "Giá TH", "Cách", "Còn", "ĐB"],
+            ["Mã CW", "Cách", "Còn", "ĐB", "Lệch"],
             [
-                [d["ma"], so(d["S"]), so(d["K"]), pt(d["cach_K"], 1), f"{d['con_ngay']}d", _x(d["don_bay"])]
+                [
+                    d["ma"],
+                    pt(d["cach_K"], 1),
+                    f"{d['con_ngay']}d",
+                    _x(d["don_bay"]),
+                    "—" if math.isnan(d["lech"]) else pt(d["lech"], 1) + ("*" if d["lech_r0"] else ""),
+                ]
                 for d in co_gia
             ],
         )
         von, lai = sum(d["so_luong"] * d["gia_von"] for d in co_gia), sum(d["lai"] for d in co_gia)
         phan[-1] += (
             f"\nTổng vốn **{so(von)} đ** · nếu bán hết ngay **{dau(lai)} đ ({pt(lai / von, 1)})** · "
-            f"đã chốt {dau(lai_da_chot)} đ · _Còn = số ngày tới ngày GD cuối_"
+            f"đã chốt {dau(lai_da_chot)} đ\n_Cách = CS so với giá thực hiện · Còn = số ngày tới ngày GD cuối · Lệch = giá CW so với mức lẽ ra theo CS kể từ lệnh mua gần nhất (âm: CW không theo kịp; * tính với r = 0)_"
         )
     for d in dong:
         if not d.get("co_gia"):
@@ -486,7 +534,9 @@ def gui_bao_cao_ngay(luc=None):
     dong, canh_bao = [], []
     if vt:
         tt = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
-        dong, canh_bao, _ = danh_gia_danh_muc(vt, tai_bang_gia(list(vt), df), df, luc.date(), tt.get("kl_niem_yet", {}))
+        dong, canh_bao, _ = danh_gia_danh_muc(
+            vt, tai_bang_gia(list(vt), df), df, luc.date(), tt.get("kl_niem_yet", {}), doc_lich_su(ngay)
+        )
     url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
     if not url:
         print(f"{luc:%d/%m %H:%M} [!] Chưa có DISCORD_WEBHOOK_URL trong .env, không gửi báo cáo")
@@ -511,13 +561,15 @@ def kiem_tra(luon=False, luc=None):
         return []
     from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (web.py dùng danh_muc.py)
 
-    df, _ = doc_ket_qua()
+    df, ngay_quet = doc_ket_qua()
     df = (
         df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])
     )  # chưa quét lần nào: bỏ phần IV, đòn bẩy
     bang_gia = tai_bang_gia(list(vt), df)
     trang_thai = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
-    _, canh_bao, kl_moi = danh_gia_danh_muc(vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}))
+    _, canh_bao, kl_moi = danh_gia_danh_muc(
+        vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), doc_lich_su(ngay_quet)
+    )
     moi, dang_bao = chon_canh_bao_moi(canh_bao, trang_thai.get("dang_bao", []))
     if moi:
         url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
