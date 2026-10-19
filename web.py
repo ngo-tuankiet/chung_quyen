@@ -1435,7 +1435,7 @@ def trang_danh_muc():
         f'<datalist id="ds-ma">{"".join(f"<option value={ESC(m)}>" for m in ds_ma)}</datalist>'
         '<label>Loại<select name="loai"><option value="MUA">Mua</option><option value="BAN">Bán</option></select></label>'
         '<label>Số lượng (lô 100)<input type="number" name="so_luong" min="100" step="100" required></label>'
-        '<label>Giá khớp (đ)<input type="number" name="gia" min="10" step="10" required></label>'
+        '<label>Giá khớp (vd 0,87 hoặc 870)<input name="gia" inputmode="decimal" required size="10" placeholder="0,87"></label>'
         f'<label>Chốt lời % (lệnh mua)<input type="number" name="chot_loi" min="1" max="1000" placeholder="{so(danh_muc.CHOT_LOI_MAC_DINH * 100, 0)}"></label>'
         f'<label>Cắt lỗ % (lệnh mua)<input type="number" name="cat_lo" min="1" max="100" placeholder="{so(danh_muc.CAT_LO_MAC_DINH * 100, 0)}"></label>'
         '<label>Ghi chú<input name="ghi_chu" maxlength="200" size="18"></label>'

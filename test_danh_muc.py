@@ -72,6 +72,15 @@ def test_doc_form_va_kiem_tra_lenh():
     assert "chỉ đang nắm 0" in D.kiem_tra_lenh({**l, "loai": "BAN"}, [], {"CVPB2615"}, HOM_NAY)[0]
 
 
+def test_doc_gia_nghin_dong_va_dong():
+    # App CTCK hiện giá CW theo nghìn đồng: 0,87 = 870 đ
+    assert D.doc_gia("0.87") == D.doc_gia("0,87") == D.doc_gia("870") == 870 and D.doc_gia("0.01") == 10
+    l, _ = D.doc_form(
+        {"ngay": ["2026-10-19"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["0,875"]}
+    )
+    assert "bước giá 10 đ" in D.kiem_tra_lenh(l, [], {"CVPB2615"}, HOM_NAY)[0]
+
+
 def test_ghi_lenh_an_toan_va_them_xoa():
     with tempfile.TemporaryDirectory() as tmp, mock.patch.object(D, "FILE_DANH_MUC", Path(tmp) / "danh_muc.csv"):
         form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["1000"], "gia": ["1200"]}

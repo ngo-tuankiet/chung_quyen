@@ -87,6 +87,13 @@ def ghi_lenh(ds, file=None):
     tam.replace(file)
 
 
+def doc_gia(chuoi):
+    """Giá khớp theo cách app chứng khoán hiển thị (nghìn đồng: '0.87', '0,87') hoặc theo đồng ('870') -> đồng.
+    Giá CW thấp nhất 10 đ = 0,01 nghìn đồng và hiếm khi quá 100.000 đ, nên số dưới 100 được hiểu là nghìn đồng."""
+    gia = float(chuoi.replace(",", "."))
+    return round(gia * 1000, 6) if gia < 100 else gia
+
+
 def doc_form(form):
     """Form web {tên: [giá trị]} -> (lệnh, lỗi). Chốt lời / cắt lỗ nhập theo % (50 -> 0.5), để trống = mặc định."""
     lay = lambda k: (form.get(k) or [""])[0].strip()
@@ -96,7 +103,7 @@ def doc_form(form):
             "ma_cw": lay("ma_cw").upper(),
             "loai": lay("loai"),
             "so_luong": int(lay("so_luong")),
-            "gia": float(lay("gia")),
+            "gia": doc_gia(lay("gia")),
             "ghi_chu": lay("ghi_chu")[:200],
         }
         for k in ("chot_loi", "cat_lo"):
@@ -119,6 +126,8 @@ def kiem_tra_lenh(lenh, ds, ma_hop_le, hom_nay):
         loi.append("số lượng phải là bội số của 100 (lô chẵn CW)")
     if not lenh["gia"] > 0:
         loi.append("giá phải lớn hơn 0")
+    elif round(lenh["gia"]) % 10 or lenh["gia"] != round(lenh["gia"]):
+        loi.append(f"giá {so(lenh['gia'])} đ không đúng bước giá 10 đ (nhập 0,87 hoặc 870)")
     if lenh["ngay"] > hom_nay.isoformat():
         loi.append("ngày không được ở tương lai")
     for k, ten in (("chot_loi", "chốt lời"), ("cat_lo", "cắt lỗ")):
