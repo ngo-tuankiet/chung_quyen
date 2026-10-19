@@ -7,6 +7,7 @@ Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 15 phút; ngoài g
 Lệnh lưu trong danh_muc.csv (không đưa lên git). Webhook Discord: DISCORD_WEBHOOK_URL trong .env.
 Chỉ gửi Discord khi một cảnh báo VỪA xuất hiện; cùng cảnh báo không gửi lại cho tới khi nó hết rồi xảy ra lần nữa.
 """
+
 import csv
 import json
 import re
@@ -56,8 +57,17 @@ def doc_lenh(file=None):
         if doc.fieldnames != COT:
             raise ValueError(f"dòng tiêu đề phải là {','.join(COT)}")
         so_hay_rong = lambda x: float(x) if x else None
-        return [{**d, "id": int(d["id"]), "so_luong": int(d["so_luong"]), "gia": float(d["gia"]),
-                 "chot_loi": so_hay_rong(d["chot_loi"]), "cat_lo": so_hay_rong(d["cat_lo"])} for d in doc]
+        return [
+            {
+                **d,
+                "id": int(d["id"]),
+                "so_luong": int(d["so_luong"]),
+                "gia": float(d["gia"]),
+                "chot_loi": so_hay_rong(d["chot_loi"]),
+                "cat_lo": so_hay_rong(d["cat_lo"]),
+            }
+            for d in doc
+        ]
 
 
 def ghi_lenh(ds, file=None):
@@ -77,8 +87,14 @@ def doc_form(form):
     """Form web {tên: [giá trị]} -> (lệnh, lỗi). Chốt lời / cắt lỗ nhập theo % (50 -> 0.5), để trống = mặc định."""
     lay = lambda k: (form.get(k) or [""])[0].strip()
     try:
-        lenh = {"ngay": date.fromisoformat(lay("ngay")).isoformat(), "ma_cw": lay("ma_cw").upper(), "loai": lay("loai"),
-                "so_luong": int(lay("so_luong")), "gia": float(lay("gia")), "ghi_chu": lay("ghi_chu")[:200]}
+        lenh = {
+            "ngay": date.fromisoformat(lay("ngay")).isoformat(),
+            "ma_cw": lay("ma_cw").upper(),
+            "loai": lay("loai"),
+            "so_luong": int(lay("so_luong")),
+            "gia": float(lay("gia")),
+            "ghi_chu": lay("ghi_chu")[:200],
+        }
         for k in ("chot_loi", "cat_lo"):
             lenh[k] = float(lay(k)) / 100 if lay(k) else None
     except ValueError:
@@ -145,11 +161,15 @@ def tinh_vi_the(ds):
         if l["loai"] == "MUA":
             v["von"] += l["so_luong"] * l["gia"] * (1 + C.PHI_GIAO_DICH)
             v["so_luong"] += l["so_luong"]
-            v["chot_loi"] = l["chot_loi"] if l["chot_loi"] is not None else v["chot_loi"]  # ngưỡng của lệnh mua gần nhất có đặt
+            v["chot_loi"] = (
+                l["chot_loi"] if l["chot_loi"] is not None else v["chot_loi"]
+            )  # ngưỡng của lệnh mua gần nhất có đặt
             v["cat_lo"] = l["cat_lo"] if l["cat_lo"] is not None else v["cat_lo"]
         else:
             if l["so_luong"] > v["so_luong"]:
-                raise ValueError(f"lệnh {l['id']} bán {so(l['so_luong'])} {l['ma_cw']} nhưng lúc đó chỉ nắm {so(v['so_luong'])}")
+                raise ValueError(
+                    f"lệnh {l['id']} bán {so(l['so_luong'])} {l['ma_cw']} nhưng lúc đó chỉ nắm {so(v['so_luong'])}"
+                )
             gia_von = v["von"] / v["so_luong"]
             v["lai_da_chot"] += l["so_luong"] * (l["gia"] * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) - gia_von)
             v["von"] -= l["so_luong"] * gia_von
@@ -185,35 +205,81 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
         quet = df[df["Mã CS"] == cs]
         iv, don_bay, canh_bao_iv = float("nan"), float("nan"), ""
         if len(quet):  # IV, đòn bẩy theo giá trực tiếp; sigma và r như lúc quét
-            dg = C.dinh_gia(ny, kl, so_lenh, S, float(quet["Biến động %/năm"].iloc[0]) / 100, hom_nay,
-                            float(quet["r %"].iloc[0]) / 100 if "r %" in quet else None)
+            dg = C.dinh_gia(
+                ny,
+                kl,
+                so_lenh,
+                S,
+                float(quet["Biến động %/năm"].iloc[0]) / 100,
+                hom_nay,
+                float(quet["r %"].iloc[0]) / 100 if "r %" in quet else None,
+            )
             iv, don_bay = dg["IV %"], dg["Đòn bẩy"]
             canh_bao_iv = C.so_iv_cung_ma(df, ma, cs, iv)[1]
         chot_loi, cat_lo = v["chot_loi"] or CHOT_LOI_MAC_DINH, v["cat_lo"] or CAT_LO_MAC_DINH
         kl_moi[ma] = ny.get("listedShare") or 0
-        dong.append({"ma": ma, **v, "co_gia": True, "cs": cs, "gia_ban": gia_ban, "co_nguoi_mua": gia_bid is not None,
-                     "lai_pct": lai_pct, "lai": (gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) - v["gia_von"]) * v["so_luong"],
-                     "S": S, "K": K, "cach_K": S / K - 1, "ngay_gd_cuoi": ngay_gd_cuoi, "con_ngay": con_ngay,
-                     "iv": iv, "don_bay": don_bay, "chot_loi": chot_loi, "cat_lo": cat_lo,
-                     "tiep_xuc": v["so_luong"] / C.doc_ty_le(ny["exerciseRatio"]) * S})
+        dong.append(
+            {
+                "ma": ma,
+                **v,
+                "co_gia": True,
+                "cs": cs,
+                "gia_ban": gia_ban,
+                "co_nguoi_mua": gia_bid is not None,
+                "lai_pct": lai_pct,
+                "lai": (gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) - v["gia_von"]) * v["so_luong"],
+                "S": S,
+                "K": K,
+                "cach_K": S / K - 1,
+                "ngay_gd_cuoi": ngay_gd_cuoi,
+                "con_ngay": con_ngay,
+                "iv": iv,
+                "don_bay": don_bay,
+                "chot_loi": chot_loi,
+                "cat_lo": cat_lo,
+                "tiep_xuc": v["so_luong"] / C.doc_ty_le(ny["exerciseRatio"]) * S,
+            }
+        )
         # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord)
         if con_ngay is not None and con_ngay <= CANH_BAO_NGAY_GD_CUOI:
             canh_bao.append((ma, "gd_cuoi", f"còn {con_ngay} ngày tới ngày giao dịch cuối {ngay_gd_cuoi:%d/%m/%Y}"))
         # làm tròn trước khi so ngưỡng: 20.600 / 20.000 − 1 tính ra 0,030000000000000027 > 0,03 (lỗi số thực ngay tại biên)
         if round(S / K - 1, 9) <= CANH_BAO_CACH_GIA_TH:
-            canh_bao.append((ma, "gan_gia_th", f"{cs} {so(S)} đ " + (f"đã dưới giá thực hiện {so(K)} đ ({pt(S / K - 1, 1)})" if S < K
-                             else f"chỉ cao hơn giá thực hiện {so(K)} đ {pt(S / K - 1, 1, False)}")))
+            canh_bao.append(
+                (
+                    ma,
+                    "gan_gia_th",
+                    f"{cs} {so(S)} đ "
+                    + (
+                        f"đã dưới giá thực hiện {so(K)} đ ({pt(S / K - 1, 1)})"
+                        if S < K
+                        else f"chỉ cao hơn giá thực hiện {so(K)} đ {pt(S / K - 1, 1, False)}"
+                    ),
+                )
+            )
         if round(lai_pct, 9) >= chot_loi:
-            canh_bao.append((ma, "chot_loi", f"lãi nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(chot_loi)}), giá chờ mua {so(gia_ban)} đ"))
+            canh_bao.append(
+                (ma, "chot_loi", f"lãi nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(chot_loi)}), giá chờ mua {so(gia_ban)} đ")
+            )
         if round(lai_pct, 9) <= -cat_lo:
-            canh_bao.append((ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), giá chờ mua {so(gia_ban)} đ"))
+            canh_bao.append(
+                (ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), giá chờ mua {so(gia_ban)} đ")
+            )
         if gia_bid is None:
             canh_bao.append((ma, "khong_nguoi_mua", "sổ lệnh không có giá chờ mua: hiện không bán ra được"))
         if canh_bao_iv:
             canh_bao.append((ma, "iv_bat_thuong", canh_bao_iv.split(":")[0]))
         if kl_truoc.get(ma) and kl_moi[ma] > kl_truoc[ma]:
-            canh_bao.append((ma, "phat_hanh_them", (f"khối lượng niêm yết tăng {pt(kl_moi[ma] / kl_truoc[ma] - 1)}: "
-                                                   "tổ chức phát hành bán thêm, giá dễ bị ép xuống")))
+            canh_bao.append(
+                (
+                    ma,
+                    "phat_hanh_them",
+                    (
+                        f"khối lượng niêm yết tăng {pt(kl_moi[ma] / kl_truoc[ma] - 1)}: "
+                        "tổ chức phát hành bán thêm, giá dễ bị ép xuống"
+                    ),
+                )
+            )
     return dong, canh_bao, kl_moi
 
 
@@ -235,9 +301,14 @@ def chon_canh_bao_moi(canh_bao, dang_bao):
 def gui_discord(noi_dung, url):
     """Gửi 1 tin qua webhook Discord. Chỉ nhận URL webhook của Discord; không bao giờ in URL ra (trong URL có mã bí mật)."""
     if not url.startswith(URL_DISCORD_HOP_LE):
-        raise ValueError("DISCORD_WEBHOOK_URL trong .env không phải webhook Discord (https://discord.com/api/webhooks/...)")
-    yeu_cau = urllib.request.Request(url, data=json.dumps({"content": noi_dung[:1900]}).encode(),
-                                     headers={"Content-Type": "application/json", "User-Agent": "cw_scanner"})
+        raise ValueError(
+            "DISCORD_WEBHOOK_URL trong .env không phải webhook Discord (https://discord.com/api/webhooks/...)"
+        )
+    yeu_cau = urllib.request.Request(
+        url,
+        data=json.dumps({"content": noi_dung[:1900]}).encode(),
+        headers={"Content-Type": "application/json", "User-Agent": "cw_scanner"},
+    )
     with urllib.request.urlopen(yeu_cau, timeout=10):  # lỗi mạng / 4xx / 5xx -> báo lỗi, lần sau gửi lại
         pass
 
@@ -259,8 +330,11 @@ def kiem_tra(luon=False, luc=None):
     if not vt:
         return []
     from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (web.py dùng danh_muc.py)
+
     df, _ = doc_ket_qua()
-    df = df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])  # chưa quét lần nào: bỏ phần IV, đòn bẩy
+    df = (
+        df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])
+    )  # chưa quét lần nào: bỏ phần IV, đòn bẩy
     bang_gia = tai_bang_gia(list(vt), df)
     trang_thai = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
     _, canh_bao, kl_moi = danh_gia_danh_muc(vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}))
@@ -273,7 +347,9 @@ def kiem_tra(luon=False, luc=None):
         gui_discord(noi_dung_discord(moi, luc), url)
         print(f"{luc:%d/%m %H:%M} Đã gửi {len(moi)} cảnh báo lên Discord: " + ", ".join(f"{m} {l}" for m, l, _ in moi))
     # lưu sau khi gửi thành công: gửi lỗi thì lần kiểm tra sau gửi lại
-    FILE_TRANG_THAI.write_text(json.dumps({"dang_bao": dang_bao, "kl_niem_yet": kl_moi}, ensure_ascii=False), encoding="utf-8")
+    FILE_TRANG_THAI.write_text(
+        json.dumps({"dang_bao": dang_bao, "kl_niem_yet": kl_moi}, ensure_ascii=False), encoding="utf-8"
+    )
     return moi
 
 

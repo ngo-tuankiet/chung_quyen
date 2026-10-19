@@ -13,6 +13,7 @@ Các bước (xem KE_HOACH.md để hiểu chi tiết):
   5. Chấm điểm theo 4 tiêu chí -> NÊN XEM XÉT / THEO DÕI / BỎ QUA.
   6. Đánh dấu CW mới phát hành (chưa thấy ở lần chạy trước) và lưu kết quả.
 """
+
 import gzip
 import importlib.metadata
 import json
@@ -50,7 +51,9 @@ MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
 
-THU_MUC = Path(__file__).parent  # dùng đường dẫn tuyệt đối để chạy tự động (launchd/cron/Task Scheduler) không bị lạc thư mục
+THU_MUC = Path(
+    __file__
+).parent  # dùng đường dẫn tuyệt đối để chạy tự động (launchd/cron/Task Scheduler) không bị lạc thư mục
 FILE_CW_DA_BIET = THU_MUC / "cw_da_biet.txt"
 THU_MUC_KET_QUA = THU_MUC / "ket_qua"
 
@@ -105,8 +108,10 @@ def mo_phong_gia(S, K, T, r, sigma, so_kich_ban=20000):
     """Kiểm chứng Black-Scholes bằng cách thử thật: tạo nhiều kịch bản giá cổ phiếu lúc đáo hạn,
     lấy trung bình số tiền quyền chọn trả, quy về tiền hôm nay. Kết quả gần bằng công thức."""
     ngau_nhien = random.Random(0)  # cố định để mỗi lần mở trang ra cùng một con số
-    tong = sum(max(S * math.exp((r - sigma**2 / 2) * T + sigma * math.sqrt(T) * ngau_nhien.gauss(0, 1)) - K, 0)
-               for _ in range(so_kich_ban))
+    tong = sum(
+        max(S * math.exp((r - sigma**2 / 2) * T + sigma * math.sqrt(T) * ngau_nhien.gauss(0, 1)) - K, 0)
+        for _ in range(so_kich_ban)
+    )
     return tong / so_kich_ban * math.exp(-r * T)
 
 
@@ -121,8 +126,11 @@ def doc_env(file_env=THU_MUC / ".env"):
     """Đọc file .env (mỗi dòng KHOA=gia_tri, dòng bắt đầu bằng # là ghi chú) thành dict."""
     if not file_env.exists():
         return {}
-    cap = [d.split("=", 1) for d in file_env.read_text(encoding="utf-8-sig").splitlines()
-           if "=" in d and not d.lstrip().startswith("#")]
+    cap = [
+        d.split("=", 1)
+        for d in file_env.read_text(encoding="utf-8-sig").splitlines()
+        if "=" in d and not d.lstrip().startswith("#")
+    ]
     return {k.strip(): v.strip().strip("\"'") for k, v in cap}
 
 
@@ -133,7 +141,11 @@ def lay_bang_gia(danh_sach_ma, cho=30):
     with urllib.request.urlopen(yeu_cau, timeout=cho) as r:  # máy chủ trả lỗi (4xx/5xx) -> tự báo lỗi
         du_lieu = json.load(r)
     # mã không tồn tại / đã hủy niêm yết: Vietcap trả listingInfo rỗng -> không có trong kết quả (nơi dùng tự xử lý mã thiếu)
-    return {x["listingInfo"]["symbol"]: (x["listingInfo"], x["matchPrice"], x.get("bidAsk") or {}) for x in du_lieu if x.get("listingInfo")}
+    return {
+        x["listingInfo"]["symbol"]: (x["listingInfo"], x["matchPrice"], x.get("bidAsk") or {})
+        for x in du_lieu
+        if x.get("listingInfo")
+    }
 
 
 def doc_cw_sap_ra_mat(du_lieu):
@@ -142,18 +154,27 @@ def doc_cw_sap_ra_mat(du_lieu):
     ket_qua = []
     for x in (du_lieu.get("data") or {}).get("list") or []:
         cw = x.get("listingdbSecuritiesCoveredWarrant") or {}
-        ket_qua.append({
-            "ngay_chap_thuan": ngay(x.get("acceptDate")), "ten": cw.get("cwname") or x.get("name") or "",
-            "ma_cs": cw.get("underlyingSymbol") or "", "gia_thuc_hien": cw.get("exPrice"), "ty_le": cw.get("exRatio") or "",
-            "ngay_dao_han": ngay(cw.get("maturityDate")), "thoi_han_thang": cw.get("deadline"), "kl_niem_yet": x.get("listingVolume"),
-        })
+        ket_qua.append(
+            {
+                "ngay_chap_thuan": ngay(x.get("acceptDate")),
+                "ten": cw.get("cwname") or x.get("name") or "",
+                "ma_cs": cw.get("underlyingSymbol") or "",
+                "gia_thuc_hien": cw.get("exPrice"),
+                "ty_le": cw.get("exRatio") or "",
+                "ngay_dao_han": ngay(cw.get("maturityDate")),
+                "thoi_han_thang": cw.get("deadline"),
+                "kl_niem_yet": x.get("listingVolume"),
+            }
+        )
     return ket_qua
 
 
 def tai_du_lieu_hose_cw(cho=20, so_lan=2):
     """Dữ liệu thô "CW được chấp thuận" từ HOSE (gồm cả mã đã lên sàn/hết hạn - nơi dùng tự lọc).
     Máy chủ HOSE đôi khi chậm hoặc ngắt giữa chừng nên thử lại 1 lần."""
-    yeu_cau = urllib.request.Request(URL_HOSE_CW_MOI, headers={**HEADERS_HOSE, "Accept-Encoding": "gzip"})  # nén: nhỏ ~10 lần
+    yeu_cau = urllib.request.Request(
+        URL_HOSE_CW_MOI, headers={**HEADERS_HOSE, "Accept-Encoding": "gzip"}
+    )  # nén: nhỏ ~10 lần
     for lan in range(so_lan):
         try:
             with urllib.request.urlopen(yeu_cau, timeout=cho) as r:
@@ -209,7 +230,8 @@ def lay_gia_dong_cua(ma):
 def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
     """IV (%) từng ngày từ {ngày 'YYYY-MM-DD': giá VND} của CW và cổ phiếu cơ sở. Trả về [[ngày, IV %], ...].
     Giá CS phải là giá đã điều chỉnh quyền: khi đó dùng điều khoản HIỆN TẠI (K, tỷ lệ đã điều chỉnh) cho cả các ngày trước sự kiện
-    (giá trị 1 CW không đổi khi S, K, tỷ lệ cùng nhân một hệ số). Ngày giá CW dưới mức tối thiểu ghi 0; giá cao bất thường thì bỏ."""
+    (giá trị 1 CW không đổi khi S, K, tỷ lệ cùng nhân một hệ số). Ngày giá CW dưới mức tối thiểu ghi 0; giá cao bất thường thì bỏ.
+    """
     kq = []
     for ngay in sorted(gia_cw.keys() & gia_cs.keys()):
         S, P = gia_cs[ngay], gia_cw[ngay]
@@ -233,13 +255,17 @@ def bien_dong_lich_su(ma):
 # ============ PHẦN 3: ĐÁNH GIÁ ============
 def danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, khoi_luong):
     """Trả về (kết luận, lý do). Đạt cả 4 tiêu chí -> NÊN XEM XÉT, trượt 1 -> THEO DÕI, còn lại -> BỎ QUA.
-    iv_tru_hv: IV − HV (0.03 = 3 điểm %); -inf = giá dưới mức tối thiểu, +inf = giá cao bất thường (không giải được IV)."""
+    iv_tru_hv: IV − HV (0.03 = 3 điểm %); -inf = giá dưới mức tối thiểu, +inf = giá cao bất thường (không giải được IV).
+    """
     loi = []
     if ngay_con_lai < MIN_NGAY_CON_LAI:
         loi.append(f"chỉ còn {ngay_con_lai} ngày")
     if iv_tru_hv > MAX_IV_TRU_HV:
-        loi.append(f"IV cao hơn lịch sử {iv_tru_hv * 100:+.1f} điểm".replace(".", ",") if math.isfinite(iv_tru_hv)
-                   else "giá mua cao bất thường")
+        loi.append(
+            f"IV cao hơn lịch sử {iv_tru_hv * 100:+.1f} điểm".replace(".", ",")
+            if math.isfinite(iv_tru_hv)
+            else "giá mua cao bất thường"
+        )
     if tang_de_hoa_von > MAX_TANG_DE_HOA_VON:
         loi.append(f"CP cơ sở phải tăng {tang_de_hoa_von:.0%} mới hòa vốn")
     if khoi_luong < MIN_KHOI_LUONG:
@@ -264,8 +290,11 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     tang_de_hoa_von = (K + P_mua * ty_le) / S - 1
     iv = bien_dong_ngam_dinh(P_mua, S, K, T, r, ty_le)
     duoi_toi_thieu = P_mua * ty_le < can_duoi(S, K, T, r)
-    ghi_chu_iv = "" if iv is not None else (
-        "giá mua dưới mức tối thiểu S − K·e^(−rT)" if duoi_toi_thieu else "giá mua cao bất thường")
+    ghi_chu_iv = (
+        ""
+        if iv is not None
+        else ("giá mua dưới mức tối thiểu S − K·e^(−rT)" if duoi_toi_thieu else "giá mua cao bất thường")
+    )
     # làm tròn 0,1 điểm như cột CSV để kết luận khớp số hiển thị; không giải được IV: dưới mức tối thiểu = rẻ hơn mọi mức biến động
     iv_tru_hv = round(iv - sigma, 3) if iv is not None else (-math.inf if duoi_toi_thieu else math.inf)
     ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
@@ -274,7 +303,9 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
         "Mã CS": ny["underlyingSymbol"],
         "TCPH": ny["issuerName"],
         "Ngày còn lại": ngay_con_lai,
-        "Ngày GD cuối": f"{gd_cuoi[:4]}-{gd_cuoi[4:6]}-{gd_cuoi[6:]}" if gd_cuoi else "",  # sau ngày này không bán được nữa
+        "Ngày GD cuối": (
+            f"{gd_cuoi[:4]}-{gd_cuoi[4:6]}-{gd_cuoi[6:]}" if gd_cuoi else ""
+        ),  # sau ngày này không bán được nữa
         "Giá CS": S,
         "Giá thực hiện": K,
         "Tỷ lệ CĐ": ty_le,
@@ -288,10 +319,13 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
         "Delta": round(delta, 2),
         "Biến động %/năm": round(sigma * 100, 1),
         "IV %": round(iv * 100, 1) if iv is not None else math.nan,
-        "IV − HV": round(iv_tru_hv * 100, 1) if iv is not None else math.nan,  # điểm %: âm = thị trường định giá thấp hơn lịch sử
+        "IV − HV": (
+            round(iv_tru_hv * 100, 1) if iv is not None else math.nan
+        ),  # điểm %: âm = thị trường định giá thấp hơn lịch sử
         "Ghi chú IV": ghi_chu_iv,
         "KL khớp": kl["accumulatedVolume"],
-        "KL niêm yết": ny.get("listedShare") or 0,  # tổng số CW được phép bán (nguồn miễn phí không có số nhà đầu tư đang nắm)
+        "KL niêm yết": ny.get("listedShare")
+        or 0,  # tổng số CW được phép bán (nguồn miễn phí không có số nhà đầu tư đang nắm)
         "KL chào bán": tong_kl(so_lenh, "askPrices"),  # lượng có thể mua ngay ở 3 giá bán thấp nhất
         "KL chờ mua": tong_kl(so_lenh, "bidPrices"),  # lượng có thể bán ra ngay ở 3 giá mua cao nhất
         "Đánh giá": ket_luan,
@@ -308,15 +342,18 @@ def so_iv_cung_ma(df, ma, cs, iv):
         return math.nan, ""
     tv = khac.median()
     if math.isfinite(iv) and iv < MIN_IV_SO_VOI_CUNG_MA * tv:
-        return tv, (f"IV {iv:.0f}% chỉ bằng {iv / tv:.0%} trung vị {tv:.0f}% của {len(khac)} CW {cs} khác: giá có thể do tổ chức "
-                    "phát hành tự bán ra hoặc sắp có thay đổi, không chắc là món hời - đọc thông báo của TCPH trước khi mua")
+        return tv, (
+            f"IV {iv:.0f}% chỉ bằng {iv / tv:.0%} trung vị {tv:.0f}% của {len(khac)} CW {cs} khác: giá có thể do tổ chức "
+            "phát hành tự bán ra hoặc sắp có thay đổi, không chắc là món hời - đọc thông báo của TCPH trước khi mua"
+        )
     return tv, ""
 
 
 def rui_ro_theo_tien(von, P, S, K, ty_le, T, r, sigma, don_bay):
     """Rủi ro khi bỏ `von` đồng mua CW ở giá P (đã tính phí mua, thuế khi nhận tiền). Trả về dict:
     số CW (lô 100), tiền chi, số cổ phiếu tương đương, giá trị cổ phiếu cơ sở đang "nắm", hòa vốn có phí,
-    % CS giảm thì về 0, xác suất về 0 theo mô hình (σ lịch sử, không phải dự báo), tiền mất khi CS giảm 1% (theo đòn bẩy)."""
+    % CS giảm thì về 0, xác suất về 0 theo mô hình (σ lịch sử, không phải dự báo), tiền mất khi CS giảm 1% (theo đòn bẩy).
+    """
     so_cw = int(von / (P * (1 + PHI_GIAO_DICH)) // 100 * 100)
     if T > 0 and sigma > 0:
         xs_ve_0 = phan_phoi_chuan(-(math.log(S / K) + (r - sigma**2 / 2) * T) / (sigma * math.sqrt(T)))  # N(−d2)
@@ -367,7 +404,8 @@ def main():
             lich_su[ma] = [[ngay, round(gia * he_so)] for ngay, gia in ls]
             # chỉ ghi nhận sigma khi mọi bước trên đã xong: mã lỗi thật sự bị bỏ qua (trước đây sigma NaN vẫn được dùng -> sập cả lần quét)
             sigma[ma], so_phien[ma] = s, n
-        except Exception as e:  # noqa: BLE001 - ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
+        # ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
+        except Exception as e:  # noqa: BLE001
             print(f"  [!] Không lấy được lịch sử giá {ma} (các CW của mã này bị bỏ qua): {e}")
 
     # Bước 6a: CW mới = chưa có trong danh sách đã lưu (lần chạy đầu tiên chỉ lưu, không đánh dấu)
@@ -380,8 +418,14 @@ def main():
         if cs not in sigma or cs not in bang_cs:
             continue
         S = gia_hien_tai(*bang_cs[cs])  # giá cổ phiếu cơ sở (VND)
-        dong.append({"Mã CW": ma, "Mới": "MỚI" if ma not in da_biet else "",
-                     **dinh_gia(ny, kl, so_lenh, S, sigma[cs], hom_nay), "Số phiên σ": so_phien[cs]})
+        dong.append(
+            {
+                "Mã CW": ma,
+                "Mới": "MỚI" if ma not in da_biet else "",
+                **dinh_gia(ny, kl, so_lenh, S, sigma[cs], hom_nay),
+                "Số phiên σ": so_phien[cs],
+            }
+        )
 
     if not dong:  # mọi lần lấy lịch sử giá đều lỗi -> không có gì để lưu
         raise RuntimeError("Không định giá được CW nào (máy chủ dữ liệu đang lỗi?). Hãy thử lại sau ít phút.")
@@ -397,7 +441,9 @@ def main():
     THU_MUC_KET_QUA.mkdir(exist_ok=True)
     file_ket_qua = THU_MUC_KET_QUA / f"cw_{hom_nay}.csv"
     df.to_csv(file_ket_qua, index=False, encoding="utf-8-sig")  # utf-8-sig để Excel hiển thị đúng tiếng Việt
-    (THU_MUC_KET_QUA / f"lich_su_{hom_nay}.json").write_text(json.dumps(lich_su), encoding="utf-8")  # cho biểu đồ ở trang chi tiết
+    (THU_MUC_KET_QUA / f"lich_su_{hom_nay}.json").write_text(
+        json.dumps(lich_su), encoding="utf-8"
+    )  # cho biểu đồ ở trang chi tiết
     # Giả định đã dùng cho lần quét này: đổi cấu hình về sau vẫn truy lại được vì sao ra các con số trong file CSV
     gia_dinh = {
         "thoi_diem_quet": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -406,29 +452,58 @@ def main():
         "so_phien_mot_nam": SO_PHIEN_MOT_NAM,
         "thoi_gian_T": "số ngày lịch còn lại / 365",
         "gia_mua": "giá chào bán thấp nhất trong sổ lệnh; sổ lệnh trống thì giá khớp; chưa khớp thì giá tham chiếu",
-        "tieu_chi": {"MIN_NGAY_CON_LAI": MIN_NGAY_CON_LAI, "MAX_IV_TRU_HV": MAX_IV_TRU_HV,
-                     "MAX_TANG_DE_HOA_VON": MAX_TANG_DE_HOA_VON, "MIN_KHOI_LUONG": MIN_KHOI_LUONG},
+        "tieu_chi": {
+            "MIN_NGAY_CON_LAI": MIN_NGAY_CON_LAI,
+            "MAX_IV_TRU_HV": MAX_IV_TRU_HV,
+            "MAX_TANG_DE_HOA_VON": MAX_TANG_DE_HOA_VON,
+            "MIN_KHOI_LUONG": MIN_KHOI_LUONG,
+        },
         "chi_phi": {"PHI_GIAO_DICH": PHI_GIAO_DICH, "THUE_BAN": THUE_BAN},
         "canh_bao_iv_cung_ma": {"MIN_IV_SO_VOI_CUNG_MA": MIN_IV_SO_VOI_CUNG_MA, "MIN_SO_CW_CUNG_MA": MIN_SO_CW_CUNG_MA},
-        "nguon": {"danh_sach_cw": "vnstock Listing(KBS)", "bang_gia": URL_BANG_GIA, "lich_su_gia": "vnstock Quote(KBS), 1D"},
+        "nguon": {
+            "danh_sach_cw": "vnstock Listing(KBS)",
+            "bang_gia": URL_BANG_GIA,
+            "lich_su_gia": "vnstock Quote(KBS), 1D",
+        },
         "vnstock": importlib.metadata.version("vnstock"),
     }
-    (THU_MUC_KET_QUA / f"gia_dinh_{hom_nay}.json").write_text(json.dumps(gia_dinh, ensure_ascii=False, indent=2), encoding="utf-8")
+    (THU_MUC_KET_QUA / f"gia_dinh_{hom_nay}.json").write_text(
+        json.dumps(gia_dinh, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     # Bước 6c: lưu danh sách CW sắp ra mắt từ HOSE (để trang "CW sắp ra mắt" vẫn có dữ liệu khi HOSE chậm); lỗi thì bỏ qua
     try:
         du_lieu_hose = tai_du_lieu_hose_cw()
-        (THU_MUC_KET_QUA / f"sap_ra_mat_{hom_nay}.json").write_text(json.dumps(du_lieu_hose, ensure_ascii=False), encoding="utf-8")
-        print(f"Đã lưu danh sách {len(doc_cw_sap_ra_mat(du_lieu_hose))} CW được HOSE chấp thuận (để xem CW sắp ra mắt).")
-    except Exception as e:  # noqa: BLE001 - ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
+        (THU_MUC_KET_QUA / f"sap_ra_mat_{hom_nay}.json").write_text(
+            json.dumps(du_lieu_hose, ensure_ascii=False), encoding="utf-8"
+        )
+        print(
+            f"Đã lưu danh sách {len(doc_cw_sap_ra_mat(du_lieu_hose))} CW được HOSE chấp thuận (để xem CW sắp ra mắt)."
+        )
+    # ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
+    except Exception as e:  # noqa: BLE001
         print(f"  [!] Không tải được danh sách CW sắp ra mắt từ HOSE (không ảnh hưởng kết quả quét): {e}")
     FILE_CW_DA_BIET.write_text("\n".join(sorted(da_biet | set(ma_cw))), encoding="utf-8")
 
     # In tóm tắt
-    cot = ["Mã CW", "Mã CS", "Ngày còn lại", "Giá mua", "Giá hợp lý", "Đắt/rẻ %", "IV − HV", "CS tăng % để hòa vốn", "Đòn bẩy", "Lý do"]
+    cot = [
+        "Mã CW",
+        "Mã CS",
+        "Ngày còn lại",
+        "Giá mua",
+        "Giá hợp lý",
+        "Đắt/rẻ %",
+        "IV − HV",
+        "CS tăng % để hòa vốn",
+        "Đòn bẩy",
+        "Lý do",
+    ]
     print(f"\nĐã định giá {len(df)} CW: " + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items()))
-    print("Giá dùng để định giá: " + ", ".join(f"{v} CW giá {k}" for k, v in df["Nguồn giá mua"].value_counts().items())
-          + f"; {(df['Ghi chú IV'] != '').sum()} CW không giải được biến động ngầm định (xem cột Ghi chú IV)")
+    print(
+        "Giá dùng để định giá: "
+        + ", ".join(f"{v} CW giá {k}" for k, v in df["Nguồn giá mua"].value_counts().items())
+        + f"; {(df['Ghi chú IV'] != '').sum()} CW không giải được biến động ngầm định (xem cột Ghi chú IV)"
+    )
     for _, h in df[df["Cảnh báo"] != ""].iterrows():
         print(f"  ⚠ {h['Mã CW']}: {h['Cảnh báo']}")
     moi = df[df["Mới"] == "MỚI"]
