@@ -8,3 +8,7 @@ log.txt
 .DS_Store
 .claude/settings.local.json
 .claude/launch.json
+danh_muc.csv
+danh_muc.csv.bak
+danh_muc.tmp
+canh_bao_da_gui.json

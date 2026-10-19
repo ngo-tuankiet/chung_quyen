@@ -132,7 +132,8 @@ def lay_bang_gia(danh_sach_ma, cho=30):
     yeu_cau = urllib.request.Request(URL_BANG_GIA, data=json.dumps({"symbols": danh_sach_ma}).encode(), headers=HEADERS)
     with urllib.request.urlopen(yeu_cau, timeout=cho) as r:  # máy chủ trả lỗi (4xx/5xx) -> tự báo lỗi
         du_lieu = json.load(r)
-    return {x["listingInfo"]["symbol"]: (x["listingInfo"], x["matchPrice"], x.get("bidAsk") or {}) for x in du_lieu}
+    # mã không tồn tại / đã hủy niêm yết: Vietcap trả listingInfo rỗng -> không có trong kết quả (nơi dùng tự xử lý mã thiếu)
+    return {x["listingInfo"]["symbol"]: (x["listingInfo"], x["matchPrice"], x.get("bidAsk") or {}) for x in du_lieu if x.get("listingInfo")}
 
 
 def doc_cw_sap_ra_mat(du_lieu):
