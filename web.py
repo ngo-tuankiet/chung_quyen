@@ -901,16 +901,22 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     )
 
     # IV theo thời gian: giá CW từ vnstock (1 lượt gọi, nhớ trong ngày) + giá CS đã điều chỉnh quyền trong file lịch sử lúc quét
-    iv_ls, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
-    if iv_ls is None and lich_su:
+    bo_nho, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
+    if bo_nho is None and lich_su:
         try:
             df_cw = C.lay_gia_dong_cua(ma)
             he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
             gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
-            iv_ls = BO_NHO_IV[(ma, date.today())] = C.lich_su_iv(gia_cw, dict(lich_su), K, ty_le, ngay_dao_han, r)
+            kl_cw = {str(t)[:10]: float(v) for t, v in zip(df_cw["time"], df_cw["volume"])}
+            bo_nho = BO_NHO_IV[(ma, date.today())] = {
+                "iv": C.lich_su_iv(gia_cw, dict(lich_su), K, ty_le, ngay_dao_han, r),
+                "gia": gia_cw,
+                "kl": kl_cw,
+            }
         # lỗi mạng / hết lượt gọi: chỉ mục này không có biểu đồ, phần còn lại của trang vẫn dùng được
         except Exception as e:  # noqa: BLE001
             loi_iv = f"Chưa tải được lịch sử giá {ESC(ma)} ({ESC(str(e)[:120])}). Mở lại trang sau ít phút."
+    iv_ls = bo_nho["iv"] if bo_nho else None
     duong_ke_iv = [("HV 1 năm", sigma_ls * 100, "tc-thuc-hien")] + (
         [("Trung vị cùng mã", tv_cung_ma, "tc-hoa-von")] if math.isfinite(tv_cung_ma) else []
     )
@@ -924,6 +930,59 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             bieu_do(iv_ls, duong_ke_iv, f"IV của {ma}", "%", "IV (%)")
             if iv_ls and len(iv_ls) >= 2
             else f'<p>{loi_iv or "Chưa đủ dữ liệu để vẽ (cần ít nhất 2 ngày có giá CW và giá cổ phiếu cơ sở)."}</p>'
+        )
+        + "</section>"
+    )
+
+    # Lệch so với cổ phiếu cơ sở 20 phiên: mốc = phiên đầu tiên khớp ≥ MIN_KHOI_LUONG (bỏ phiên mới lên sàn khớp rất ít)
+    lech_ls, hang_lech, moc = [], [], None
+    if bo_nho:
+        gcs = dict(lich_su)
+        ngay_chung = [d for d in sorted(bo_nho["gia"]) if d in gcs][-21:]
+        moc = next((d for d in ngay_chung if bo_nho["kl"].get(d, 0) >= C.MIN_KHOI_LUONG), None)
+        for d in [d for d in ngay_chung if moc and d >= moc]:
+            P0, S0, Pd, Sd = bo_nho["gia"][moc], gcs[moc], bo_nho["gia"][d], gcs[d]
+            lech, _ = C.lech_theo_cs(
+                P0, S0, date.fromisoformat(moc), Pd, Sd, date.fromisoformat(d), K, ty_le, ngay_dao_han, r
+            )
+            if not math.isnan(lech):
+                lech_ls.append([d, round(lech * 100, 1)])
+                hang_lech.append((d, Sd / S0 - 1, Pd / P0 - 1, Pd / (1 + lech) / P0 - 1, lech))
+    nguong_lech = danh_muc.CANH_BAO_LECH * 100
+    mau_bang = hang_lech[:: max(len(hang_lech) // 4, 1)][:4] + hang_lech[-1:] if hang_lech else []
+    phan.append(
+        f'<section class="the"><h2>{ESC(ma)} có theo kịp {ESC(cs)} không?</h2>'
+        f'<p class="phu">Lệch = giá CW thực tế so với giá "lẽ ra" nếu CW giữ nguyên mức IV của ngày mốc và chỉ chạy theo giá {ESC(cs)} '
+        f"(đã gồm đòn bẩy và mất giá theo thời gian). Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. "
+        f"Trong khoảng ±{so(nguong_lech, 0)}% là bình thường. Mốc: "
+        + (
+            f"{moc[8:]}/{moc[5:7]}/{moc[:4]} (phiên đầu tiên trong 20 phiên gần nhất khớp ≥ {so(C.MIN_KHOI_LUONG)} CW).</p>"
+            if moc
+            else "—.</p>"
+        )
+        + (
+            bieu_do(
+                lech_ls,
+                [
+                    (f"−{so(nguong_lech, 0)}%", -nguong_lech, "tc-hoa-von"),
+                    ("0%", 0, "tc-thuc-hien"),
+                    (f"+{so(nguong_lech, 0)}%", nguong_lech, "tc-hoa-von"),
+                ],
+                f"Lệch của {ma}",
+                "%",
+                "Lệch (%)",
+            )
+            + '<div class="cuon"><table style="max-width:640px"><thead><tr><th>Ngày</th>'
+            f'<th class="so">{ESC(cs)}</th><th class="so">CW thực tế</th><th class="so">CW lẽ ra</th><th class="so">Lệch</th></tr></thead><tbody>'
+            + "".join(
+                f'<tr><td>{d[8:]}/{d[5:7]}</td><td class="so">{so(a * 100, 1, True)}%</td><td class="so">{so(b * 100, 1, True)}%</td>'
+                f'<td class="so">{so(c * 100, 1, True)}%</td><td class="so {"am" if e <= -danh_muc.CANH_BAO_LECH else ""}">'
+                f"<b>{so(e * 100, 1, True)}%</b></td></tr>"
+                for d, a, b, c, e in mau_bang
+            )
+            + "</tbody></table></div>"
+            if len(lech_ls) >= 2
+            else f'<p>{loi_iv or "Chưa đủ dữ liệu (cần ít nhất 2 phiên có giao dịch đủ thanh khoản)."}</p>'
         )
         + "</section>"
     )
