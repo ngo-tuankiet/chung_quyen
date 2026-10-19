@@ -291,6 +291,44 @@ def test_trang_danh_muc():
             assert D.FILE_DANH_MUC.read_text(encoding="utf-8") == "hỏng"  # không bị ghi đè
 
 
+def test_bao_cao_ngay():
+    # Vị thế lỗ 30,3% (giá vốn 1.001,5; bán được 700) -> có trong "Gần ngưỡng" và báo ĐÃ CHẠM cắt lỗ −30%
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(700, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
+    df = pd.DataFrame(
+        {
+            "Mã CW": ["CNEW2601", "CXXX2601"],
+            "Mã CS": ["VPB", "VPB"],
+            "TCPH": ["SSI", "SSI"],
+            "Mới": ["MỚI", ""],
+            "Ngày còn lại": [120, 90],
+            "Giá CS": [24000, 24000],
+            "Giá thực hiện": [22000, 23000],
+            "Tỷ lệ CĐ": [2.0, 2.0],
+            "Giá mua": [1200, 900],
+            "Giá hợp lý": [1300, 950],
+            "Đắt/rẻ %": [-7.7, -5.3],
+            "IV − HV": [-2.0, 1.0],
+            "CS tăng % để hòa vốn": [1.7, 3.3],
+            "Đòn bẩy": [8.5, float("nan")],
+            "Đánh giá": ["NÊN XEM XÉT", "THEO DÕI"],
+            "Cảnh báo": ["", ""],
+        }
+    )
+    bc = D.bao_cao_ngay(df, HOM_NAY, dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
+    # hòa vốn CNEW2601 = 22.000 + 1.200 × 2 = 24.400 đ (+1,7%), đòn bẩy 8,5x
+    assert (
+        "Hòa vốn 24.400 đ (VPB cần +1,7%) · đòn bẩy 8,5x" in bc
+        and "🆕" in bc
+        and "CXXX2601" not in bc.split("⭐")[0].split("🆕")[1]
+    )
+    assert (
+        "-30,3%" in bc and "ĐÃ CHẠM" in bc and "đã chốt +19.550 đ" in bc and "−303.250 đ" in bc
+    )  # (700 × 0,9975 − 1.001,5) × 1.000
+    tin = D.chia_tin(bc * 5, 500)
+    assert all(len(t) <= 500 for t in tin) and "\n".join(tin).replace("\n", "") == (bc * 5).replace("\n", "")
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

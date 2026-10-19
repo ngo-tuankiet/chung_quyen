@@ -3,13 +3,15 @@ danh_muc.py - Theo dõi danh mục CW đang nắm: lưu lệnh, tính vị thế
 cảnh báo (gần ngày GD cuối, cổ phiếu cơ sở gần giá thực hiện, chạm chốt lời/cắt lỗ, bất thường) và gửi Discord.
 
 Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 15 phút; ngoài giờ khớp lệnh thì thoát ngay, không gọi mạng)
-           python danh_muc.py --luon   (kiểm tra bất kể giờ: dùng sau lần quét 15:15)
+           python danh_muc.py --luon   (kiểm tra bất kể giờ: dùng sau lần quét 14:00)
+           python danh_muc.py --bao-cao (báo cáo tổng hợp ngày lên Discord)
 Lệnh lưu trong danh_muc.csv (không đưa lên git). Webhook Discord: DISCORD_WEBHOOK_URL trong .env.
 Chỉ gửi Discord khi một cảnh báo VỪA xuất hiện; cùng cảnh báo không gửi lại cho tới khi nó hết rồi xảy ra lần nữa.
 """
 
 import csv
 import json
+import math
 import re
 import shutil
 import sys
@@ -27,6 +29,8 @@ CAT_LO_MAC_DINH = 0.30  # báo khi lỗ nếu bán ngay ≥ 30%
 CANH_BAO_NGAY_GD_CUOI = 20  # báo khi còn ≤ 20 ngày (lịch) tới ngày giao dịch cuối
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
+GAN_NGUONG = 0.10  # báo cáo ngày: liệt kê vị thế còn cách ngưỡng chốt lời/cắt lỗ ≤ 10 điểm %
+SO_MA_NOI_BAT = 5  # báo cáo ngày: số mã "Nên xem xét" đưa vào
 URL_DISCORD_HOP_LE = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
 
 FILE_DANH_MUC = C.THU_MUC / "danh_muc.csv"
@@ -317,6 +321,123 @@ def noi_dung_discord(moi, luc):
     return f"**Cảnh báo danh mục CW** ({luc:%H:%M %d/%m})\n" + "\n".join(f"⚠ **{ma}**: {nd}" for ma, _, nd in moi)
 
 
+def chia_tin(noi_dung, toi_da=1900):
+    """Discord nhận tối đa 2.000 ký tự/tin: cắt theo dòng thành nhiều tin."""
+    tin, cur = [], ""
+    for dong in noi_dung.split("\n"):
+        if cur and len(cur) + len(dong) + 1 > toi_da:
+            tin.append(cur)
+            cur = ""
+        cur = f"{cur}\n{dong}" if cur else dong[:toi_da]
+    return tin + [cur] if cur else tin
+
+
+def _x(x):
+    """8.52 -> '8,5x' (đòn bẩy); thiếu số liệu -> '—'."""
+    return f"{x:.1f}x".replace(".", ",") if not math.isnan(x) else "—"
+
+
+def _dong_cw(h):
+    """1 CW trong báo cáo: giá, % so với giá hợp lý, IV − HV, hòa vốn, đòn bẩy."""
+    hoa_von = h["Giá thực hiện"] + h["Giá mua"] * h["Tỷ lệ CĐ"]
+    return (
+        f"• **{h['Mã CW']}** ({h['Mã CS']} {so(h['Giá CS'])} đ, {h['TCPH']}, còn {h['Ngày còn lại']} ngày)\n"
+        f"   Giá mua {so(h['Giá mua'])} đ · hợp lý {so(h['Giá hợp lý'])} đ ({pt(h['Đắt/rẻ %'] / 100, 1)}) · "
+        f"IV − HV {pt(h['IV − HV'] / 100, 1).rstrip('%')} điểm\n"
+        f"   Hòa vốn {so(hoa_von)} đ ({h['Mã CS']} cần {pt(h['CS tăng % để hòa vốn'] / 100, 1)}) · đòn bẩy {_x(h['Đòn bẩy'])}"
+    )
+
+
+def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
+    """Nội dung báo cáo tổng hợp hằng ngày (dùng riêng, có số tiền)."""
+    phan = [
+        f"📊 **Báo cáo CW {luc:%H:%M %d/%m/%Y}** – quét {ngay_quet:%d/%m}: "
+        + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items())
+    ]
+    # 1. Danh mục
+    phan.append("\n💼 **Danh mục**")
+    co_gia = [d for d in dong if d.get("co_gia")]
+    if not dong:
+        phan.append("Chưa có lệnh nào (nhập ở trang 💼 Danh mục).")
+    for d in dong:
+        if not d.get("co_gia"):
+            phan.append(
+                f"• **{d['ma']}**: {so(d['so_luong'])} CW, giá vốn {so(d['gia_von'])} đ – không có giá trực tiếp"
+            )
+            continue
+        phan.append(
+            f"• **{d['ma']}**: {so(d['so_luong'])} CW · vốn {so(d['gia_von'])} → bán được {so(d['gia_ban'])} đ: "
+            f"**{pt(d['lai_pct'], 1)}** ({'+' if d['lai'] >= 0 else '−'}{so(abs(d['lai']))} đ)\n"
+            f"   {d['cs']} {so(d['S'])} / giá TH {so(d['K'])} ({pt(d['cach_K'], 1)}) · "
+            f"còn {d['con_ngay']} ngày tới ngày GD cuối · đòn bẩy {_x(d['don_bay'])}"
+        )
+    if co_gia:
+        von = sum(d["so_luong"] * d["gia_von"] for d in co_gia)
+        lai = sum(d["lai"] for d in co_gia)
+        phan.append(
+            f"Tổng: vốn {so(von)} đ · nếu bán hết ngay {'+' if lai >= 0 else '−'}{so(abs(lai))} đ ({pt(lai / von, 1)})"
+            f" · đã chốt {'+' if lai_da_chot >= 0 else '−'}{so(abs(lai_da_chot))} đ"
+        )
+    # 2. Gần ngưỡng chốt lời / cắt lỗ
+    gan = [d for d in co_gia if d["lai_pct"] >= d["chot_loi"] - GAN_NGUONG or d["lai_pct"] <= -d["cat_lo"] + GAN_NGUONG]
+    if gan:
+        phan.append("\n🎯 **Gần ngưỡng chốt lời / cắt lỗ**")
+        for d in gan:
+            loai, nguong = ("chốt lời", d["chot_loi"]) if d["lai_pct"] > 0 else ("cắt lỗ", -d["cat_lo"])
+            phan.append(
+                f"• **{d['ma']}** {pt(d['lai_pct'], 1)} – ngưỡng {loai} {pt(nguong)}, "
+                + (
+                    "ĐÃ CHẠM"
+                    if abs(d["lai_pct"]) >= abs(nguong)
+                    else f"còn {pt(abs(nguong) - abs(d['lai_pct']), 1, False)}"
+                )
+            )
+    # 3. Cảnh báo
+    if canh_bao:
+        phan.append("\n⚠ **Cảnh báo**")
+        phan += [f"• **{m}**: {nd}" for m, _, nd in canh_bao]
+    # 4. CW mới phát hành, định giá tốt
+    moi = df[(df["Mới"] == "MỚI") & (df["IV − HV"] <= C.MAX_IV_TRU_HV * 100)] if "Mới" in df else df.iloc[0:0]
+    phan.append("\n🆕 **CW mới phát hành, định giá tốt** (IV − HV ≤ " + pt(C.MAX_IV_TRU_HV, 0) + ")")
+    phan += [_dong_cw(h) for _, h in moi.iterrows()] or ["Hôm nay không có."]
+    # 5. Nên xem xét + IV bất thường
+    tot = df[df["Đánh giá"] == "NÊN XEM XÉT"].head(SO_MA_NOI_BAT)
+    phan.append(f"\n⭐ **Top {len(tot)} Nên xem xét**")
+    phan += [_dong_cw(h) for _, h in tot.iterrows()]
+    if "Cảnh báo" in df and (df["Cảnh báo"].fillna("") != "").any():
+        phan.append("\n❗ **IV bất thường**")
+        phan += [
+            f"• **{h['Mã CW']}**: {h['Cảnh báo'].split(':')[0]}"
+            for _, h in df[df["Cảnh báo"].fillna("") != ""].iterrows()
+        ]
+    return "\n".join(phan)
+
+
+def gui_bao_cao_ngay(luc=None):
+    """Lập và gửi báo cáo ngày lên Discord (sau lần quét theo lịch)."""
+    luc = luc or datetime.now()
+    from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import
+
+    df, ngay = doc_ket_qua()
+    if df is None:
+        print(f"{luc:%d/%m %H:%M} [!] Chưa có kết quả quét, không lập được báo cáo")
+        return
+    tat_ca = tinh_vi_the(doc_lenh())
+    vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
+    dong, canh_bao = [], []
+    if vt:
+        tt = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
+        dong, canh_bao, _ = danh_gia_danh_muc(vt, tai_bang_gia(list(vt), df), df, luc.date(), tt.get("kl_niem_yet", {}))
+    url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
+    if not url:
+        print(f"{luc:%d/%m %H:%M} [!] Chưa có DISCORD_WEBHOOK_URL trong .env, không gửi báo cáo")
+        return
+    tin = chia_tin(bao_cao_ngay(df, ngay, dong, canh_bao, sum(v["lai_da_chot"] for v in tat_ca.values()), luc))
+    for t in tin:
+        gui_discord(t, url)
+    print(f"{luc:%d/%m %H:%M} Đã gửi báo cáo ngày ({len(tin)} tin)")
+
+
 def trong_gio_khop_lenh(luc):
     return luc.weekday() < 5 and any(a <= luc.time() <= b for a, b in GIO_KHOP_LENH)
 
@@ -355,4 +476,7 @@ def kiem_tra(luon=False, luc=None):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    kiem_tra(luon="--luon" in sys.argv)
+    if "--bao-cao" in sys.argv:
+        gui_bao_cao_ngay()
+    else:
+        kiem_tra(luon="--luon" in sys.argv)

@@ -265,11 +265,11 @@ CTCB2619   TCB           121     980        1068      -8.2                   5.2
 
 ## Phần 5. Tự động hóa
 
-Thị trường đóng cửa 14:45, nên đặt chạy **15:15 từ thứ Hai đến thứ Sáu**. Chương trình dùng đường dẫn tuyệt đối nên chạy từ đâu cũng được.
+Thị trường đóng cửa 14:45, nên đặt chạy **14:00 từ thứ Hai đến thứ Sáu**. Chương trình dùng đường dẫn tuyệt đối nên chạy từ đâu cũng được.
 
 ### Windows — Task Scheduler
 1. Mở **Task Scheduler** → **Create Basic Task** → đặt tên "Quet CW".
-2. Trigger: **Weekly**, tick Mon–Fri, giờ 15:15.
+2. Trigger: **Weekly**, tick Mon–Fri, giờ 14:00.
 3. Action: **Start a program**
    - Program: `C:\duong_dan\cw_scanner\.venv\Scripts\python.exe`
    - Arguments: `cw_scanner.py`
@@ -281,7 +281,7 @@ Thị trường đóng cửa 14:45, nên đặt chạy **15:15 từ thứ Hai đ
 ```bash
 bash ~/cw_scanner/cai_lich_quet.sh
 ```
-- Quét lúc 15:15 thứ Hai–Sáu theo giờ của máy (đặt máy về giờ Việt Nam). Máy ngủ lúc 15:15 thì launchd chạy bù khi máy thức dậy.
+- Quét lúc 14:00 thứ Hai–Sáu theo giờ của máy (trước phiên ATC: giá trong phiên, chưa phải giá đóng cửa) (đặt máy về giờ Việt Nam). Máy ngủ lúc 14:00 thì launchd chạy bù khi máy thức dậy.
 - Mỗi lần chạy `chay_quet_tu_dong.sh` quét xong thì sao lưu `ket_qua/` và `cw_da_biet.txt` sang `~/cw_scanner_sao_luu/` (không bao giờ xóa bản cũ).
 - Nhật ký trong `log.txt`. Ngày lễ vẫn chạy (bảng giá giữ phiên gần nhất) - không ảnh hưởng.
 - Gỡ lịch: `bash ~/cw_scanner/cai_lich_quet.sh go`.
@@ -300,7 +300,7 @@ Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scann
 2. Tạo webhook: Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, dán vào `.env`:
    `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` (xem `.env.example`). Không có dòng này thì cảnh báo chỉ hiện trên web.
 3. `bash ~/cw_scanner/cai_lich_quet.sh` cài cả lịch kiểm tra danh mục **mỗi 15 phút** (chỉ trong giờ khớp lệnh 9:15–11:30, 13:00–14:45 thứ Hai–Sáu,
-   ngoài giờ thoát ngay, không gọi mạng) và một lần sau lần quét 15:15.
+   ngoài giờ thoát ngay, không gọi mạng) và một lần sau lần quét 14:00.
 
 Cảnh báo (ngưỡng ở đầu `danh_muc.py`): còn ≤ 20 ngày tới ngày giao dịch cuối; cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% hoặc đã dưới;
 lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng lệnh mua); sổ lệnh không có giá chờ mua; IV < 50% trung vị CW cùng mã;

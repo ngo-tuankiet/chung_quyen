@@ -1,12 +1,13 @@
 #!/bin/bash
-# launchd gọi file này 15:15 thứ Hai–Sáu (cài bằng: bash cai_lich_quet.sh). Quét CW rồi sao lưu ket_qua/; nhật ký nằm trong log.txt.
+# launchd gọi file này 14:00 thứ Hai–Sáu (cài bằng: bash cai_lich_quet.sh). Quét CW rồi sao lưu ket_qua/; nhật ký nằm trong log.txt.
 cd "$(dirname "$0")" || exit 1
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') ====="
 # Python tải từ python.org trên Mac không dùng chứng chỉ của hệ thống -> chỉ cho nó bộ chứng chỉ certifi (giống chay_web.command)
 export SSL_CERT_FILE="$(.venv/bin/python -m certifi)"
 .venv/bin/python cw_scanner.py
 ma_loi=$?
-.venv/bin/python danh_muc.py --luon  # kiểm tra danh mục theo giá đóng cửa; có cảnh báo mới thì gửi Discord
+.venv/bin/python danh_muc.py --luon  # cảnh báo danh mục vừa xuất hiện -> Discord
+.venv/bin/python danh_muc.py --bao-cao  # báo cáo tổng hợp ngày -> Discord
 # Sao lưu cả khi quét lỗi (giữ bản các ngày trước). Không dùng --delete: không bao giờ xóa bản sao lưu cũ.
 # Không đặt trong ~/Documents, ~/Downloads, ~/Desktop: macOS chặn tác vụ chạy nền đọc/ghi các thư mục đó ("Operation not permitted")
 SAO_LUU="$HOME/cw_scanner_sao_luu"
