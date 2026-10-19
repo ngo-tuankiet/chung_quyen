@@ -343,7 +343,7 @@ def main():
     if api_key:
         try:
             print(f"Đăng nhập vnstock: gói {login(api_key).get('tier')}")
-        except Exception as e:  # key sai, hết hạn, quá số thiết bị...: vẫn quét tiếp ở gói Khách
+        except Exception as e:  # key sai, hết hạn, quá số thiết bị...: vẫn quét tiếp ở gói Khách  # noqa: BLE001
             print(f"  [!] Không đăng nhập được vnstock: {e}\n  -> quét tiếp bằng gói Khách.")
     else:
         print("Chưa có VNSTOCK_API_KEY trong file .env -> dùng gói Khách (10 lượt gọi/phút).")
@@ -367,7 +367,7 @@ def main():
             lich_su[ma] = [[ngay, round(gia * he_so)] for ngay, gia in ls]
             # chỉ ghi nhận sigma khi mọi bước trên đã xong: mã lỗi thật sự bị bỏ qua (trước đây sigma NaN vẫn được dùng -> sập cả lần quét)
             sigma[ma], so_phien[ma] = s, n
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
             print(f"  [!] Không lấy được lịch sử giá {ma} (các CW của mã này bị bỏ qua): {e}")
 
     # Bước 6a: CW mới = chưa có trong danh sách đã lưu (lần chạy đầu tiên chỉ lưu, không đánh dấu)
@@ -420,7 +420,7 @@ def main():
         du_lieu_hose = tai_du_lieu_hose_cw()
         (THU_MUC_KET_QUA / f"sap_ra_mat_{hom_nay}.json").write_text(json.dumps(du_lieu_hose, ensure_ascii=False), encoding="utf-8")
         print(f"Đã lưu danh sách {len(doc_cw_sap_ra_mat(du_lieu_hose))} CW được HOSE chấp thuận (để xem CW sắp ra mắt).")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
         print(f"  [!] Không tải được danh sách CW sắp ra mắt từ HOSE (không ảnh hưởng kết quả quét): {e}")
     FILE_CW_DA_BIET.write_text("\n".join(sorted(da_biet | set(ma_cw))), encoding="utf-8")
 

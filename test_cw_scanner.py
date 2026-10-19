@@ -3,16 +3,32 @@ import contextlib
 import io
 import math
 import re
+import subprocess
+import sys
 import tempfile
 from datetime import date, timedelta
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 
 import pandas as pd
 
 import cw_scanner
-from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
-                        gia_mua, lich_su_iv, mo_phong_gia, rui_ro_theo_tien, so_iv_cung_ma, tong_kl)
+from cw_scanner import (
+    bien_dong_ngam_dinh,
+    black_scholes_call,
+    can_duoi,
+    danh_gia,
+    dinh_gia,
+    doc_cw_sap_ra_mat,
+    doc_env,
+    doc_ty_le,
+    gia_mua,
+    lich_su_iv,
+    mo_phong_gia,
+    rui_ro_theo_tien,
+    so_iv_cung_ma,
+    tong_kl,
+)
 
 # Sổ lệnh mẫu (CVPB2615 cuối phiên 16/10/2026, mức thứ 3 thiếu khối lượng)
 SO_LENH = {"askPrices": [{"price": 1250, "volume": 30300}, {"price": 1260, "volume": 30000}, {"price": 1290, "volume": None}]}
@@ -113,6 +129,17 @@ def test_doc_ghi_file_luon_co_encoding():
                 assert "encoding=" in dong, f"{ten}:{so_dong} thiếu encoding"
 
 
+def test_cu_phap_chay_duoc_tu_python_310():
+    # Script cài đặt nhận Python 3.10+: cú pháp chỉ có từ 3.12 (vd f-string lồng nhau dùng lại cùng dấu nháy) làm web.py
+    # không khởi động được trên 3.10/3.11. Python mới hơn không tự bắt được -> dùng ruff với target 3.10.
+    ruff = Path(sys.executable).with_name("ruff")
+    if not ruff.exists():  # chưa cài công cụ dev (requirements-dev.txt): bỏ qua
+        return
+    tep = [str(f) for f in Path(__file__).parent.glob("*.py")]
+    kq = subprocess.run([str(ruff), "check", "--target-version", "py310", "--select", "F821", *tep], capture_output=True, text=True, check=False)  # tự đọc kết quả bên dưới
+    assert "invalid-syntax" not in kq.stdout, kq.stdout
+
+
 def test_ly_do_dinh_dang_so_viet_nam():
     assert danh_gia(120, -0.05, 0.08, 5_700)[1] == "ít giao dịch (5.700 CW)"
 
@@ -137,7 +164,7 @@ def test_main_bo_qua_ma_khong_co_lich_su():
                                  "close": [21 + (i % 3) * 0.3 for i in range(30)]})  # nghìn đồng như vnstock
 
     with tempfile.TemporaryDirectory() as tmp, mock.patch.multiple(
-            cw_scanner, doc_env=lambda: {}, Quote=Quote, lay_bang_gia=lambda ds, cho=30: {m: bang[m] for m in ds},
+            cw_scanner, doc_env=dict, Quote=Quote, lay_bang_gia=lambda ds, cho=30: {m: bang[m] for m in ds},
             Listing=lambda source: mock.Mock(all_covered_warrant=lambda: ["CAAA2601", "CBBB2601"]),
             tai_du_lieu_hose_cw=lambda **_: {"data": {"list": []}},
             THU_MUC_KET_QUA=Path(tmp), FILE_CW_DA_BIET=Path(tmp) / "cw_da_biet.txt"), \

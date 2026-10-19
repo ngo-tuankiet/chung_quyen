@@ -1,0 +1,14 @@
+# Chỉ cấu hình công cụ kiểm tra code (dự án không đóng gói thành thư viện). Chạy: xem KE_HOACH.md, mục "Dành cho người sửa code".
+
+[tool.black]
+line-length = 120  # code có nhiều chuỗi HTML dài mà black không cắt được; 88 chỉ làm vỡ vụn phần còn lại
+target-version = ["py310"]  # script cài đặt nhận Python 3.10 trở lên
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# bộ luật mặc định (lỗi cú pháp, tên chưa định nghĩa, import thừa, so sánh sai kiểu...);
+# E731 (cấm gán lambda vào biến): dự án dùng lambda ngắn có chủ đích, đổi sang def chỉ làm code dài thêm
+ignore = ["E731"]

@@ -212,8 +212,8 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc):
         if canh_bao_iv:
             canh_bao.append((ma, "iv_bat_thuong", canh_bao_iv.split(":")[0]))
         if kl_truoc.get(ma) and kl_moi[ma] > kl_truoc[ma]:
-            canh_bao.append((ma, "phat_hanh_them", f"khối lượng niêm yết tăng {pt(kl_moi[ma] / kl_truoc[ma] - 1)}: "
-                                                   "tổ chức phát hành bán thêm, giá dễ bị ép xuống"))
+            canh_bao.append((ma, "phat_hanh_them", (f"khối lượng niêm yết tăng {pt(kl_moi[ma] / kl_truoc[ma] - 1)}: "
+                                                   "tổ chức phát hành bán thêm, giá dễ bị ép xuống")))
     return dong, canh_bao, kl_moi
 
 

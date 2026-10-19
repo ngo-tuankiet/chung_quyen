@@ -14,8 +14,8 @@ import math
 import re
 import webbrowser
 from datetime import date, datetime, timedelta
-from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 import pandas as pd
 
@@ -37,15 +37,15 @@ COT = [
     ("Mã CS", "", "Mã cổ phiếu cơ sở - cổ phiếu mà chứng quyền dựa vào."),
     ("TCPH", "", "Tổ chức phát hành (công ty chứng khoán). Đây cũng là bên đặt giá mua/bán CW trên sàn."),
     ("Còn (ngày)", "so", "Số ngày còn lại đến ngày đáo hạn. Càng ít ngày, CW mất giá theo thời gian càng nhanh."),
-    ("Giá mua", "so", "Giá thấp nhất đang chào bán trong sổ lệnh lúc quét (đồng/CW) - giá bạn phải trả nếu mua ngay. "
-     "Sổ lệnh trống thì dùng giá khớp gần nhất (ghi “khớp”) hoặc giá tham chiếu (ghi “TC”). Mọi chỉ số định giá đều tính theo giá này."),
+    ("Giá mua", "so", ("Giá thấp nhất đang chào bán trong sổ lệnh lúc quét (đồng/CW) - giá bạn phải trả nếu mua ngay. "
+     "Sổ lệnh trống thì dùng giá khớp gần nhất (ghi “khớp”) hoặc giá tham chiếu (ghi “TC”). Mọi chỉ số định giá đều tính theo giá này.")),
     ("Giá hợp lý", "so", "Giá 1 CW tính bằng công thức Black-Scholes từ giá cổ phiếu, giá thực hiện, thời gian còn lại và mức dao động của cổ phiếu 1 năm qua."),
-    ("So với giá hợp lý", "so", "Rẻ = giá mua thấp hơn giá hợp lý (có lợi cho người mua). Đắt = cao hơn giá hợp lý. "
-     "Chỉ để tham khảo: tiêu chí chấm điểm dùng cột IV − HV."),
+    ("So với giá hợp lý", "so", ("Rẻ = giá mua thấp hơn giá hợp lý (có lợi cho người mua). Đắt = cao hơn giá hợp lý. "
+     "Chỉ để tham khảo: tiêu chí chấm điểm dùng cột IV − HV.")),
     ("IV", "so", "Biến động ngầm định (%/năm): mức dao động của cổ phiếu cơ sở mà giá mua CW đang “giả định”."),
-    ("IV − HV", "so", "IV trừ biến động lịch sử 1 năm (HV), tính bằng điểm %. Âm = giá CW đang giả định cổ phiếu dao động ít hơn 1 năm qua (rẻ), "
+    ("IV − HV", "so", ("IV trừ biến động lịch sử 1 năm (HV), tính bằng điểm %. Âm = giá CW đang giả định cổ phiếu dao động ít hơn 1 năm qua (rẻ), "
      f"dương = nhiều hơn (đắt). Dùng để so sánh các CW với nhau, kể cả CW ở xa giá thực hiện. Tiêu chí: ≤ {cw_scanner.MAX_IV_TRU_HV * 100:+.0f} điểm. "
-     "“—” = không giải được (rê chuột lên ô để xem lý do)."),
+     "“—” = không giải được (rê chuột lên ô để xem lý do).")),
     ("CS cần tăng để hòa vốn", "so", "Cổ phiếu cơ sở phải tăng bấy nhiêu % tính đến ngày đáo hạn thì bạn mới hòa vốn (tính theo giá mua). Số càng nhỏ càng dễ có lãi."),
     ("Đòn bẩy", "so", "Cổ phiếu tăng (hoặc giảm) 1% thì CW tăng (hoặc giảm) khoảng bấy nhiêu %. Đòn bẩy cao: lãi nhanh nhưng lỗ cũng nhanh."),
     ("Delta", "so", "Từ 0 đến 1: cổ phiếu tăng 1 đ thì giá trị quyền trên 1 cổ phiếu tăng bấy nhiêu đ. Gần 1: CW bám sát cổ phiếu; gần 0: gần như không phản ứng."),
@@ -317,11 +317,11 @@ def trang_chinh():
     df, ngay = doc_ket_qua()
     co_key = bool(cw_scanner.doc_env().get("VNSTOCK_API_KEY"))
     phan = [
-        '<div class="dau-trang"><div><h1>Quét chứng quyền</h1>'
+        ('<div class="dau-trang"><div><h1>Quét chứng quyền</h1>'
         f'<p class="phu">{f"Dữ liệu ngày {ngay:%d/%m/%Y} · {len(df)} CW · định giá bằng Black-Scholes" if ngay else "Chưa có dữ liệu"}'
         f' · API key vnstock: {"đã nhập ✓" if co_key else "<b>chưa nhập</b> (mở file .env để điền)"}</p></div>'
         '<form method="post" action="/quet" onsubmit="this.nut.disabled = true; this.nut.textContent = \'Đang quét... (1-3 phút)\';">'
-        '<button class="nut" name="nut">Quét ngay</button></form></div>'
+        '<button class="nut" name="nut">Quét ngay</button></form></div>')
     ]
     if LOI:
         phan.append(f'<p class="loi" role="alert">{ESC(LOI)}</p>')
@@ -412,7 +412,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         bang_gia = C.lay_bang_gia([ma, cs], cho=5)
         niem_yet, khop, so_lenh = bang_gia[ma]
         S_truc_tiep = C.gia_hien_tai(*bang_gia[cs])
-    except Exception as e:  # mất mạng / máy chủ lỗi / thiếu mã: dùng đúng số lúc quét và báo rõ trên trang
+    except Exception as e:  # mất mạng / máy chủ lỗi / thiếu mã: dùng đúng số lúc quét và báo rõ trên trang  # noqa: BLE001
         so_lenh, ngay_tinh, truc_tiep = {}, ngay, False
         nguon = f"KHÔNG tải được giá trực tiếp ({ESC(str(e)[:120])}), đang dùng số liệu lúc quét ngày {ngay:%d/%m/%Y}"
     else:
@@ -532,19 +532,19 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         gia_cw_tinh, mo_phong = (nhan - tra) / ty_le, C.mo_phong_gia(S, K, T, r, sigma_ls) / ty_le
         c = ESC(cs)
         buoc = [
-            ("Thu thập 5 con số", f"Giá {c} hôm nay <b>S = {so(S)} đ</b> · giá thực hiện <b>K = {so(K)} đ</b> · còn <b>{ngay_con_lai} ngày = {so(T, 3)} năm</b>"
-             f" · {c} dao động khoảng <b>σ = {so(sigma_ls * 100, 1)}%/năm</b> (đo từ giá 1 năm qua) · lãi suất <b>r = {so(r * 100, 1)}%/năm</b>."),
-            ("Giá đang cách giá thực hiện bao xa?", f"ln(S ÷ K) = ln({so(S)} ÷ {so(K)}) = <b>{so(kc, 3)}</b> → giá {c} đang "
-             f"{'cao' if kc >= 0 else 'thấp'} hơn giá thực hiện khoảng <b>{so(abs(kc) * 100, 1)}%</b>."),
-            ("Từ nay đến ngày đáo hạn, giá thường dao động bao nhiêu?", f"σ × √T = {so(sigma_ls * 100, 1)}% × √{so(T, 3)} = <b>{so(bdd * 100, 1)}%</b>"
-             f" → trong {ngay_con_lai} ngày tới, giá {c} thường lên/xuống trong khoảng <b>±{so(bdd * 100, 0)}%</b>."),
-            ("Đổi khoảng cách thành “số bước dao động”", f"d1 = (khoảng cách + một chút cho lãi suất và dao động) ÷ biên độ = ({so(kc, 3)} + "
+            ("Thu thập 5 con số", (f"Giá {c} hôm nay <b>S = {so(S)} đ</b> · giá thực hiện <b>K = {so(K)} đ</b> · còn <b>{ngay_con_lai} ngày = {so(T, 3)} năm</b>"
+             f" · {c} dao động khoảng <b>σ = {so(sigma_ls * 100, 1)}%/năm</b> (đo từ giá 1 năm qua) · lãi suất <b>r = {so(r * 100, 1)}%/năm</b>.")),
+            ("Giá đang cách giá thực hiện bao xa?", (f"ln(S ÷ K) = ln({so(S)} ÷ {so(K)}) = <b>{so(kc, 3)}</b> → giá {c} đang "
+             f"{'cao' if kc >= 0 else 'thấp'} hơn giá thực hiện khoảng <b>{so(abs(kc) * 100, 1)}%</b>.")),
+            ("Từ nay đến ngày đáo hạn, giá thường dao động bao nhiêu?", (f"σ × √T = {so(sigma_ls * 100, 1)}% × √{so(T, 3)} = <b>{so(bdd * 100, 1)}%</b>"
+             f" → trong {ngay_con_lai} ngày tới, giá {c} thường lên/xuống trong khoảng <b>±{so(bdd * 100, 0)}%</b>.")),
+            ("Đổi khoảng cách thành “số bước dao động”", (f"d1 = (khoảng cách + một chút cho lãi suất và dao động) ÷ biên độ = ({so(kc, 3)} + "
              f"{so((r + sigma_ls**2 / 2) * T, 3)}) ÷ {so(bdd, 3)} = <b>{so(d1, 2)}</b> · d2 = d1 − biên độ = <b>{so(d2, 2)}</b>."
-             f" Hiểu đơn giản: giá đang {'trên' if d2 >= 0 else 'dưới'} giá thực hiện khoảng {so(abs(d2), 1)} bước dao động."),
-            ("Đổi “số bước” thành xác suất", f"Tra bảng phân phối chuẩn (Excel: hàm NORM.S.DIST): <b>N(d2) = {so(N(d2) * 100, 0)}%</b> = khả năng tới ngày đáo hạn "
-             f"giá {c} vẫn trên {so(K)} đ (theo mô hình) · <b>N(d1) = {so(N(d1) * 100, 0)}%</b> – đây chính là <b>delta = {so(N(d1), 2)}</b>."),
-            ("Ráp vào công thức", f"Giá 1 quyền chọn = <b>phần nhận được − phần phải trả</b> = S × N(d1) − K × e<sup>−rT</sup> × N(d2) = "
-             f"{so(S)} × {so(N(d1), 3)} − {so(K)} × {so(ck, 3)} × {so(N(d2), 3)} = {so(nhan)} − {so(tra)} = <b>{so(nhan - tra)} đ</b> (cho 1 cổ phiếu)."),
+             f" Hiểu đơn giản: giá đang {'trên' if d2 >= 0 else 'dưới'} giá thực hiện khoảng {so(abs(d2), 1)} bước dao động.")),
+            ("Đổi “số bước” thành xác suất", (f"Tra bảng phân phối chuẩn (Excel: hàm NORM.S.DIST): <b>N(d2) = {so(N(d2) * 100, 0)}%</b> = khả năng tới ngày đáo hạn "
+             f"giá {c} vẫn trên {so(K)} đ (theo mô hình) · <b>N(d1) = {so(N(d1) * 100, 0)}%</b> – đây chính là <b>delta = {so(N(d1), 2)}</b>.")),
+            ("Ráp vào công thức", (f"Giá 1 quyền chọn = <b>phần nhận được − phần phải trả</b> = S × N(d1) − K × e<sup>−rT</sup> × N(d2) = "
+             f"{so(S)} × {so(N(d1), 3)} − {so(K)} × {so(ck, 3)} × {so(N(d2), 3)} = {so(nhan)} − {so(tra)} = <b>{so(nhan - tra)} đ</b> (cho 1 cổ phiếu).")),
             ("Chia cho tỷ lệ chuyển đổi", f"{so(nhan - tra)} ÷ {so(ty_le, 4)} = <b>{so(gia_cw_tinh)} đ / 1 CW</b>. Giá mua là {so(P)} đ → <b>{chu_dat_re}</b> so với giá hợp lý."
              + (f" <small class='phu'>(Bảng ghi {so(h['Giá hợp lý'])} đ: chênh vài đồng do mức dao động hiển thị đã làm tròn.)</small>"
                 if round(gia_cw_tinh) != int(h["Giá hợp lý"]) else "")),
@@ -617,7 +617,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
             gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
             iv_ls = BO_NHO_IV[(ma, date.today())] = C.lich_su_iv(gia_cw, dict(lich_su), K, ty_le, ngay_dao_han, r)
-        except Exception as e:  # lỗi mạng / hết lượt gọi: chỉ mục này không có biểu đồ, phần còn lại của trang vẫn dùng được
+        except Exception as e:  # lỗi mạng / hết lượt gọi: chỉ mục này không có biểu đồ, phần còn lại của trang vẫn dùng được  # noqa: BLE001
             loi_iv = f"Chưa tải được lịch sử giá {ESC(ma)} ({ESC(str(e)[:120])}). Mở lại trang sau ít phút."
     duong_ke_iv = [("HV 1 năm", sigma_ls * 100, "tc-thuc-hien")] + (
         [("Trung vị cùng mã", tv_cung_ma, "tc-hoa-von")] if math.isfinite(tv_cung_ma) else [])
@@ -668,8 +668,8 @@ def trang_sap_ra_mat(tai_moi=False):
     """CW đã được HOSE chấp thuận niêm yết nhưng chưa giao dịch, kèm giá hợp lý dự kiến để so sánh khi lên sàn."""
     C = cw_scanner
     df, ngay = doc_ket_qua()
-    phan = ['<div class="dau-trang"><div><h1>Chứng quyền sắp ra mắt</h1><p class="phu">Các CW đã được HOSE chấp thuận niêm yết '
-            'nhưng <b>chưa giao dịch</b>. Mã CW (ví dụ CVPB26xx) sẽ có khi lên sàn.</p></div></div>']
+    phan = [('<div class="dau-trang"><div><h1>Chứng quyền sắp ra mắt</h1><p class="phu">Các CW đã được HOSE chấp thuận niêm yết '
+            'nhưng <b>chưa giao dịch</b>. Mã CW (ví dụ CVPB26xx) sẽ có khi lên sàn.</p></div></div>')]
     luu = sorted(C.THU_MUC_KET_QUA.glob("sap_ra_mat_*.json"))
     tai_lai = ' · <a href="/sap-ra-mat?tai_moi=1">tải lại trực tiếp từ HOSE</a> (có thể mất 10-40 giây)'
     try:
@@ -678,7 +678,7 @@ def trang_sap_ra_mat(tai_moi=False):
             ds, nguon = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text(encoding="utf-8"))), "hsx.vn, danh sách lưu lúc quét hôm nay" + tai_lai
         else:
             ds, nguon = C.doc_cw_sap_ra_mat(C.tai_du_lieu_hose_cw(cho=12)), "hsx.vn (Niêm yết mới → DS CW được chấp thuận chính thức), tải trực tiếp lúc mở trang"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - ranh giới gọi vnstock/mạng: lỗi được báo ra (nhật ký hoặc trên trang), không nuốt
         if not luu:
             phan.append(f'<p class="loi" role="alert">Không tải được danh sách từ HOSE ({ESC(str(e))}). Máy chủ HOSE có thể đang chậm, '
                         'hãy tải lại trang sau ít phút hoặc bấm Quét ngay ở trang chính.</p>')
@@ -703,9 +703,9 @@ def trang_sap_ra_mat(tai_moi=False):
         S = cs["Giá CS"] if cs else math.nan
         try:  # giá hợp lý dự kiến nếu CW lên sàn hôm nay, dùng giá & mức dao động của cổ phiếu cơ sở ở lần quét gần nhất
             gia_hl = C.black_scholes_call(S, K, con / 365, C.LAI_SUAT_PHI_RUI_RO, cs["Biến động %/năm"] / 100)[0] / C.doc_ty_le(x["ty_le"])
-        except Exception:
+        except (TypeError, ValueError, ZeroDivisionError):  # thiếu giá CS / giá thực hiện / tỷ lệ từ HOSE -> hiện "—"
             gia_hl = math.nan
-        lech = (K / S - 1) * 100 if K and S == S else math.nan
+        lech = (K / S - 1) * 100 if K and not math.isnan(S) else math.nan
         dong.append(
             f'<tr><td data-v="{x["ngay_chap_thuan"] or ""}">{ngay_ct}</td><td>{ESC(x["ten"].replace("Chứng quyền ", ""))}</td>'
             f'<td class="so" data-v="{dv(gia_hl)}"><b>{so(gia_hl)}</b></td>'
@@ -864,19 +864,19 @@ def trang_huong_dan():
         ("Nhật ký có dòng [!] … số thiết bị tối đa?", "Tài khoản vnstock của bạn đã dùng hết số máy được phép. Vào trang tài khoản trên vnstocks.com để gỡ thiết bị cũ. Trong lúc đó chương trình vẫn quét được, chỉ chậm hơn."),
         ("Dữ liệu được cập nhật khi nào?", "Mỗi lần bấm Quét ngay. Ngày của dữ liệu ghi ở đầu trang chính. Giá trong ngày thay đổi liên tục nên hãy quét lại trước khi đặt lệnh."),
         ("Chữ \"Mới\" cạnh mã CW là gì?", "CW chưa có ở lần quét trước, tức là mới niêm yết. Lần quét đầu tiên chưa đánh dấu mã nào."),
-        ("Xem các chứng quyền sắp ra mắt ở đâu?", "Bấm \"🆕 CW sắp ra mắt\" ở đầu trang. Đó là các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch, "
-         "kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. Danh sách tải trực tiếp từ HOSE; nếu HOSE chậm thì dùng danh sách lưu ở lần quét gần nhất."),
-        ("Xem số CW đã bán ra và còn lại ở đâu?", "Các nguồn dữ liệu miễn phí chỉ công bố tổng khối lượng phát hành, không công bố nhà đầu tư đang nắm bao nhiêu. "
+        ("Xem các chứng quyền sắp ra mắt ở đâu?", ("Bấm \"🆕 CW sắp ra mắt\" ở đầu trang. Đó là các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch, "
+         "kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. Danh sách tải trực tiếp từ HOSE; nếu HOSE chậm thì dùng danh sách lưu ở lần quét gần nhất.")),
+        ("Xem số CW đã bán ra và còn lại ở đâu?", ("Các nguồn dữ liệu miễn phí chỉ công bố tổng khối lượng phát hành, không công bố nhà đầu tư đang nắm bao nhiêu. "
          "Trang phân tích mỗi mã có mục \"Khối lượng CW\": khối lượng phát hành, số CW đang chào bán (lượng mua được ngay), đang chờ mua và sổ lệnh 3 mức giá, "
-         "tải trực tiếp lúc mở trang. Cột \"Đang chào bán\" trong bảng là số liệu lúc quét."),
-        ("Vì sao dùng giá chào bán (giá mua) chứ không dùng giá khớp?", "Muốn mua ngay, bạn phải trả giá thấp nhất đang chào bán, thường cao hơn giá khớp gần nhất "
+         "tải trực tiếp lúc mở trang. Cột \"Đang chào bán\" trong bảng là số liệu lúc quét.")),
+        ("Vì sao dùng giá chào bán (giá mua) chứ không dùng giá khớp?", ("Muốn mua ngay, bạn phải trả giá thấp nhất đang chào bán, thường cao hơn giá khớp gần nhất "
          "(có mã cao hơn hơn 10%). Định giá theo giá khớp có thể làm CW trông rẻ hơn thực tế. Khi sổ lệnh trống (trước giờ giao dịch), chương trình "
-         "dùng giá khớp hoặc giá tham chiếu và ghi chữ nhỏ \"khớp\" / \"TC\" cạnh giá."),
+         "dùng giá khớp hoặc giá tham chiếu và ghi chữ nhỏ \"khớp\" / \"TC\" cạnh giá.")),
         ("\"Đắt > 1.000%\" là sao?", "CW gần hết hạn và giá cổ phiếu còn quá xa giá thực hiện, nên giá hợp lý gần 0 đ. Gần như chắc chắn nên bỏ qua."),
         ("\"Giá hợp lý\" có chắc đúng không?", "Không. Nó dựa trên giả định mức dao động của cổ phiếu 1 năm qua sẽ lặp lại. Hãy coi nó là một ý kiến tham khảo, không phải sự thật."),
-        ("Theo dõi CW đang nắm ở đâu?", "Trang \"💼 Danh mục\": nhập lệnh mua/bán, xem lãi/lỗ nếu bán ngay, mức tiếp xúc với từng cổ phiếu cơ sở và "
+        ("Theo dõi CW đang nắm ở đâu?", ("Trang \"💼 Danh mục\": nhập lệnh mua/bán, xem lãi/lỗ nếu bán ngay, mức tiếp xúc với từng cổ phiếu cơ sở và "
          "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo được gửi lên Discord (chỉ mã, %, giá, lý do; không gửi số tiền) khi vừa xuất hiện: "
-         "còn ít ngày tới ngày giao dịch cuối, cổ phiếu gần giá thực hiện, chạm chốt lời/cắt lỗ, không ai đặt mua, IV bất thường, phát hành thêm."),
+         "còn ít ngày tới ngày giao dịch cuối, cổ phiếu gần giá thực hiện, chạm chốt lời/cắt lỗ, không ai đặt mua, IV bất thường, phát hành thêm.")),
         ("Tắt chương trình thế nào?", "Đóng cửa sổ Terminal (Mac) hoặc cửa sổ đen (Windows), hoặc nhấn Ctrl + C trong cửa sổ đó."),
     ]
     phan.append('<section class="the" id="hoi-dap"><h2>9. Câu hỏi thường gặp</h2>'
@@ -892,16 +892,16 @@ def trang_danh_muc():
     C, D = cw_scanner, danh_muc
     df, _ = doc_ket_qua()
     phi_thue = f"phí {so(C.PHI_GIAO_DICH * 100, 2)}% + thuế {so(C.THUE_BAN * 100, 1)}%"
-    phan = ['<div class="dau-trang"><div><h1>Danh mục của tôi</h1><p class="phu">Lệnh lưu trong file <code>danh_muc.csv</code> trên máy này '
+    phan = [('<div class="dau-trang"><div><h1>Danh mục của tôi</h1><p class="phu">Lệnh lưu trong file <code>danh_muc.csv</code> trên máy này '
             f'(không đưa lên git, sao lưu mỗi ngày cùng kết quả quét). Lãi/lỗ tính <b>nếu bán ngay</b> ở giá chờ mua tốt nhất, đã trừ {phi_thue}; '
-            'giá vốn bình quân đã gồm phí mua. Cảnh báo gửi Discord khi vừa xuất hiện (xem Hướng dẫn).</p></div></div>']
+            'giá vốn bình quân đã gồm phí mua. Cảnh báo gửi Discord khi vừa xuất hiện (xem Hướng dẫn).</p></div></div>')]
     if LOI_DANH_MUC:
         phan.append(f'<p class="loi" role="alert">{ESC(LOI_DANH_MUC)}</p>')
         LOI_DANH_MUC = ""
     try:
         ds = D.doc_lenh()
         tat_ca = D.tinh_vi_the(ds)
-    except Exception as e:  # file bị sửa tay sai định dạng: dừng lại, không ghi đè lên dữ liệu
+    except Exception as e:  # file bị sửa tay sai định dạng: dừng lại, không ghi đè lên dữ liệu  # noqa: BLE001
         phan.append(f'<p class="loi" role="alert">File danh_muc.csv bị lỗi, hãy sửa lại bằng tay (bản trước: danh_muc.csv.bak): {ESC(str(e))}</p>')
         return trang("Danh mục", "".join(phan), "/danh-muc")
     vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
@@ -911,7 +911,7 @@ def trang_danh_muc():
         try:
             bang_gia = D.tai_bang_gia(list(vt), df, cho=5)
             nguon = f"bảng giá Vietcap lúc {datetime.now():%H:%M %d/%m/%Y}"
-        except Exception as e:  # mất mạng: chỉ hiện số đang nắm và giá vốn
+        except Exception as e:  # mất mạng: chỉ hiện số đang nắm và giá vốn  # noqa: BLE001
             bang_gia, nguon = None, f"KHÔNG tải được giá trực tiếp ({ESC(str(e)[:120])})"
         if bang_gia is not None:
             tt = json.loads(D.FILE_TRANG_THAI.read_text(encoding="utf-8")) if D.FILE_TRANG_THAI.exists() else {}
@@ -930,13 +930,15 @@ def trang_danh_muc():
                             f'<td class="so">{so(d["gia_von"], 1)}</td><td colspan="6">không có giá trực tiếp</td></tr>')
                 continue
             lop = "duong" if d["lai"] > 0 else ("am" if d["lai"] < 0 else "")
+            # tính trước: f-string lồng nhau dùng lại cùng dấu nháy chỉ chạy từ Python 3.12 (web phải chạy được từ 3.10)
+            ngay_gd = f"{d['ngay_gd_cuoi']:%d/%m/%Y}<br><small>còn {d['con_ngay']} ngày</small>" if d["ngay_gd_cuoi"] else "—"
             hang.append(
                 f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td>{ESC(d["cs"])}</td><td class="so">{so(d["so_luong"])}</td>'
                 f'<td class="so">{so(d["gia_von"], 1)}</td><td class="so">{so(d["gia_ban"])}{"" if d["co_nguoi_mua"] else " <small class=am>không ai mua</small>"}</td>'
                 f'<td class="so {lop}">{so(d["lai"], 0, True)}<br><small>{so(d["lai_pct"] * 100, 1, True)}%</small></td>'
                 f'<td class="so">+{so(d["chot_loi"] * 100, 0)}% / −{so(d["cat_lo"] * 100, 0)}%</td>'
                 f'<td class="so">{so(d["S"])} / {so(d["K"])}<br><small>{so(d["cach_K"] * 100, 1, True)}%</small></td>'
-                f'<td>{f"{d['ngay_gd_cuoi']:%d/%m/%Y}<br><small>còn {d['con_ngay']} ngày</small>" if d["ngay_gd_cuoi"] else "—"}</td>'
+                f'<td>{ngay_gd}</td>'
                 f'<td class="so">{so(d["don_bay"], 1)}x</td></tr>')
         co_gia = [d for d in dong if d["co_gia"]]
         tiep_xuc = {}
@@ -975,11 +977,12 @@ def trang_danh_muc():
 
     # Lịch sử lệnh
     if ds:
+        nguong = lambda d: (("" if d["chot_loi"] is None else f"+{so(d['chot_loi'] * 100, 0)}%")
+                            + ("" if d["cat_lo"] is None else f" / −{so(d['cat_lo'] * 100, 0)}%"))
         hang = "".join(
             f'<tr><td class="so">{d["id"]}</td><td>{d["ngay"][8:]}/{d["ngay"][5:7]}/{d["ngay"][:4]}</td><td>{ESC(d["ma_cw"])}</td>'
             f'<td>{"Mua" if d["loai"] == "MUA" else "Bán"}</td><td class="so">{so(d["so_luong"])}</td><td class="so">{so(d["gia"])}</td>'
-            f'<td class="so">{"" if d["chot_loi"] is None else f"+{so(d['chot_loi'] * 100, 0)}%"}'
-            f'{"" if d["cat_lo"] is None else f" / −{so(d['cat_lo'] * 100, 0)}%"}</td><td class="ly-do">{ESC(d["ghi_chu"])}</td>'
+            f'<td class="so">{nguong(d)}</td><td class="ly-do">{ESC(d["ghi_chu"])}</td>'
             f'<td><form method="post" action="/danh-muc/xoa" onsubmit="return confirm(\'Xóa lệnh số {d["id"]}?\')">'
             f'<input type="hidden" name="id" value="{d["id"]}"><button class="nut-nho">Xóa</button></form></td></tr>'
             for d in sorted(ds, key=lambda d: (d["ngay"], d["id"]), reverse=True))
@@ -1017,7 +1020,7 @@ class XuLy(BaseHTTPRequestHandler):
             self.send_response(403)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
-            self.wfile.write("Từ chối: yêu cầu không gửi từ trang cw_scanner.".encode("utf-8"))
+            self.wfile.write("Từ chối: yêu cầu không gửi từ trang cw_scanner.".encode())
             return
         ve_trang = "/"
         if duong_dan == "/quet":
@@ -1026,7 +1029,7 @@ class XuLy(BaseHTTPRequestHandler):
                 with contextlib.redirect_stdout(bo_dem):  # gom lời nhắn của cw_scanner để hiện lên trang
                     cw_scanner.main()
                 LOI = ""
-            except Exception as e:  # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ
+            except Exception as e:  # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ  # noqa: BLE001
                 LOI = f"Lỗi khi quét: {e}"
             NHAT_KY = bo_dem.getvalue()
         elif duong_dan in ("/danh-muc/them", "/danh-muc/xoa"):
@@ -1039,7 +1042,7 @@ class XuLy(BaseHTTPRequestHandler):
                 else:
                     so_lenh = (form.get("id") or [""])[0]
                     LOI_DANH_MUC = danh_muc.xoa_lenh(int(so_lenh)) if so_lenh.isdigit() else "số lệnh không hợp lệ"
-            except Exception as e:  # vd file danh_muc.csv bị sửa tay sai định dạng: báo lên trang, không ghi gì
+            except Exception as e:  # vd file danh_muc.csv bị sửa tay sai định dạng: báo lên trang, không ghi gì  # noqa: BLE001
                 LOI_DANH_MUC = f"Không lưu được: {e}"
         else:
             self.send_error(404)
