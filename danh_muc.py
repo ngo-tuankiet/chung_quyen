@@ -331,14 +331,31 @@ def noi_dung_discord(moi, luc):
 
 
 def chia_tin(noi_dung, toi_da=1900):
-    """Discord nhận tối đa 2.000 ký tự/tin: cắt theo dòng thành nhiều tin."""
+    """Discord nhận tối đa 2.000 ký tự/tin: ghép theo mục (ngăn bởi dòng trống) để không cắt đôi khối bảng;
+    mục nào tự nó quá dài thì mới cắt theo dòng."""
     tin, cur = [], ""
-    for dong in noi_dung.split("\n"):
-        if cur and len(cur) + len(dong) + 1 > toi_da:
+    for muc in noi_dung.split("\n\n"):
+        if len(muc) > toi_da:
+            tin += [cur] if cur else []
+            cur = ""
+            for dong in muc.split("\n"):
+                if cur and len(cur) + len(dong) + 1 > toi_da:
+                    tin.append(cur)
+                    cur = ""
+                cur = f"{cur}\n{dong}" if cur else dong[:toi_da]
+            continue
+        if cur and len(cur) + len(muc) + 2 > toi_da:
             tin.append(cur)
             cur = ""
-        cur = f"{cur}\n{dong}" if cur else dong[:toi_da]
+        cur = f"{cur}\n\n{muc}" if cur else muc
     return tin + [cur] if cur else tin
+
+
+def bang(cot, hang):
+    """Bảng chữ đều cột trong khối ``` (Discord không có bảng thật). Cột đầu căn trái, còn lại căn phải."""
+    rong = [max(len(str(x)) for x in [c] + [h[i] for h in hang]) for i, c in enumerate(cot)]
+    dong = lambda h: "  ".join(str(x).ljust(rong[0]) if i == 0 else str(x).rjust(rong[i]) for i, x in enumerate(h))
+    return "```\n" + "\n".join([dong(cot)] + [dong(h) for h in hang]) + "\n```"
 
 
 def _x(x):
@@ -346,15 +363,26 @@ def _x(x):
     return f"{x:.1f}x".replace(".", ",") if not math.isnan(x) else "—"
 
 
-def _dong_cw(h):
-    """1 CW trong báo cáo: giá, % so với giá hợp lý, IV − HV, hòa vốn, đòn bẩy."""
-    hoa_von = h["Giá thực hiện"] + h["Giá mua"] * h["Tỷ lệ CĐ"]
-    return (
-        f"• **{h['Mã CW']}** ({h['Mã CS']} {so(h['Giá CS'])} đ, {h['TCPH']}, còn {h['Ngày còn lại']} ngày)\n"
-        f"   Giá mua {so(h['Giá mua'])} đ · hợp lý {so(h['Giá hợp lý'])} đ ({pt(h['Đắt/rẻ %'] / 100, 1)}) · "
-        f"IV − HV {pt(h['IV − HV'] / 100, 1).rstrip('%')} điểm\n"
-        f"   Hòa vốn {so(hoa_von)} đ ({h['Mã CS']} cần {pt(h['CS tăng % để hòa vốn'] / 100, 1)}) · đòn bẩy {_x(h['Đòn bẩy'])}"
-    )
+COT_CW = ["Mã CW", "Giá", "H.lý", "%", "IV-HV", "Hòa vốn", "Cần", "ĐB"]
+GHI_CHU_CW = (
+    "_Giá = giá mua (chào bán) · H.lý = giá hợp lý · % = so với giá hợp lý · IV-HV (điểm) · "
+    "Hòa vốn = giá CS cần đạt khi đáo hạn · Cần = % CS phải tăng · ĐB = đòn bẩy_"
+)
+
+
+def _hang_cw(h):
+    """1 CW thành hàng bảng: giá mua, hợp lý, %, IV − HV, giá CS hòa vốn, % CS cần tăng, đòn bẩy."""
+    so1 = lambda x: f"{x:+.1f}".replace(".", ",")
+    return [
+        h["Mã CW"],
+        so(h["Giá mua"]),
+        so(h["Giá hợp lý"]),
+        so1(h["Đắt/rẻ %"]),
+        so1(h["IV − HV"]),
+        so(h["Giá thực hiện"] + h["Giá mua"] * h["Tỷ lệ CĐ"]),
+        so1(h["CS tăng % để hòa vốn"]),
+        _x(h["Đòn bẩy"]),
+    ]
 
 
 def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
@@ -364,36 +392,50 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
         + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items())
     ]
     # 1. Danh mục
-    phan.append("\n💼 **Danh mục**")
+    phan.append("💼 **Danh mục**")
     co_gia = [d for d in dong if d.get("co_gia")]
     if not dong:
-        phan.append("Chưa có lệnh nào (nhập ở trang 💼 Danh mục).")
+        phan[-1] += "\nChưa có lệnh nào (nhập ở trang 💼 Danh mục)."
+    if co_gia:
+        dau = lambda x: ("+" if x >= 0 else "-") + so(abs(x))
+        phan[-1] += "\n" + bang(
+            ["Mã CW", "SL", "Vốn", "Bán", "Lãi%", "Lãi đ"],
+            [
+                [
+                    d["ma"],
+                    so(d["so_luong"]),
+                    so(d["gia_von"]),
+                    so(d["gia_ban"]),
+                    pt(d["lai_pct"], 1).rstrip("%"),
+                    dau(d["lai"]),
+                ]
+                for d in co_gia
+            ],
+        )
+        phan[-1] += "\n" + bang(
+            ["Mã CW", "Giá CS", "Giá TH", "Cách", "Còn", "ĐB"],
+            [
+                [d["ma"], so(d["S"]), so(d["K"]), pt(d["cach_K"], 1), f"{d['con_ngay']}d", _x(d["don_bay"])]
+                for d in co_gia
+            ],
+        )
+        von, lai = sum(d["so_luong"] * d["gia_von"] for d in co_gia), sum(d["lai"] for d in co_gia)
+        phan[-1] += (
+            f"\nTổng vốn **{so(von)} đ** · nếu bán hết ngay **{dau(lai)} đ ({pt(lai / von, 1)})** · "
+            f"đã chốt {dau(lai_da_chot)} đ · _Còn = số ngày tới ngày GD cuối_"
+        )
     for d in dong:
         if not d.get("co_gia"):
-            phan.append(
-                f"• **{d['ma']}**: {so(d['so_luong'])} CW, giá vốn {so(d['gia_von'])} đ – không có giá trực tiếp"
-            )
-            continue
-        phan.append(
-            f"• **{d['ma']}**: {so(d['so_luong'])} CW · vốn {so(d['gia_von'])} → bán được {so(d['gia_ban'])} đ: "
-            f"**{pt(d['lai_pct'], 1)}** ({'+' if d['lai'] >= 0 else '−'}{so(abs(d['lai']))} đ)\n"
-            f"   {d['cs']} {so(d['S'])} / giá TH {so(d['K'])} ({pt(d['cach_K'], 1)}) · "
-            f"còn {d['con_ngay']} ngày tới ngày GD cuối · đòn bẩy {_x(d['don_bay'])}"
-        )
-    if co_gia:
-        von = sum(d["so_luong"] * d["gia_von"] for d in co_gia)
-        lai = sum(d["lai"] for d in co_gia)
-        phan.append(
-            f"Tổng: vốn {so(von)} đ · nếu bán hết ngay {'+' if lai >= 0 else '−'}{so(abs(lai))} đ ({pt(lai / von, 1)})"
-            f" · đã chốt {'+' if lai_da_chot >= 0 else '−'}{so(abs(lai_da_chot))} đ"
-        )
+            phan[
+                -1
+            ] += f"\n• **{d['ma']}**: {so(d['so_luong'])} CW, giá vốn {so(d['gia_von'])} đ – không có giá trực tiếp"
     # 2. Gần ngưỡng chốt lời / cắt lỗ
     gan = [d for d in co_gia if d["lai_pct"] >= d["chot_loi"] - GAN_NGUONG or d["lai_pct"] <= -d["cat_lo"] + GAN_NGUONG]
     if gan:
-        phan.append("\n🎯 **Gần ngưỡng chốt lời / cắt lỗ**")
+        phan.append("🎯 **Gần ngưỡng chốt lời / cắt lỗ**")
         for d in gan:
             loai, nguong = ("chốt lời", d["chot_loi"]) if d["lai_pct"] > 0 else ("cắt lỗ", -d["cat_lo"])
-            phan.append(
+            phan[-1] += "\n" + (
                 f"• **{d['ma']}** {pt(d['lai_pct'], 1)} – ngưỡng {loai} {pt(nguong)}, "
                 + (
                     "ĐÃ CHẠM"
@@ -403,23 +445,32 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
             )
     # 3. Cảnh báo
     if canh_bao:
-        phan.append("\n⚠ **Cảnh báo**")
-        phan += [f"• **{m}**: {nd}" for m, _, nd in canh_bao]
+        phan.append("⚠ **Cảnh báo**\n" + "\n".join(f"• **{m}**: {nd}" for m, _, nd in canh_bao))
     # 4. CW mới phát hành, định giá tốt
     moi = df[(df["Mới"] == "MỚI") & (df["IV − HV"] <= C.MAX_IV_TRU_HV * 100)] if "Mới" in df else df.iloc[0:0]
-    phan.append("\n🆕 **CW mới phát hành, định giá tốt** (IV − HV ≤ " + pt(C.MAX_IV_TRU_HV, 0).rstrip("%") + " điểm)")
-    phan += [_dong_cw(h) for _, h in moi.iterrows()] or ["Hôm nay không có."]
+    phan.append(
+        "🆕 **CW mới phát hành, định giá tốt** (IV − HV ≤ "
+        + pt(C.MAX_IV_TRU_HV, 0).rstrip("%")
+        + " điểm)\n"
+        + (bang(COT_CW, [_hang_cw(h) for _, h in moi.iterrows()]) if len(moi) else "Hôm nay không có.")
+    )
     # 5. Nên xem xét + IV bất thường
     tot = df[df["Đánh giá"] == "NÊN XEM XÉT"].head(SO_MA_NOI_BAT)
-    phan.append(f"\n⭐ **Top {len(tot)} Nên xem xét**")
-    phan += [_dong_cw(h) for _, h in tot.iterrows()]
+    phan.append(
+        f"⭐ **Top {len(tot)} Nên xem xét**\n"
+        + bang(COT_CW, [_hang_cw(h) for _, h in tot.iterrows()])
+        + "\n"
+        + GHI_CHU_CW
+    )
     if "Cảnh báo" in df and (df["Cảnh báo"].fillna("") != "").any():
-        phan.append("\n❗ **IV bất thường**")
-        phan += [
-            f"• **{h['Mã CW']}**: {h['Cảnh báo'].split(':')[0]}"
-            for _, h in df[df["Cảnh báo"].fillna("") != ""].iterrows()
-        ]
-    return "\n".join(phan)
+        phan.append(
+            "❗ **IV bất thường**\n"
+            + "\n".join(
+                f"• **{h['Mã CW']}**: {h['Cảnh báo'].split(':')[0]}"
+                for _, h in df[df["Cảnh báo"].fillna("") != ""].iterrows()
+            )
+        )
+    return "\n\n".join(phan)
 
 
 def gui_bao_cao_ngay(luc=None):

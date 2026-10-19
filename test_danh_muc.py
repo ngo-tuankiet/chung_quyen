@@ -325,15 +325,13 @@ def test_bao_cao_ngay():
         }
     )
     bc = D.bao_cao_ngay(df, HOM_NAY, dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
-    # hòa vốn CNEW2601 = 22.000 + 1.200 × 2 = 24.400 đ (+1,7%), đòn bẩy 8,5x
-    assert (
-        "Hòa vốn 24.400 đ (VPB cần +1,7%) · đòn bẩy 8,5x" in bc
-        and "🆕" in bc
-        and "CXXX2601" not in bc.split("⭐")[0].split("🆕")[1]
-    )
-    assert (
-        "-30,3%" in bc and "ĐÃ CHẠM" in bc and "đã chốt +19.550 đ" in bc and "−303.250 đ" in bc
-    )  # (700 × 0,9975 − 1.001,5) × 1.000
+    # hàng CNEW2601: giá 1.200, hợp lý 1.300, -7,7%, IV-HV -2,0, hòa vốn 22.000 + 1.200 × 2 = 24.400 (+1,7%), đòn bẩy 8,5x
+    hang = next(d for d in bc.splitlines() if d.startswith("CNEW2601"))
+    assert hang.split() == ["CNEW2601", "1.200", "1.300", "-7,7", "-2,0", "24.400", "+1,7", "8,5x"]
+    assert "CXXX2601" not in bc.split("⭐")[0].split("🆕")[1]  # IV-HV +1 nhưng không phải mã mới
+    # danh mục: 1.000 CW, vốn 1.001,5, bán được 700 -> -30,3%, (700 × 0,9975 − 1.001,5) × 1.000 = -303.250 đ
+    assert next(d for d in bc.splitlines() if d.startswith("CVPB2615")).split()[-2:] == ["-30,3", "-303.250"]
+    assert "ĐÃ CHẠM" in bc and "đã chốt +19.550 đ" in bc and bc.count("```") % 2 == 0
     tin = D.chia_tin(bc * 5, 500)
     assert all(len(t) <= 500 for t in tin) and "\n".join(tin).replace("\n", "") == (bc * 5).replace("\n", "")
 
