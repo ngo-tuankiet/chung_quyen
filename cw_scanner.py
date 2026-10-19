@@ -41,6 +41,11 @@ MAX_IV_TRU_HV = 0.03
 # 99% CW có tỷ số ≥ 0,6, chỉ CVPB2608 (ACBS) là 0,12 - giá do tổ chức phát hành tự bán ra, không phải món hời chắc chắn
 MIN_IV_SO_VOI_CUNG_MA = 0.5
 MIN_SO_CW_CUNG_MA = 3
+
+# Chi phí khi mua/bán (chỉ dùng cho phần "rủi ro theo tiền thật" ở trang chi tiết, không đổi 4 tiêu chí).
+# Phí tùy công ty chứng khoán; thuế TNCN 0,1% khi bán và (giả định) khi nhận tiền thanh toán đáo hạn - kiểm tra với CTCK của bạn
+PHI_GIAO_DICH = 0.0015
+THUE_BAN = 0.001
 MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 15% là hòa vốn lúc đáo hạn
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
@@ -241,10 +246,12 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     # làm tròn 0,1 điểm như cột CSV để kết luận khớp số hiển thị; không giải được IV: dưới mức tối thiểu = rẻ hơn mọi mức biến động
     iv_tru_hv = round(iv - sigma, 3) if iv is not None else (-math.inf if duoi_toi_thieu else math.inf)
     ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
+    gd_cuoi = ny.get("lastTradingDate") or ""  # dạng YYYYMMDD
     return {
         "Mã CS": ny["underlyingSymbol"],
         "TCPH": ny["issuerName"],
         "Ngày còn lại": ngay_con_lai,
+        "Ngày GD cuối": f"{gd_cuoi[:4]}-{gd_cuoi[4:6]}-{gd_cuoi[6:]}" if gd_cuoi else "",  # sau ngày này không bán được nữa
         "Giá CS": S,
         "Giá thực hiện": K,
         "Tỷ lệ CĐ": ty_le,
@@ -281,6 +288,27 @@ def so_iv_cung_ma(df, ma, cs, iv):
         return tv, (f"IV {iv:.0f}% chỉ bằng {iv / tv:.0%} trung vị {tv:.0f}% của {len(khac)} CW {cs} khác: giá có thể do tổ chức "
                     "phát hành tự bán ra hoặc sắp có thay đổi, không chắc là món hời - đọc thông báo của TCPH trước khi mua")
     return tv, ""
+
+
+def rui_ro_theo_tien(von, P, S, K, ty_le, T, r, sigma, don_bay):
+    """Rủi ro khi bỏ `von` đồng mua CW ở giá P (đã tính phí mua, thuế khi nhận tiền). Trả về dict:
+    số CW (lô 100), tiền chi, số cổ phiếu tương đương, giá trị cổ phiếu cơ sở đang "nắm", hòa vốn có phí,
+    % CS giảm thì về 0, xác suất về 0 theo mô hình (σ lịch sử, không phải dự báo), tiền mất khi CS giảm 1% (theo đòn bẩy)."""
+    so_cw = int(von / (P * (1 + PHI_GIAO_DICH)) // 100 * 100)
+    if T > 0 and sigma > 0:
+        xs_ve_0 = phan_phoi_chuan(-(math.log(S / K) + (r - sigma**2 / 2) * T) / (sigma * math.sqrt(T)))  # N(−d2)
+    else:
+        xs_ve_0 = float(S <= K)
+    return {
+        "so_cw": so_cw,
+        "tien_chi": so_cw * P * (1 + PHI_GIAO_DICH),
+        "so_cp": so_cw / ty_le,
+        "tiep_xuc": so_cw / ty_le * S,
+        "hoa_von_phi": K + ty_le * P * (1 + PHI_GIAO_DICH) / (1 - THUE_BAN),
+        "giam_ve_0": K / S - 1,
+        "xs_ve_0": xs_ve_0,
+        "mat_khi_giam_1pct": so_cw * P * don_bay / 100,
+    }
 
 
 # ============ PHẦN 4: CHƯƠNG TRÌNH CHÍNH ============
@@ -355,6 +383,7 @@ def main():
         "gia_mua": "giá chào bán thấp nhất trong sổ lệnh; sổ lệnh trống thì giá khớp; chưa khớp thì giá tham chiếu",
         "tieu_chi": {"MIN_NGAY_CON_LAI": MIN_NGAY_CON_LAI, "MAX_IV_TRU_HV": MAX_IV_TRU_HV,
                      "MAX_TANG_DE_HOA_VON": MAX_TANG_DE_HOA_VON, "MIN_KHOI_LUONG": MIN_KHOI_LUONG},
+        "chi_phi": {"PHI_GIAO_DICH": PHI_GIAO_DICH, "THUE_BAN": THUE_BAN},
         "canh_bao_iv_cung_ma": {"MIN_IV_SO_VOI_CUNG_MA": MIN_IV_SO_VOI_CUNG_MA, "MIN_SO_CW_CUNG_MA": MIN_SO_CW_CUNG_MA},
         "nguon": {"danh_sach_cw": "vnstock Listing(KBS)", "bang_gia": URL_BANG_GIA, "lich_su_gia": "vnstock Quote(KBS), 1D"},
         "vnstock": importlib.metadata.version("vnstock"),

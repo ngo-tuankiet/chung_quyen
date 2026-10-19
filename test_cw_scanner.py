@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
-                        gia_mua, mo_phong_gia, so_iv_cung_ma, tong_kl)
+                        gia_mua, mo_phong_gia, rui_ro_theo_tien, so_iv_cung_ma, tong_kl)
 
 # Sổ lệnh mẫu (CVPB2615 cuối phiên 16/10/2026, mức thứ 3 thiếu khối lượng)
 SO_LENH = {"askPrices": [{"price": 1250, "volume": 30300}, {"price": 1260, "volume": 30000}, {"price": 1290, "volume": None}]}
@@ -59,13 +59,14 @@ def test_cvpb2615_tinh_tay():
 def test_dinh_gia_cvpb2615():
     # Số liệu thật cuối phiên 16/10/2026, định giá ngày 18/10 (còn 122 ngày), sigma VPB 31,8%, r 4%
     ny = {"exercisePrice": 22605, "exerciseRatio": "1.5863:1", "maturityDate": "20270217", "refPrice": 1230,
-          "underlyingSymbol": "VPB", "issuerName": "ACBS", "listedShare": 18_000_000}
+          "underlyingSymbol": "VPB", "issuerName": "ACBS", "listedShare": 18_000_000, "lastTradingDate": "20270215"}
     kq = dinh_gia(ny, {"matchPrice": 1240, "accumulatedVolume": 891_900}, SO_LENH, 24500, 0.318, date(2026, 10, 18), 0.04)
     assert kq["Ngày còn lại"] == 122 and kq["Giá mua"] == 1250 and kq["Nguồn giá mua"] == "ask"
     assert kq["Giá hợp lý"] == 1910 and kq["Delta"] == 0.73 and kq["Đòn bẩy"] == 9.0  # delta 0,727 × 24.500 / (1.250 × 1,5863)
     assert kq["CS tăng % để hòa vốn"] == 0.4  # (22.605 + 1.250 × 1,5863) / 24.500 − 1 = 0,36%
     assert math.isnan(kq["IV %"]) and kq["Ghi chú IV"].startswith("giá mua dưới mức tối thiểu")
     assert kq["Đánh giá"] == "NÊN XEM XÉT"  # dưới mức tối thiểu được tính là đạt tiêu chí 2
+    assert kq["Ngày GD cuối"] == "2027-02-15"
 
 
 def test_so_iv_cung_ma():
@@ -77,6 +78,26 @@ def test_so_iv_cung_ma():
     assert so_iv_cung_ma(df, "B", "VPB", 40.0) == (45, "")  # trung vị (5, 45, 50) = 45; 40 ≥ 22,5
     assert so_iv_cung_ma(df, "E", "VPB", math.nan)[1] == ""  # không giải được IV: đã có cảnh báo riêng
     assert math.isnan(so_iv_cung_ma(df, "F2", "FPT", 3.0)[0])
+
+
+def test_rui_ro_theo_tien_cvpb2615():
+    # 10 triệu, giá mua 1.250, phí 0,15%: 10.000.000 / 1.251,875 = 7.988 -> lô 100 = 7.900 CW (8.000 CW sẽ tốn 10.015.000 đ)
+    rr = rui_ro_theo_tien(10_000_000, 1250, 24500, 22605, 1.5863, 122 / 365, 0.04, 0.318, 9.0)
+    assert rr["so_cw"] == 7900 and abs(rr["tien_chi"] - 9_889_812.5) < 1
+    assert abs(rr["tiep_xuc"] - 7900 / 1.5863 * 24500) < 1  # ≈ 122,0 triệu đ cổ phiếu VPB
+    # Hòa vốn có phí = 22.605 + 1,5863 × 1.250 × 1,0015 / 0,999 = 22.605 + 1.987,8 = 24.592,8
+    assert abs(rr["hoa_von_phi"] - 24592.8) < 0.5
+    assert abs(rr["giam_ve_0"] - (22605 / 24500 - 1)) < 1e-9  # -7,73%
+    assert 0.2 < rr["xs_ve_0"] < 0.4  # N(−d2) với σ 31,8%, 122 ngày
+    assert rr["mat_khi_giam_1pct"] == 7900 * 1250 * 9.0 / 100  # đòn bẩy 9x: CS −1% ≈ CW −9%
+    assert rui_ro_theo_tien(1_000_000, 1250, 22000, 22605, 1.5863, 0, 0.04, 0.318, 9.0)["xs_ve_0"] == 1.0  # đáo hạn, ngoài tiền
+
+
+def test_doc_von():
+    # Tham số ?von= từ URL: chỉ nhận số nguyên 1..10.000 (triệu đồng), còn lại về mặc định 10
+    from web import doc_von
+    assert doc_von("/cw/CVPB2615?von=50") == 50 and doc_von("/cw/CVPB2615") == 10
+    assert all(doc_von(f"/cw/CVPB2615?von={x}") == 10 for x in ("-5", "abc", "0", "10001", "1e3", "5.5", "%3Cscript%3E"))
 
 
 def test_doc_cw_sap_ra_mat():

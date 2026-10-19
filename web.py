@@ -13,7 +13,8 @@ import json
 import math
 import re
 import webbrowser
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pandas as pd
@@ -21,6 +22,7 @@ import pandas as pd
 import cw_scanner
 
 CONG = 8000
+VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
 NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
 ESC = html.escape
@@ -247,6 +249,12 @@ def trang(tieu_de, than, duong_dan=""):
 
 
 # ============ DỮ LIỆU ============
+def doc_von(duong_dan):
+    """?von=50 -> 50 (triệu đồng). Chỉ nhận số nguyên 1..10.000, sai thì về mặc định (chặn dữ liệu lạ từ URL)."""
+    chuoi = (parse_qs(urlsplit(duong_dan).query).get("von") or [""])[0]
+    return int(chuoi) if chuoi.isdigit() and 1 <= int(chuoi) <= 10_000 else VON_MAC_DINH
+
+
 def doc_ket_qua():
     """(bảng kết quả mới nhất, ngày quét) hoặc (None, None) nếu chưa quét lần nào."""
     cac_file = sorted(cw_scanner.THU_MUC_KET_QUA.glob("cw_*.csv"))
@@ -384,25 +392,38 @@ def bieu_do(lich_su, duong_ke, ten_cs):
             f'<table><thead><tr><th>Ngày</th><th class="so">Giá đóng cửa (đ)</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>')
 
 
-def trang_chi_tiet(ma):
+def trang_chi_tiet(ma, von=VON_MAC_DINH):
     df, ngay = doc_ket_qua()
     if df is None or ma not in set(df["Mã CW"]):
         return None
-    h = df[df["Mã CW"] == ma].iloc[0]
-    # P = giá mua (chào bán thấp nhất lúc quét): giá người mua phải trả, dùng cho mọi chỉ số bên dưới
-    cs, S, K, ty_le, P = h["Mã CS"], float(h["Giá CS"]), float(h["Giá thực hiện"]), float(h["Tỷ lệ CĐ"]), float(h["Giá mua"])
-    P_khop, nguon_gia = float(h["Giá CW"]), h["Nguồn giá mua"]
-    r = float(h["r %"]) / 100 if "r %" in h else cw_scanner.LAI_SUAT_PHI_RUI_RO  # đúng lãi suất của lần quét (file cũ: cấu hình hiện tại)
-    ngay_con_lai, sigma_ls = int(h["Ngày còn lại"]), float(h["Biến động %/năm"]) / 100
+    h, C = df[df["Mã CW"] == ma].iloc[0].to_dict(), cw_scanner
+    cs, sigma_ls, ket_luan_quet = h["Mã CS"], float(h["Biến động %/năm"]) / 100, h["Đánh giá"]
+    r = float(h["r %"]) / 100 if "r %" in h else C.LAI_SUAT_PHI_RUI_RO  # đúng lãi suất của lần quét (file cũ: cấu hình hiện tại)
+    # Định giá lại theo giá trực tiếp: CW + cổ phiếu cơ sở trong 1 lần gọi (chờ tối đa 5 giây); σ và r giữ như lúc quét
+    try:
+        bang_gia = C.lay_bang_gia([ma, cs], cho=5)
+        niem_yet, khop, so_lenh = bang_gia[ma]
+        S_truc_tiep = C.gia_hien_tai(*bang_gia[cs])
+    except Exception as e:  # mất mạng / máy chủ lỗi / thiếu mã: dùng đúng số lúc quét và báo rõ trên trang
+        so_lenh, ngay_tinh, truc_tiep = {}, ngay, False
+        nguon = f"KHÔNG tải được giá trực tiếp ({ESC(str(e)[:120])}), đang dùng số liệu lúc quét ngày {ngay:%d/%m/%Y}"
+    else:
+        h.update(C.dinh_gia(niem_yet, khop, so_lenh, S_truc_tiep, sigma_ls, date.today(), r))
+        ngay_tinh, truc_tiep = date.today(), True
+        nguon = (f"bảng giá Vietcap lúc {datetime.now():%H:%M %d/%m/%Y} "
+                 f"({'trạng thái cuối phiên gần nhất' if khop.get('session') == 'ENDED' else 'trong phiên'})")
+    # P = giá mua (chào bán thấp nhất): giá người mua phải trả, dùng cho mọi chỉ số bên dưới
+    S, K, ty_le, P = float(h["Giá CS"]), float(h["Giá thực hiện"]), float(h["Tỷ lệ CĐ"]), float(h["Giá mua"])
+    P_khop, nguon_gia, ngay_con_lai = float(h["Giá CW"]), h["Nguồn giá mua"], int(h["Ngày còn lại"])
     T, hoa_von, tang = ngay_con_lai / 365, K + P * ty_le, float(h["CS tăng % để hòa vốn"])
-    ngay_dao_han = ngay + timedelta(days=ngay_con_lai)
+    ngay_dao_han = ngay_tinh + timedelta(days=ngay_con_lai)
     iv = cw_scanner.bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
     toi_thieu = cw_scanner.can_duoi(S, K, T, r)  # giá tối thiểu của quyền trên 1 cổ phiếu theo mô hình
     tv_cung_ma, canh_bao_iv = cw_scanner.so_iv_cung_ma(df, ma, cs, iv * 100 if iv else math.nan)  # IV so với CW khác cùng mã CS
     # IV − HV (điểm %): ưu tiên số trong CSV để khớp với kết luận lúc quét; file cũ chưa có cột này thì tính lại
     iv_hv = float(h["IV − HV"]) if math.isfinite(h["IV − HV"]) else ((iv - sigma_ls) * 100 if iv else math.nan)
-    mo_ta_gia = (f"giá chào bán thấp nhất lúc quét; giá khớp gần nhất {so(P_khop)} đ" if nguon_gia == "ask"
-                 else f"sổ lệnh trống lúc quét nên dùng giá {nguon_gia}")
+    mo_ta_gia = (f"giá chào bán thấp nhất; giá khớp gần nhất {so(P_khop)} đ" if nguon_gia == "ask"
+                 else f"sổ lệnh trống nên dùng giá {nguon_gia}")
     noi_tai = max(S - K, 0) / ty_le  # phần lãi nếu đáo hạn ngay hôm nay
     gia_tri_tg = P - noi_tai  # phần sẽ mất dần về 0 đến ngày đáo hạn
     if iv:  # mất giá theo thời gian tính theo mức biến động thị trường đang dùng
@@ -412,10 +433,14 @@ def trang_chi_tiet(ma):
     chu_dat_re, lop_dat_re = dat_re(h["Đắt/rẻ %"])
 
     phan = [f'<div class="dau-trang"><div><h1>{ESC(ma)}</h1><p class="phu">Chứng quyền mua <b>{ESC(cs)}</b> · TCPH {ESC(h["TCPH"])}'
-            f' · đáo hạn {ngay_dao_han:%d/%m/%Y} (còn {ngay_con_lai} ngày) · dữ liệu ngày {ngay:%d/%m/%Y}</p></div>{huy_hieu(h["Đánh giá"], True)}</div>']
+            f' · đáo hạn {ngay_dao_han:%d/%m/%Y} (còn {ngay_con_lai} ngày)</p>'
+            f'<p class="{"phu" if truc_tiep else "loi"}"{"" if truc_tiep else " role=alert"}>Định giá theo {nguon}. '
+            f'σ lịch sử và lãi suất lấy từ lần quét ngày {ngay:%d/%m/%Y}.</p></div>'
+            f'<div>{huy_hieu(h["Đánh giá"], True)}'
+            + (f'<p class="phu">Lúc quét {ngay:%d/%m}: {ESC(KET_LUAN.get(ket_luan_quet, ("", "", ket_luan_quet))[2])}</p>'
+               if h["Đánh giá"] != ket_luan_quet else "") + '</div></div>']
 
     # Tóm tắt + 4 tiêu chí
-    C = cw_scanner
     if math.isfinite(iv_hv):
         dat_iv, noi_dung_iv = iv_hv <= C.MAX_IV_TRU_HV * 100, f"IV − HV = {so(iv_hv, 1, True)} điểm ({chu_dat_re} so với giá hợp lý)"
     elif P * ty_le < toi_thieu:  # không giải được IV vì giá quá thấp: rẻ hơn mọi mức dao động -> đạt (kèm cảnh báo ở trên)
@@ -445,6 +470,32 @@ def trang_chi_tiet(ma):
         + f'<ul class="tieu-chi">{dong_tc}</ul>'
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>')
+
+    # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
+    rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))
+    gd_cuoi = date.fromisoformat(h["Ngày GD cuối"]) if h.get("Ngày GD cuối") else None
+    phi_chu, thue_chu = so(C.PHI_GIAO_DICH * 100, 2), so(C.THUE_BAN * 100, 1)
+    phan.append(
+        f'<section class="the" id="rui-ro"><h2>Rủi ro với số tiền của bạn</h2>'
+        f'<form method="get" action="/cw/{ESC(ma)}#rui-ro" style="margin-top:8px"><label>Số tiền định đầu tư '
+        f'<input type="number" name="von" min="1" max="10000" step="1" value="{von}" style="width:7em"> triệu đồng</label> '
+        '<button class="nut" style="padding:6px 14px">Tính lại</button></form><div class="luoi-o">'
+        + o_so("Mua được", f"{so(rr['so_cw'])} CW" if rr["so_cw"] else "Chưa đủ 1 lô",
+               f"≈ {so(rr['tien_chi'])} đ, đã gồm phí mua {phi_chu}% (lô 100 CW)")
+        + o_so("Tương đương nắm", f"{so(rr['tiep_xuc'] / 1e6, 1)} triệu đ {ESC(cs)}",
+               f"≈ {so(rr['so_cp'])} cổ phiếu · gấp {so(rr['tiep_xuc'] / (von * 1e6), 1)} lần số tiền bỏ ra")
+        + o_so("Mất toàn bộ tiền nếu", f"{ESC(cs)} ≤ {so(K)} đ",
+               f"tức giảm {so(-rr['giam_ve_0'] * 100, 1)}% vào lúc đáo hạn · xác suất theo mô hình ≈ {so(rr['xs_ve_0'] * 100, 0)}% "
+               "(σ lịch sử, không phải dự báo)" if rr["giam_ve_0"] < 0 else f"{ESC(cs)} đang thấp hơn giá thực hiện")
+        + o_so(f"{ESC(cs)} giảm 1%", f"≈ −{so(rr['mat_khi_giam_1pct'])} đ",
+               f"trước ngày đáo hạn, theo đòn bẩy {so(h['Đòn bẩy'], 1)}x; giảm sâu thì mất nhanh hơn")
+        + o_so("Ngày giao dịch cuối", f"{gd_cuoi:%d/%m/%Y}" if gd_cuoi else "Không rõ",
+               f"còn {(gd_cuoi - ngay_tinh).days} ngày để bán; sau đó chỉ chờ nhận tiền theo giá trung bình 5 phiên trước "
+               f"ngày đáo hạn {ngay_dao_han:%d/%m/%Y}" if gd_cuoi else "bấm Quét ngay để lấy ngày này")
+        + o_so("Hòa vốn có phí, thuế", f"{so(rr['hoa_von_phi'])} đ",
+               f"{ESC(cs)} cần {so((rr['hoa_von_phi'] / S - 1) * 100, 1, True)}% (chưa tính phí: {so(hoa_von)} đ). "
+               f"Phí {phi_chu}% + thuế {thue_chu}% khi nhận tiền là giả định - kiểm tra với công ty chứng khoán của bạn")
+        + '</div></section>')
 
     # Các chỉ số chính
     delta = C.black_scholes_call(S, K, T, r, sigma_ls)[1]  # N(d1): giá trị quyền trên 1 cổ phiếu tăng bao nhiêu khi cổ phiếu tăng 1 đ
@@ -502,15 +553,8 @@ def trang_chi_tiet(ma):
             f'<b>≈ {so(mo_phong)} đ</b> (quy về hôm nay), gần bằng kết quả công thức {so(gia_cw_tinh)} đ.</p>'
             '<p class="phu">Nhớ: con số này dựa trên giả định cổ phiếu sẽ dao động như 1 năm qua. Nó là thước đo để so sánh, không phải dự báo giá.</p></details>')
 
-    # Khối lượng CW: sổ lệnh lấy trực tiếp lúc mở trang (chờ tối đa 5 giây), lỗi thì dùng số lúc quét
-    kl_ny = float(h["KL niêm yết"])
-    try:
-        niem_yet, khop, so_lenh = C.lay_bang_gia([ma], cho=5)[ma]
-        kl_ny = float(niem_yet.get("listedShare") or kl_ny)
-        trang_thai = "trạng thái cuối phiên gần nhất" if khop.get("session") == "ENDED" else "trong phiên"
-        kl_khop, nguon = khop.get("accumulatedVolume") or 0, f"bảng giá Vietcap, tải trực tiếp lúc mở trang ({trang_thai})"
-    except Exception:
-        so_lenh, kl_khop, nguon = {}, h["KL khớp"], f"không tải được sổ lệnh trực tiếp, dùng số liệu lúc quét ngày {ngay:%d/%m/%Y}"
+    # Khối lượng CW: sổ lệnh tải cùng lần định giá trực tiếp ở đầu trang (lỗi thì dùng số lúc quét)
+    kl_ny, kl_khop = float(h["KL niêm yết"]), h["KL khớp"]
     ban, mua = (so_lenh.get("askPrices") or [])[:3], (so_lenh.get("bidPrices") or [])[:3]
     kl_ban = C.tong_kl(so_lenh, "askPrices") if so_lenh else h["KL chào bán"]
     kl_mua = C.tong_kl(so_lenh, "bidPrices") if so_lenh else h["KL chờ mua"]
@@ -558,21 +602,21 @@ def trang_chi_tiet(ma):
                    else '<p>Chưa có dữ liệu biểu đồ. Bấm <b>Quét ngay</b> ở trang chính để tải.</p>') + "</section>")
 
     # Kịch bản lãi/lỗ khi đáo hạn
-    so_cw = int(10_000_000 // P // 100 * 100)  # lô 100 CW
+    so_cw, gia_von = rr["so_cw"], P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
     dong = []
     for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
         gia_cs = S * (1 + thay_doi / 100)
         nhan_ve = max(gia_cs - K, 0) / ty_le
-        lai = nhan_ve - P
+        lai = nhan_ve * (1 - C.THUE_BAN) - gia_von  # đã trừ thuế khi nhận tiền
         lop = "duong" if lai > 0 else ("am" if lai < 0 else "")
         dong.append(f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'
                     f'<td class="so">{so(gia_cs)}</td><td class="so">{so(nhan_ve)}</td><td class="so {lop}">{so(lai, 0, True)}</td>'
-                    f'<td class="so {lop}">{so(lai / P * 100, 0, True)}%</td><td class="so {lop}">{so(lai * so_cw, 0, True)}</td></tr>')
+                    f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td><td class="so {lop}">{so(lai * so_cw, 0, True)}</td></tr>')
     phan.append(f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
                 f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
-                f'Lỗ tối đa là toàn bộ tiền mua CW.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
+                f'Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền. Lỗ tối đa là toàn bộ tiền mua CW.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
                 f'<th class="so">Nhận về / CW (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
-                f'<th class="so">Với {so(so_cw)} CW ≈ 10 triệu (đ)</th></tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>')
+                f'<th class="so">Với {so(so_cw)} CW ≈ {von} triệu (đ)</th></tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>')
 
     # So sánh các CW cùng mã cơ sở
     cung_cs = df[df["Mã CS"] == cs].sort_values("IV − HV", na_position="last")
@@ -747,7 +791,11 @@ def trang_huong_dan():
         '<li><b>Biểu đồ</b>: đường xanh là giá cổ phiếu 1 năm qua; đường xám là giá thực hiện; đường cam là <b>điểm hòa vốn</b>. '
         'Muốn có lãi khi giữ đến đáo hạn, giá cổ phiếu phải <b>nằm trên đường cam</b>. Rê chuột (hoặc bấm vào biểu đồ rồi dùng phím ← →) để xem giá từng ngày.</li>'
         '<li><b>Bảng "Nếu giữ đến ngày đáo hạn"</b>: xem trước lãi/lỗ theo từng kịch bản cổ phiếu tăng/giảm. '
-        'Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>, cột cuối cho biết lãi/lỗ nếu bỏ ra khoảng 10 triệu đồng.</li>'
+        'Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>, cột cuối cho biết lãi/lỗ theo số tiền bạn nhập ở mục <b>Rủi ro với số tiền của bạn</b>.</li>'
+        '<li><b>Rủi ro với số tiền của bạn</b>: nhập số tiền định bỏ ra để xem mua được bao nhiêu CW, tương đương nắm bao nhiêu tiền cổ phiếu '
+        '(thường gấp 5-15 lần), cổ phiếu giảm đến đâu thì mất toàn bộ, ngày cuối cùng còn bán được và điểm hòa vốn sau phí, thuế.</li>'
+        '<li>Mọi con số ở trang phân tích được <b>tính lại theo giá trực tiếp</b> lúc mở trang (dòng đầu trang ghi giờ lấy giá). '
+        'Kết luận có thể khác bảng ở trang chính (bảng đó là số lúc quét).</li>'
         '<li><b>Các CW khác của cùng cổ phiếu</b>: cùng đặt cược vào một cổ phiếu, hãy so để chọn CW rẻ hơn, còn nhiều ngày hơn hoặc dễ hòa vốn hơn.</li>'
         '<li>Khung màu vàng <b>⚠ Bất thường</b> (nếu có): giá CW thấp hơn cả giá trị nội tại. Hãy đọc thông báo của tổ chức phát hành trước khi mua.</li>'
         '</ul></section>')
@@ -809,7 +857,7 @@ class XuLy(BaseHTTPRequestHandler):
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         noi_dung = (trang_chinh() if duong_dan == "/" else trang_huong_dan() if duong_dan == "/huong-dan"
                     else trang_sap_ra_mat("tai_moi=1" in self.path) if duong_dan == "/sap-ra-mat"
-                    else trang_chi_tiet(m.group(1)) if m else None)
+                    else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None)
         self.send_response(200 if noi_dung else 404)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()

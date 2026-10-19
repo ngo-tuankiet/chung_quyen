@@ -173,6 +173,10 @@ Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
 - **Bấm vào một mã CW** để mở trang phân tích: tóm tắt dễ hiểu, 4 tiêu chí đạt/không đạt, giá trị nội tại / thời gian,
   biểu đồ giá cổ phiếu cơ sở 1 năm kèm đường giá thực hiện và hòa vốn (rê chuột xem giá từng ngày), bảng **lãi/lỗ khi đáo hạn**
   theo từng kịch bản (kèm ví dụ 10 triệu đồng), biến động ngầm định so với lịch sử, và so sánh các CW khác cùng mã cơ sở.
+  Trang phân tích **tính lại mọi con số theo giá trực tiếp** lúc mở trang (giá cổ phiếu cơ sở + giá chào bán, chờ tối đa 5 giây; σ và lãi suất
+  lấy từ lần quét). Không tải được thì dùng số lúc quét và báo đỏ ở đầu trang. Mục **Rủi ro với số tiền của bạn**: nhập số tiền (triệu đồng)
+  để xem số CW mua được, giá trị cổ phiếu cơ sở tương đương đang nắm, mức giảm làm mất toàn bộ tiền, ngày giao dịch cuối, hòa vốn sau phí
+  (`PHI_GIAO_DICH` 0,15%) và thuế (`THUE_BAN` 0,1%) - hai mức này là giả định, chỉnh ở đầu `cw_scanner.py` theo công ty chứng khoán của bạn.
 - Nếu máy chủ dữ liệu lỗi, thông báo lỗi màu đỏ hiện ngay trên trang — chờ vài phút rồi bấm lại.
 
 Trang chỉ mở cho máy của bạn (127.0.0.1). Tắt bằng `Ctrl+C` trong cửa sổ dòng lệnh. Lịch tự động ở Phần 5 vẫn chạy `cw_scanner.py`; mở web lúc nào cũng thấy kết quả mới nhất.
@@ -211,6 +215,8 @@ CTCB2619   TCB           121     980        1068      -8.2                   5.2
 | IV − HV | (IV − σ lịch sử) × 100, điểm % | **Âm = rẻ**, dương = đắt. So sánh được giữa CW gần và xa giá thực hiện; bảng xếp theo cột này và đây là tiêu chí 2 (≤ +3 điểm) |
 | Ghi chú IV | Lý do không giải được IV | Thường là *giá mua dưới mức tối thiểu S − K·e^(−rT)*: chữ "rẻ" khi đó chủ yếu đến từ giả định r và σ, không chắc là món hời |
 | r % / Số phiên σ | Lãi suất và số phiên thực tế đã dùng đo σ | Đủ để tự tính lại từng dòng trong Excel |
+| Ngày GD cuối | Ngày giao dịch cuối cùng (từ bảng giá) | Sau ngày này không bán được nữa, chỉ chờ nhận tiền theo giá trung bình 5 phiên |
+| IV cùng mã % / Cảnh báo | Trung vị IV các CW khác cùng mã CS; cảnh báo khi IV < 50% trung vị đó (`MIN_IV_SO_VOI_CUNG_MA`, cần ≥ 3 CW) | Chỉ cảnh báo, không đổi kết luận. Ví dụ CVPB2608/CVPB2615 (ACBS) ngày 19/10/2026: IV 14-16% so với trung vị 47% - giá do tổ chức phát hành tự bán ra (kể cả đợt phát hành bổ sung 5 triệu CVPB2608 giá 760 đ ngày 02-06/10), không chắc là món hời |
 | KL khớp | Khối lượng khớp trong phiên | Thấp = khó mua/bán đúng giá |
 | Đánh giá / Lý do | Kết luận + tiêu chí bị trượt | |
 
