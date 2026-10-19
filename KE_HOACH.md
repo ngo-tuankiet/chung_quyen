@@ -153,7 +153,16 @@ python test_cw_scanner.py
 ```
 Thấy `OK - công thức đúng` là được.
 
-Dành cho người sửa code: cài pytest một lần (`pip install -r requirements-dev.txt`) rồi chạy `python -m pytest -q` để xem từng ca kiểm tra đạt/trượt.
+#### Dành cho người sửa code
+Cài một lần các công cụ (pytest, ruff, black; phiên bản ghim trong `requirements-dev.txt`) và bật kiểm tra trước mỗi commit:
+```bash
+.venv/bin/python -m pip install -r requirements-dev.txt
+git config core.hooksPath .githooks
+```
+- `python -m pytest -q`: chạy mọi ca kiểm tra (có ca tính tay). `python -m ruff check .`: lỗi code (thêm `--fix` để tự sửa phần an toàn).
+  `python -m black .`: định dạng code. Cấu hình (dòng tối đa 120 ký tự, cú pháp phải chạy được từ Python 3.10) nằm trong `pyproject.toml`.
+- Hook `.githooks/pre-commit` chặn commit khi: ruff báo lỗi, code chưa định dạng, test trượt, hoặc file đã stage chứa một giá trị trong `.env`
+  (key vnstock, webhook Discord) hay chuỗi dạng webhook Discord thật. Chỉ khi khẩn cấp mới bỏ qua: `git commit --no-verify`.
 
 ### Bước 4 — Chạy thử
 ```bash

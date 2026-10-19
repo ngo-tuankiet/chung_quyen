@@ -1,0 +1,34 @@
+#!/bin/bash
+# Chạy trước mỗi commit (bật một lần trong repo: git config core.hooksPath .githooks). Bước nào lỗi thì chặn commit.
+# Chỉ khi khẩn cấp mới bỏ qua: git commit --no-verify
+# Lưu ý: ruff/black/pytest kiểm thư mục làm việc hiện tại (không riêng phần đã stage); quét secret kiểm đúng phần đã stage.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+PY=.venv/bin/python
+chan() { echo "✗ $1"; echo "  -> commit bị chặn. Sửa xong rồi commit lại (khẩn cấp: git commit --no-verify)."; exit 1; }
+[ -x "$PY" ] || chan "không thấy $PY (chạy chay_web.command để tạo môi trường)"
+"$PY" -m ruff --version >/dev/null 2>&1 || chan "chưa cài công cụ dev: $PY -m pip install -r requirements-dev.txt"
+
+echo "[1/4] ruff check"
+"$PY" -m ruff check . || chan "ruff báo lỗi (thử: $PY -m ruff check . --fix)"
+echo "[2/4] black --check"
+"$PY" -m black --check -q . || chan "code chưa định dạng: chạy $PY -m black ."
+echo "[3/4] pytest"
+"$PY" -m pytest -q -p no:cacheprovider >/tmp/cw_scanner_pytest.$$ 2>&1 || { tail -25 /tmp/cw_scanner_pytest.$$; rm -f /tmp/cw_scanner_pytest.$$; chan "test trượt"; }
+rm -f /tmp/cw_scanner_pytest.$$
+echo "[4/4] quét secret trong các file đã stage (AGENTS.md mục 5)"
+# mọi giá trị trong .env (key vnstock, webhook Discord...): không bao giờ in giá trị ra, chỉ in tên khóa và tên file
+if [ -f .env ]; then
+  while IFS='=' read -r ten gia; do
+    case "$ten" in ''|\#*) continue ;; esac
+    gia=$(printf '%s' "$gia" | tr -d "\"' \r")
+    [ ${#gia} -ge 8 ] || continue
+    if git grep --cached -q -F -e "$gia"; then
+      chan "giá trị $ten trong .env xuất hiện ở: $(git grep --cached -l -F -e "$gia" | tr '\n' ' ')"
+    fi
+  done < .env
+fi
+MAU_WEBHOOK='webhooks/[0-9]{17,20}/[A-Za-z0-9_-]{60,}'
+if git grep --cached -q -E "$MAU_WEBHOOK"; then
+  chan "có webhook Discord thật trong: $(git grep --cached -l -E "$MAU_WEBHOOK" | tr '\n' ' ')"
+fi
+echo "✓ Kiểm tra trước commit: đạt"
