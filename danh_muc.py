@@ -363,15 +363,15 @@ def _x(x):
     return f"{x:.1f}x".replace(".", ",") if not math.isnan(x) else "—"
 
 
-COT_CW = ["Mã CW", "Giá", "H.lý", "%", "IV-HV", "Hòa vốn", "Cần", "ĐB"]
+COT_CW = ["Mã CW", "Giá", "H.lý", "%", "IV-HV", "Cần", "ĐB"]
 GHI_CHU_CW = (
     "_Giá = giá mua (chào bán) · H.lý = giá hợp lý · % = so với giá hợp lý · IV-HV (điểm) · "
-    "Hòa vốn = giá CS cần đạt khi đáo hạn · Cần = % CS phải tăng · ĐB = đòn bẩy_"
+    "Cần = % CS phải tăng để hòa vốn · ĐB = đòn bẩy_"
 )
 
 
 def _hang_cw(h):
-    """1 CW thành hàng bảng: giá mua, hợp lý, %, IV − HV, giá CS hòa vốn, % CS cần tăng, đòn bẩy."""
+    """1 CW thành hàng bảng: giá mua, hợp lý, %, IV − HV, % CS cần tăng để hòa vốn, đòn bẩy."""
     so1 = lambda x: f"{x:+.1f}".replace(".", ",")
     return [
         h["Mã CW"],
@@ -379,7 +379,6 @@ def _hang_cw(h):
         so(h["Giá hợp lý"]),
         so1(h["Đắt/rẻ %"]),
         so1(h["IV − HV"]),
-        so(h["Giá thực hiện"] + h["Giá mua"] * h["Tỷ lệ CĐ"]),
         so1(h["CS tăng % để hòa vốn"]),
         _x(h["Đòn bẩy"]),
     ]

@@ -327,7 +327,7 @@ def test_bao_cao_ngay():
     bc = D.bao_cao_ngay(df, HOM_NAY, dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
     # hàng CNEW2601: giá 1.200, hợp lý 1.300, -7,7%, IV-HV -2,0, hòa vốn 22.000 + 1.200 × 2 = 24.400 (+1,7%), đòn bẩy 8,5x
     hang = next(d for d in bc.splitlines() if d.startswith("CNEW2601"))
-    assert hang.split() == ["CNEW2601", "1.200", "1.300", "-7,7", "-2,0", "24.400", "+1,7", "8,5x"]
+    assert hang.split() == ["CNEW2601", "1.200", "1.300", "-7,7", "-2,0", "+1,7", "8,5x"]
     assert "CXXX2601" not in bc.split("⭐")[0].split("🆕")[1]  # IV-HV +1 nhưng không phải mã mới
     # danh mục: 1.000 CW, vốn 1.001,5, bán được 700 -> -30,3%, (700 × 0,9975 − 1.001,5) × 1.000 = -303.250 đ
     assert next(d for d in bc.splitlines() if d.startswith("CVPB2615")).split()[-2:] == ["-30,3", "-303.250"]
