@@ -12,7 +12,7 @@ import pandas as pd
 
 import cw_scanner
 from cw_scanner import (bien_dong_ngam_dinh, black_scholes_call, can_duoi, danh_gia, dinh_gia, doc_cw_sap_ra_mat, doc_env, doc_ty_le,
-                        gia_mua, mo_phong_gia, rui_ro_theo_tien, so_iv_cung_ma, tong_kl)
+                        gia_mua, lich_su_iv, mo_phong_gia, rui_ro_theo_tien, so_iv_cung_ma, tong_kl)
 
 # Sổ lệnh mẫu (CVPB2615 cuối phiên 16/10/2026, mức thứ 3 thiếu khối lượng)
 SO_LENH = {"askPrices": [{"price": 1250, "volume": 30300}, {"price": 1260, "volume": 30000}, {"price": 1290, "volume": None}]}
@@ -146,6 +146,19 @@ def test_main_bo_qua_ma_khong_co_lich_su():
         ket_qua = pd.read_csv(next(Path(tmp).glob("cw_*.csv")), encoding="utf-8-sig")
     assert "Không lấy được lịch sử giá BBB (các CW của mã này bị bỏ qua)" in nhat_ky.getvalue()
     assert list(ket_qua["Mã CW"]) == ["CAAA2601"]
+
+
+def test_lich_su_iv():
+    # Giá CW tạo từ Black-Scholes với sigma 30% -> giải ngược ra đúng 30% mỗi ngày; ngày thiếu giá CS thì bỏ;
+    # ngày giá CW dưới mức tối thiểu S − K·e^(−rT) thì ghi 0 (không có mức biến động nào khớp)
+    K, ty_le, r, dao_han = 22605, 1.5863, 0.04, date(2027, 2, 17)
+    gia_cs = {"2026-10-14": 24350.0, "2026-10-15": 24450.0, "2026-10-16": 24500.0}
+    gia_cw = {d: black_scholes_call(S, K, (dao_han - date.fromisoformat(d)).days / 365, r, 0.30)[0] / ty_le for d, S in gia_cs.items()}
+    gia_cw["2026-10-13"] = 1000.0  # không có giá CS ngày này -> bỏ
+    gia_cw["2026-10-16"] = 1250.0  # 1.250 × 1,5863 = 1.983 < mức tối thiểu ≈ 2.198 (ca CVPB2615)
+    kq = lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r)
+    assert [d for d, _ in kq] == ["2026-10-14", "2026-10-15", "2026-10-16"]
+    assert kq[0][1] == kq[1][1] == 30.0 and kq[2][1] == 0.0
 
 
 def test_doc_cw_sap_ra_mat():

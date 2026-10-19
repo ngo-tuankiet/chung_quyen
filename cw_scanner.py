@@ -187,21 +187,43 @@ def gia_mua(niem_yet, khop_lenh, so_lenh):
     return niem_yet["refPrice"], "tham chiếu"
 
 
-def bien_dong_lich_su(ma):
-    """Trả về (sigma năm hóa, số phiên đã dùng, [[ngày, giá đóng cửa], ...]) từ giá đóng cửa ngày 1 năm của cổ phiếu cơ sở."""
+def lay_gia_dong_cua(ma):
+    """DataFrame (time, close) giá đóng cửa ngày 1 năm qua của một mã (cổ phiếu hoặc CW) từ vnstock.
+    Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng."""
     hom_nay = date.today()
     # KBS: nguồn mặc định của vnstock, ổn định hơn API lịch sử của VCI. 365 ngày: mức tối đa của gói Khách.
     lay = lambda: Quote(source="KBS", symbol=ma).history(
         start=str(hom_nay - timedelta(days=365)), end=str(hom_nay), interval="1D"
     )
     try:
-        df = lay()
+        return lay()
     except Exception as e:
         if getattr(e, "code", "") != "VNSTOCK_AUTH_MINUTE_LIMIT":
             raise
         print("  Hết lượt gọi vnstock trong phút này, chờ 60 giây rồi chạy tiếp...")
         time.sleep(61)
-        df = lay()
+        return lay()
+
+
+def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
+    """IV (%) từng ngày từ {ngày 'YYYY-MM-DD': giá VND} của CW và cổ phiếu cơ sở. Trả về [[ngày, IV %], ...].
+    Giá CS phải là giá đã điều chỉnh quyền: khi đó dùng điều khoản HIỆN TẠI (K, tỷ lệ đã điều chỉnh) cho cả các ngày trước sự kiện
+    (giá trị 1 CW không đổi khi S, K, tỷ lệ cùng nhân một hệ số). Ngày giá CW dưới mức tối thiểu ghi 0; giá cao bất thường thì bỏ."""
+    kq = []
+    for ngay in sorted(gia_cw.keys() & gia_cs.keys()):
+        S, P = gia_cs[ngay], gia_cw[ngay]
+        T = (dao_han - date.fromisoformat(ngay)).days / 365
+        iv = bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
+        if iv is not None:
+            kq.append([ngay, round(iv * 100, 1)])
+        elif P * ty_le < can_duoi(S, K, T, r):  # rẻ hơn mọi mức biến động
+            kq.append([ngay, 0.0])
+    return kq
+
+
+def bien_dong_lich_su(ma):
+    """Trả về (sigma năm hóa, số phiên đã dùng, [[ngày, giá đóng cửa], ...]) từ giá đóng cửa ngày 1 năm của cổ phiếu cơ sở."""
+    df = lay_gia_dong_cua(ma)
     loi_suat = (df["close"] / df["close"].shift(1)).apply(math.log).dropna().tail(SO_PHIEN_DO_BIEN_DONG)
     lich_su = [[str(t)[:10], float(c)] for t, c in zip(df["time"], df["close"])]
     return loi_suat.std() * math.sqrt(SO_PHIEN_MOT_NAM), len(loi_suat), lich_su

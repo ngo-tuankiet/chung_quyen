@@ -177,6 +177,7 @@ Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
   lấy từ lần quét). Không tải được thì dùng số lúc quét và báo đỏ ở đầu trang. Mục **Rủi ro với số tiền của bạn**: nhập số tiền (triệu đồng)
   để xem số CW mua được, giá trị cổ phiếu cơ sở tương đương đang nắm, mức giảm làm mất toàn bộ tiền, ngày giao dịch cuối, hòa vốn sau phí
   (`PHI_GIAO_DICH` 0,15%) và thuế (`THUE_BAN` 0,1%) - hai mức này là giả định, chỉnh ở đầu `cw_scanner.py` theo công ty chứng khoán của bạn.
+  Mục **IV theo thời gian**: biểu đồ IV từng ngày từ lúc CW lên sàn (giá CW tải qua vnstock 1 lần/ngày, giá cổ phiếu đã điều chỉnh quyền) kèm đường HV 1 năm và trung vị IV các CW cùng mã. IV thường cao lúc mới phát hành rồi giảm dần; đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị cùng mã (ví dụ CVPB2615: khoảng 37% lúc lên sàn tháng 7 → 15,6% ngày 19/10/2026).
 - Nếu máy chủ dữ liệu lỗi, thông báo lỗi màu đỏ hiện ngay trên trang — chờ vài phút rồi bấm lại.
 
 Trang chỉ mở cho máy của bạn (127.0.0.1). Tắt bằng `Ctrl+C` trong cửa sổ dòng lệnh. Lịch tự động ở Phần 5 vẫn chạy `cw_scanner.py`; mở web lúc nào cũng thấy kết quả mới nhất.

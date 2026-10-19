@@ -23,6 +23,7 @@ import cw_scanner
 
 CONG = 8000
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
+BO_NHO_IV = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
 NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
 ESC = html.escape
@@ -188,7 +189,7 @@ document.querySelectorAll(".bieu-do").forEach(khung => {
     const [x, y, ngay, gia] = diem[chiSo], ty = svg.getBoundingClientRect().width / rong;
     tro.setAttribute("x1", x); tro.setAttribute("x2", x); cham.setAttribute("cx", x); cham.setAttribute("cy", y);
     tro.style.visibility = cham.style.visibility = "visible";
-    hop.querySelector("b").textContent = gia.toLocaleString("vi-VN") + " đ";
+    hop.querySelector("b").textContent = gia.toLocaleString("vi-VN") + " " + khung.dataset.donVi;
     hop.querySelector("span").textContent = ngay.split("-").reverse().join("/");
     hop.style.left = x * ty + "px"; hop.style.top = y * ty + "px"; hop.hidden = false;
     hop.classList.toggle("duoi", y * ty < 70);  // sát mép trên thì hiện bên dưới điểm để không bị che
@@ -348,8 +349,8 @@ def trang_chinh():
 
 
 # ============ TRANG CHI TIẾT ============
-def bieu_do(lich_su, duong_ke, ten_cs):
-    """SVG giá đóng cửa 1 năm + đường tham chiếu [(nhãn, giá, lớp)], kèm bảng dữ liệu cho người không xem được hình."""
+def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)"):
+    """SVG một chuỗi số theo ngày [[ngày, giá trị]] + đường tham chiếu [(nhãn, giá trị, lớp)], kèm bảng dữ liệu cho người không xem được hình."""
     R, C, TRAI, PHAI, TREN, DUOI = 900, 320, 60, 150, 16, 30
     gia = [g for _, g in lich_su]
     thap, cao = min(gia + [v for _, v, _ in duong_ke]), max(gia + [v for _, v, _ in duong_ke])
@@ -383,13 +384,14 @@ def bieu_do(lich_su, duong_ke, ten_cs):
     phan.append(f'<circle class="diem" r="4" cx="{x(len(gia) - 1):.1f}" cy="{y(gia[-1]):.1f}"/>')
     phan.append(f'<line class="tro" y1="{TREN}" y2="{C - DUOI}"/><circle class="diem diem-tro" r="5"/>')
     diem = json.dumps([[round(x(i), 1), round(y(g), 1), d, g] for i, (d, g) in enumerate(lich_su)]).replace("</", "<\\/")
-    mo_ta = f"Giá {ten_cs} từ {lich_su[0][0]} đến {lich_su[-1][0]}, thấp nhất {so(min(gia))}, cao nhất {so(max(gia))}, hiện tại {so(gia[-1])} đồng"
+    mo_ta = (f"{ten} từ {lich_su[0][0]} đến {lich_su[-1][0]}, thấp nhất {so(min(gia))} {don_vi}, cao nhất {so(max(gia))} {don_vi}, "
+             f"hiện tại {so(gia[-1])} {don_vi}")
     dong_bang = "".join(f'<tr><td>{d[8:]}/{d[5:7]}/{d[:4]}</td><td class="so">{so(g)}</td></tr>' for d, g in reversed(lich_su))
-    return (f'<div class="cuon-bieu-do"><div class="bieu-do"><svg viewBox="0 0 {R} {C}" tabindex="0" role="img" aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng ngày.">'
+    return (f'<div class="cuon-bieu-do"><div class="bieu-do" data-don-vi="{ESC(don_vi)}"><svg viewBox="0 0 {R} {C}" tabindex="0" role="img" aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng ngày.">'
             f'{"".join(phan)}</svg><div class="o-tro" hidden><b></b><span></span></div>'
             f'<script type="application/json">{diem}</script></div></div>'
             f'<details style="margin-top:8px"><summary>Xem dữ liệu dạng bảng</summary><div class="cuon cao" style="max-width:360px">'
-            f'<table><thead><tr><th>Ngày</th><th class="so">Giá đóng cửa (đ)</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>')
+            f'<table><thead><tr><th>Ngày</th><th class="so">{ESC(ten_cot)}</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>')
 
 
 def trang_chi_tiet(ma, von=VON_MAC_DINH):
@@ -598,8 +600,28 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     lich_su = json.loads(file_ls.read_text(encoding="utf-8")).get(cs) if file_ls.exists() else None
     phan.append(f'<section class="the"><h2>Giá {ESC(cs)} 1 năm qua</h2>'
                 f'<p class="phu">Muốn có lãi khi giữ đến đáo hạn, giá {ESC(cs)} phải nằm trên đường <b>hòa vốn</b>. Rê chuột lên biểu đồ để xem giá từng ngày.</p>'
-                + (bieu_do(lich_su, [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn", hoa_von, "tc-hoa-von")], cs) if lich_su
+                + (bieu_do(lich_su, [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn", hoa_von, "tc-hoa-von")], f"Giá {cs}") if lich_su
                    else '<p>Chưa có dữ liệu biểu đồ. Bấm <b>Quét ngay</b> ở trang chính để tải.</p>') + "</section>")
+
+    # IV theo thời gian: giá CW từ vnstock (1 lượt gọi, nhớ trong ngày) + giá CS đã điều chỉnh quyền trong file lịch sử lúc quét
+    iv_ls, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
+    if iv_ls is None and lich_su:
+        try:
+            df_cw = C.lay_gia_dong_cua(ma)
+            he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
+            gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
+            iv_ls = BO_NHO_IV[(ma, date.today())] = C.lich_su_iv(gia_cw, dict(lich_su), K, ty_le, ngay_dao_han, r)
+        except Exception as e:  # lỗi mạng / hết lượt gọi: chỉ mục này không có biểu đồ, phần còn lại của trang vẫn dùng được
+            loi_iv = f"Chưa tải được lịch sử giá {ESC(ma)} ({ESC(str(e)[:120])}). Mở lại trang sau ít phút."
+    duong_ke_iv = [("HV 1 năm", sigma_ls * 100, "tc-thuc-hien")] + (
+        [("Trung vị cùng mã", tv_cung_ma, "tc-hoa-von")] if math.isfinite(tv_cung_ma) else [])
+    phan.append(f'<section class="the"><h2>IV của {ESC(ma)} theo thời gian</h2>'
+                f'<p class="phu">Mức dao động mà giá CW "giả định" mỗi ngày, so với dao động thật 1 năm qua (HV) và trung vị IV các CW {ESC(cs)} khác '
+                f'hôm nay. IV thường cao lúc mới phát hành rồi giảm dần; đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị cùng mã (tổ chức phát hành '
+                f'đang bán ra rẻ, giá có thể còn thấp nữa trước khi đáo hạn). Điểm ở 0% = giá dưới '
+                f'mức tối thiểu của mô hình. Tính bằng điều khoản hiện tại, giá {ESC(cs)} đã điều chỉnh quyền và lãi suất {so(r * 100, 1)}%.</p>'
+                + (bieu_do(iv_ls, duong_ke_iv, f"IV của {ma}", "%", "IV (%)") if iv_ls and len(iv_ls) >= 2
+                   else f'<p>{loi_iv or "Chưa đủ dữ liệu để vẽ (cần ít nhất 2 ngày có giá CW và giá cổ phiếu cơ sở)."}</p>') + "</section>")
 
     # Kịch bản lãi/lỗ khi đáo hạn
     so_cw, gia_von = rr["so_cw"], P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
@@ -794,6 +816,9 @@ def trang_huong_dan():
         'Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>, cột cuối cho biết lãi/lỗ theo số tiền bạn nhập ở mục <b>Rủi ro với số tiền của bạn</b>.</li>'
         '<li><b>Rủi ro với số tiền của bạn</b>: nhập số tiền định bỏ ra để xem mua được bao nhiêu CW, tương đương nắm bao nhiêu tiền cổ phiếu '
         '(thường gấp 5-15 lần), cổ phiếu giảm đến đâu thì mất toàn bộ, ngày cuối cùng còn bán được và điểm hòa vốn sau phí, thuế.</li>'
+        '<li><b>IV theo thời gian</b>: biểu đồ mức dao động mà giá CW "giả định" từng ngày từ lúc lên sàn. IV thường cao lúc mới phát hành rồi '
+        'giảm dần. Đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị các CW cùng mã (ví dụ CVPB2608, CVPB2615 của ACBS tháng 10/2026): '
+        'tổ chức phát hành đang bán ra rẻ, nên giá có thể còn thấp nữa trước khi đáo hạn.</li>'
         '<li>Mọi con số ở trang phân tích được <b>tính lại theo giá trực tiếp</b> lúc mở trang (dòng đầu trang ghi giờ lấy giá). '
         'Kết luận có thể khác bảng ở trang chính (bảng đó là số lúc quét).</li>'
         '<li><b>Các CW khác của cùng cổ phiếu</b>: cùng đặt cược vào một cổ phiếu, hãy so để chọn CW rẻ hơn, còn nhiều ngày hơn hoặc dễ hòa vốn hơn.</li>'
