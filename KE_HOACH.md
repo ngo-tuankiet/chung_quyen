@@ -13,6 +13,10 @@ cw_scanner/
 ├── test_cw_scanner.py   ← kiểm tra công thức có tính đúng không
 ├── requirements.txt     ← phiên bản vnstock được ghim (đổi số ở đây khi muốn nâng cấp)
 ├── requirements-dev.txt ← pytest, chỉ cần khi sửa code
+├── danh_muc.py          ← danh mục CW đang nắm + cảnh báo Discord (trang 💼 Danh mục trên web)
+├── danh_muc.csv         ← (tự sinh, không đưa lên git) các lệnh mua/bán bạn nhập
+├── chay_quet_tu_dong.sh, kiem_tra_danh_muc.sh, cai_lich_quet.sh ← chạy tự động bằng launchd (Phần 5)
+├── .env.example         ← mẫu file .env (VNSTOCK_API_KEY, DISCORD_WEBHOOK_URL)
 ├── cw_da_biet.txt       ← (tự sinh) danh sách CW đã thấy, dùng để phát hiện CW mới
 └── ket_qua/
     ├── cw_YYYY-MM-DD.csv        ← (tự sinh) kết quả mỗi ngày, mở bằng Excel
@@ -279,6 +283,20 @@ Chạy `crontab -e` rồi thêm 1 dòng (giờ theo múi giờ máy, đặt máy
 15 15 * * 1-5  /bin/bash /duong_dan/cw_scanner/chay_quet_tu_dong.sh >> /duong_dan/cw_scanner/log.txt 2>&1
 ```
 Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scanner_sao_luu/`), nhật ký trong `log.txt`.
+
+### Danh mục và cảnh báo Discord
+1. Trang **💼 Danh mục** trên web: nhập từng lệnh mua/bán (mã, ngày, số lượng, giá khớp; chốt lời/cắt lỗ riêng nếu muốn). Lệnh lưu trong
+   `danh_muc.csv` (ghi an toàn: file tạm rồi đổi tên, bản trước ở `danh_muc.csv.bak`; mỗi ngày sao lưu 1 bản vào `~/cw_scanner_sao_luu/`).
+   Giá vốn bình quân (đã gồm phí mua) như app công ty chứng khoán; lãi/lỗ tính **nếu bán ngay** ở giá chờ mua tốt nhất sau phí và thuế.
+2. Tạo webhook: Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, dán vào `.env`:
+   `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` (xem `.env.example`). Không có dòng này thì cảnh báo chỉ hiện trên web.
+3. `bash ~/cw_scanner/cai_lich_quet.sh` cài cả lịch kiểm tra danh mục **mỗi 15 phút** (chỉ trong giờ khớp lệnh 9:15–11:30, 13:00–14:45 thứ Hai–Sáu,
+   ngoài giờ thoát ngay, không gọi mạng) và một lần sau lần quét 15:15.
+
+Cảnh báo (ngưỡng ở đầu `danh_muc.py`): còn ≤ 20 ngày tới ngày giao dịch cuối; cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% hoặc đã dưới;
+lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng lệnh mua); sổ lệnh không có giá chờ mua; IV < 50% trung vị CW cùng mã;
+khối lượng niêm yết tăng (tổ chức phát hành bán thêm). **Chỉ gửi khi cảnh báo vừa xuất hiện**; cùng cảnh báo không gửi lại tới khi hết rồi
+xảy ra lần nữa. Tin Discord chỉ có mã, %, giá và lý do - **không có số tiền, khối lượng** (dữ liệu nằm trên máy chủ Discord).
 
 ---
 

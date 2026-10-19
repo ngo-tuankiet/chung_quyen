@@ -6,9 +6,14 @@ echo "===== $(date '+%Y-%m-%d %H:%M:%S') ====="
 export SSL_CERT_FILE="$(.venv/bin/python -m certifi)"
 .venv/bin/python cw_scanner.py
 ma_loi=$?
+.venv/bin/python danh_muc.py --luon  # kiểm tra danh mục theo giá đóng cửa; có cảnh báo mới thì gửi Discord
 # Sao lưu cả khi quét lỗi (giữ bản các ngày trước). Không dùng --delete: không bao giờ xóa bản sao lưu cũ.
 # Không đặt trong ~/Documents, ~/Downloads, ~/Desktop: macOS chặn tác vụ chạy nền đọc/ghi các thư mục đó ("Operation not permitted")
 SAO_LUU="$HOME/cw_scanner_sao_luu"
 mkdir -p "$SAO_LUU" && rsync -a ket_qua/ "$SAO_LUU/" && cp -p cw_da_biet.txt "$SAO_LUU/" 2>/dev/null
-echo "Sao lưu vào $SAO_LUU: mã thoát rsync $?; mã thoát lần quét $ma_loi"
+ma_sao_luu=$?
+if [ -f danh_muc.csv ]; then  # mỗi ngày 1 bản: sửa/xóa nhầm vẫn lấy lại được
+  cp -p danh_muc.csv "$SAO_LUU/danh_muc_$(date +%Y-%m-%d).csv" || ma_sao_luu=1
+fi
+echo "Sao lưu vào $SAO_LUU: mã thoát sao lưu $ma_sao_luu; mã thoát lần quét $ma_loi"
 exit $ma_loi
