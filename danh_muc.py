@@ -407,7 +407,7 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc):
         phan += [f"• **{m}**: {nd}" for m, _, nd in canh_bao]
     # 4. CW mới phát hành, định giá tốt
     moi = df[(df["Mới"] == "MỚI") & (df["IV − HV"] <= C.MAX_IV_TRU_HV * 100)] if "Mới" in df else df.iloc[0:0]
-    phan.append("\n🆕 **CW mới phát hành, định giá tốt** (IV − HV ≤ " + pt(C.MAX_IV_TRU_HV, 0) + ")")
+    phan.append("\n🆕 **CW mới phát hành, định giá tốt** (IV − HV ≤ " + pt(C.MAX_IV_TRU_HV, 0).rstrip("%") + " điểm)")
     phan += [_dong_cw(h) for _, h in moi.iterrows()] or ["Hôm nay không có."]
     # 5. Nên xem xét + IV bất thường
     tot = df[df["Đánh giá"] == "NÊN XEM XÉT"].head(SO_MA_NOI_BAT)
