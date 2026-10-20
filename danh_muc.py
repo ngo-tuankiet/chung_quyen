@@ -198,6 +198,19 @@ def tinh_vi_the(ds):
     return vt
 
 
+def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
+    """So bán ngay với giữ đến đáo hạn cho 1 CW (giá VND):
+    ban_ngay = giá chờ mua sau phí + thuế; giu_mh = giá trị nếu giữ theo mô hình (sigma lịch sử, trừ thuế khi nhận tiền);
+    cs_can = giá CS (bình quân 5 phiên trước đáo hạn) để tiền nhận về bằng bán ngay; cach = cs_can / S − 1; ve_0 = K / S − 1.
+    """
+    ban_ngay = gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN)
+    giu_mh = (
+        C.black_scholes_call(S, K, T, r, sigma)[0] / ty_le * (1 - C.THUE_BAN) if not math.isnan(sigma) else float("nan")
+    )
+    cs_can = K + ty_le * ban_ngay / (1 - C.THUE_BAN)
+    return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
+
+
 def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
     """Chỉ số theo giá trực tiếp + cảnh báo cho các vị thế còn nắm.
     bang_gia: kết quả lay_bang_gia (CW + cổ phiếu cơ sở); df: bảng lần quét gần nhất (sigma, r, IV cùng mã);
@@ -223,7 +236,10 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         ngay_gd_cuoi = date(int(gd[:4]), int(gd[4:6]), int(gd[6:])) if gd else None
         con_ngay = (ngay_gd_cuoi - hom_nay).days if ngay_gd_cuoi else None
         quet = df[df["Mã CS"] == cs]
-        iv, don_bay, canh_bao_iv = float("nan"), float("nan"), ""
+        md = ny.get("maturityDate") or ""
+        dao_han = date(int(md[:4]), int(md[4:6]), int(md[6:])) if md else None
+        r_dg = float(quet["r %"].iloc[0]) / 100 if len(quet) and "r %" in quet else C.LAI_SUAT_PHI_RUI_RO
+        iv, don_bay, canh_bao_iv, sigma = float("nan"), float("nan"), "", float("nan")
         if len(quet):  # IV, đòn bẩy theo giá trực tiếp; sigma và r như lúc quét
             dg = C.dinh_gia(
                 ny,
@@ -234,14 +250,13 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 hom_nay,
                 float(quet["r %"].iloc[0]) / 100 if "r %" in quet else None,
             )
-            iv, don_bay = dg["IV %"], dg["Đòn bẩy"]
+            iv, don_bay, sigma = dg["IV %"], dg["Đòn bẩy"], dg["Biến động %/năm"] / 100
             canh_bao_iv = C.so_iv_cung_ma(df, ma, cs, iv)[1]
         chot_loi, cat_lo = v["chot_loi"] or CHOT_LOI_MAC_DINH, v["cat_lo"] or CAT_LO_MAC_DINH
         # Lệch so với CS từ lệnh mua gần nhất: mốc = giá vốn bình quân (bỏ phí) và giá CS đóng cửa ngày mua
         lech, r_lech = float("nan"), None
         S0 = [g for d, g in (lich_su or {}).get(cs, []) if d <= (v["ngay_mua"] or "")]
-        if S0 and ny.get("maturityDate"):
-            md = ny["maturityDate"]
+        if S0 and dao_han:
             lech, r_lech = C.lech_theo_cs(
                 v["gia_von"] / (1 + C.PHI_GIAO_DICH),
                 S0[-1],
@@ -251,8 +266,8 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 hom_nay,
                 K,
                 C.doc_ty_le(ny["exerciseRatio"]),
-                date(int(md[:4]), int(md[4:6]), int(md[6:])),
-                float(quet["r %"].iloc[0]) / 100 if len(quet) and "r %" in quet else C.LAI_SUAT_PHI_RUI_RO,
+                dao_han,
+                r_dg,
             )
         kl_moi[ma] = ny.get("listedShare") or 0
         dong.append(
@@ -277,6 +292,15 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 "tiep_xuc": v["so_luong"] / C.doc_ty_le(ny["exerciseRatio"]) * S,
                 "lech": lech,
                 "lech_r0": r_lech == 0.0,
+                # còn ≤ CANH_BAO_NGAY_GD_CUOI ngày tới ngày GD cuối: so giữ đến đáo hạn với bán ngay (mục ⏳ của báo cáo)
+                "giu_hay_ban": (
+                    giu_hay_ban(
+                        S, K, C.doc_ty_le(ny["exerciseRatio"]), (dao_han - hom_nay).days / 365, r_dg, sigma, gia_ban
+                    )
+                    if con_ngay is not None and con_ngay <= CANH_BAO_NGAY_GD_CUOI and dao_han
+                    else None
+                ),
+                "dao_han": dao_han,
             }
         )
         # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord)
@@ -519,6 +543,36 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc, moi_vao=None, 
             phan[
                 -1
             ] += f"\n• **{d['ma']}**: {so(d['so_luong'])} CW, giá vốn {so(d['gia_von'])} đ – không có giá trực tiếp"
+    # 1b. Sắp hết hạn (≤ CANH_BAO_NGAY_GD_CUOI ngày tới ngày GD cuối): giữ đến đáo hạn hay bán
+    sap_het = [d for d in co_gia if d.get("giu_hay_ban")]
+    if sap_het:
+        ngay_ = lambda x: f"{x:%d/%m/%Y}" if x else "—"
+        phan.append(
+            "⏳ **Sắp hết hạn: giữ đến đáo hạn hay bán**\n"
+            + bang(
+                ["Mã CW", "Bán ngay", "Giữ (MH)", "CS cần", "Cách", "Còn"],
+                [
+                    [
+                        d["ma"],
+                        so(d["giu_hay_ban"]["ban_ngay"]),
+                        "—" if math.isnan(d["giu_hay_ban"]["giu_mh"]) else so(d["giu_hay_ban"]["giu_mh"]),
+                        so(d["giu_hay_ban"]["cs_can"]),
+                        pt(d["giu_hay_ban"]["cach"], 1),
+                        f"{d['con_ngay']}d",
+                    ]
+                    for d in sap_het
+                ],
+            )
+            + "".join(
+                f"\n• **{d['ma']}**: CW về 0 nếu {d['cs']} ≤ {so(d['K'])} ({pt(d['giu_hay_ban']['ve_0'], 1)}) · "
+                f"GD cuối {ngay_(d['ngay_gd_cuoi'])} · đáo hạn {ngay_(d['dao_han'])}"
+                + ("" if d["co_nguoi_mua"] else ' · không ai đặt mua: "Bán ngay" tính theo giá khớp')
+                for d in sap_het
+            )
+            + "\n_Bán ngay: giá chờ mua sau phí, thuế · Giữ (MH): giá trị nếu giữ đến đáo hạn theo mô hình σ lịch sử (không phải dự báo) · "
+            "CS cần: giá CS bình quân 5 phiên trước đáo hạn để giữ bằng bán ngay (cao hơn thì giữ có lợi hơn) · "
+            "Sau ngày GD cuối không bán được; xem lịch nghỉ lễ nếu 5 phiên đó rơi gần kỳ nghỉ_"
+        )
     # 2. Gần ngưỡng chốt lời / cắt lỗ
     gan = [d for d in co_gia if d["lai_pct"] >= d["chot_loi"] - GAN_NGUONG or d["lai_pct"] <= -d["cat_lo"] + GAN_NGUONG]
     if gan:

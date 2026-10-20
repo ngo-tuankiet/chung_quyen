@@ -222,6 +222,51 @@ def test_doc_ket_qua_truoc():
         assert D.doc_ket_qua_truoc(date(2026, 10, 16)) is None
 
 
+def test_giu_hay_ban_tinh_tay():
+    # CVPB2608 ngày 19/10/2026: VPB 24.000, K 23.379, tỷ lệ 1,5586, giá chờ mua 830
+    # bán ngay = 830 × (1 − 0,0015 − 0,001) = 827,925; CS cần = 23.379 + 1,5586 × 827,925 / 0,999 = 24.670,7 (+2,79%)
+    g = D.giu_hay_ban(24000, 23379, 1.5586, 118 / 365, 0.04, 0.318, 830)
+    assert abs(g["ban_ngay"] - 827.925) < 1e-9 and abs(g["cs_can"] - 24670.7) < 0.1 and abs(g["cach"] - 0.02795) < 1e-4
+    assert abs(g["ve_0"] - (23379 / 24000 - 1)) < 1e-12
+    # giữ theo mô hình = Black-Scholes / tỷ lệ × (1 − thuế 0,1%)
+    gt = cw_scanner.black_scholes_call(24000, 23379, 118 / 365, 0.04, 0.318)[0] / 1.5586 * 0.999
+    assert abs(g["giu_mh"] - gt) < 1e-9 and math.isnan(
+        D.giu_hay_ban(24000, 23379, 1.5586, 0.3, 0.04, math.nan, 830)["giu_mh"]
+    )
+
+
+def test_muc_sap_het_han_chi_hien_khi_con_20_ngay():
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+    df = pd.DataFrame(
+        {
+            "Mã CW": ["CVPB2615"],
+            "Mã CS": ["VPB"],
+            "Đánh giá": ["THEO DÕI"],
+            "Mới": [""],
+            "IV − HV": [1.0],
+            "Cảnh báo": [""],
+        }
+    )
+    bc = lambda con: D.bao_cao_ngay(
+        df,
+        HOM_NAY,
+        D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=con)), DF, HOM_NAY, {})[0],
+        [],
+        0,
+        datetime(2026, 10, 19, 14),
+    )
+    co, khong = bc(20), bc(21)
+    assert "⏳" in co and "⏳" not in khong
+    # CS cần = 20.000 + 2 × (1.000 × 0,9975) / 0,999 = 21.997 (+... so với VPB 25.000: −12,0%)
+    hang = next(d for d in co.split("⏳")[1].splitlines() if d.startswith("CVPB2615"))
+    assert (
+        hang.split()[0] == "CVPB2615"
+        and hang.split()[1] == "998"
+        and hang.split()[3] == "21.997"
+        and hang.split()[4] == "-12,0%"
+    )
+
+
 def test_chi_gui_canh_bao_vua_xuat_hien():
     a, b = ("CVPB2615", "cat_lo", "..."), ("CVPB2615", "gd_cuoi", "...")
     moi, dang_bao = D.chon_canh_bao_moi([a], [])
