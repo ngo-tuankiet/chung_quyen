@@ -30,6 +30,7 @@ CANH_BAO_NGAY_GD_CUOI = 20  # báo khi còn ≤ 20 ngày (lịch) tới ngày gi
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 GAN_NGUONG = 0.10  # báo cáo ngày: liệt kê vị thế còn cách ngưỡng chốt lời/cắt lỗ ≤ 10 điểm %
+NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15 VÀ IV (theo giá chờ mua) > trung vị IV CW cùng mã
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 SO_MA_NOI_BAT = 5
 MAX_MA_MOI_VAO = 10  # báo cáo ngày: tối đa số mã "mới vào nhóm Nên xem xét" liệt kê (mỗi mã tốn 1 lượt vnstock để tính độ lệch)  # báo cáo ngày: số mã "Nên xem xét" đưa vào
@@ -211,6 +212,37 @@ def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
     return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
 
 
+def lo_100(x):
+    """Làm tròn số cổ phiếu theo lô 100 (làm tròn lên từ 50: 450 -> 500)."""
+    return int(x / 100 + 0.5) * 100
+
+
+def canh_bao_cw_dat(so_luong, gia_bid, S, K, ty_le, dao_han, hom_nay, r, sigma, df, ma, cs):
+    """Nội dung cảnh báo "CW đắt, cân nhắc chuyển sang cổ phiếu" hoặc "" nếu không đủ điều kiện:
+    (1) bán ngay ≥ giá trị theo mô hình × (1 + NGUONG_CW_DAT); (2) IV theo giá chờ mua > trung vị IV các CW cùng mã.
+    Có ghi số tiền (người dùng yêu cầu): tiền thu về, vốn mua cổ phiếu đủ số và theo delta (lô 100)."""
+    if not gia_bid or not dao_han or math.isnan(sigma):
+        return ""
+    T = (dao_han - hom_nay).days / 365
+    g = giu_hay_ban(S, K, ty_le, T, r, sigma, gia_bid)
+    iv = C.bien_dong_ngam_dinh(gia_bid, S, K, T, r, ty_le)
+    if iv is None or round(g["ban_ngay"], 9) < round(g["giu_mh"] * (1 + NGUONG_CW_DAT), 9):
+        return ""
+    tv = C.so_iv_cung_ma(df, ma, cs, iv * 100)[0]
+    if math.isnan(tv) or iv * 100 <= tv:
+        return ""
+    so_cw_khac = int(((df["Mã CS"] == cs) & (df["Mã CW"] != ma) & df["IV %"].notna()).sum())
+    thu_ve = so_luong * g["ban_ngay"]
+    du_so, theo_delta = lo_100(so_luong / ty_le), lo_100(so_luong / ty_le * C.black_scholes_call(S, K, T, r, sigma)[1])
+    return (
+        f"CW đắt hơn mô hình {pt(g['ban_ngay'] / g['giu_mh'] - 1)} (bán ngay {so(g['ban_ngay'])} đ/CW, giữ theo mô hình "
+        f"{so(g['giu_mh'])} đ); IV khi bán {iv * 100:.0f}% > trung vị {tv:.0f}% của {so_cw_khac} CW {cs}. "
+        f"Bán hết thu ≈ {so(thu_ve)} đ. Chuyển sang {cs}: đủ số {so(du_so)} cp ≈ {so(du_so * S)} đ "
+        f"(cần thêm ≈ {so(max(du_so * S - thu_ve, 0))} đ) · theo delta {so(theo_delta)} cp ≈ {so(theo_delta * S)} đ. "
+        "Lưu ý: cổ phiếu không có giới hạn lỗ như CW; 3 lần giao dịch chịu phí, thuế; cổ phiếu về tài khoản sau T+2"
+    )
+
+
 def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
     """Chỉ số theo giá trực tiếp + cảnh báo cho các vị thế còn nắm.
     bang_gia: kết quả lay_bang_gia (CW + cổ phiếu cơ sở); df: bảng lần quét gần nhất (sigma, r, IV cùng mã);
@@ -339,6 +371,11 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                     f"CW cao hơn mức lẽ ra theo {cs} {pt(lech, 1)} kể từ ngày mua {ngay_mua}: dễ bị kéo về",
                 )
             )
+        cb_dat = canh_bao_cw_dat(
+            v["so_luong"], gia_bid, S, K, C.doc_ty_le(ny["exerciseRatio"]), dao_han, hom_nay, r_dg, sigma, df, ma, cs
+        )
+        if cb_dat:
+            canh_bao.append((ma, "cw_dat", cb_dat))
         if gia_bid is None:
             canh_bao.append((ma, "khong_nguoi_mua", "sổ lệnh không có giá chờ mua: hiện không bán ra được"))
         if canh_bao_iv:

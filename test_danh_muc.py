@@ -267,6 +267,40 @@ def test_muc_sap_het_han_chi_hien_khi_con_20_ngay():
     )
 
 
+def test_canh_bao_cw_dat_chuyen_sang_co_phieu():
+    # VPB 25.000, K 20.000, tỷ lệ 2, còn 60 ngày tới GD cuối (đáo hạn 17/02/2027), sigma lịch sử 30%, r 4%
+    T = (date(2027, 2, 17) - HOM_NAY).days / 365
+    giu_mh = cw_scanner.black_scholes_call(25000, 20000, T, 0.04, 0.30)[0] / 2 * 0.999  # giá trị giữ theo mô hình
+    bid = (
+        lambda he_so: math.ceil(giu_mh * he_so / 0.9975 / 10) * 10
+    )  # giá chờ mua để bán ngay ≈ mô hình × he_so (bước 10 đ)
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+    cung_ma = lambda ivs: pd.concat(
+        [DF] + [DF.assign(**{"Mã CW": f"CVPB26{i}", "IV %": x}) for i, x in enumerate(ivs, 50)]
+    )
+    cb = lambda gia, df: next(
+        (
+            nd
+            for m, l, nd in D.danh_gia_danh_muc(
+                vt, bang_gia_mau(gia, 25000, HOM_NAY + timedelta(days=60)), df, HOM_NAY, {}
+            )[1]
+            if l == "cw_dat"
+        ),
+        "",
+    )
+    noi_dung = cb(bid(1.2), cung_ma([20, 25, 30]))  # +20% so với mô hình, IV > trung vị 25% -> báo
+    assert noi_dung.startswith("CW đắt hơn mô hình +2") and "trung vị 25% của 3 CW VPB" in noi_dung
+    # 1.000 CW / tỷ lệ 2 = 500 cp ≈ 12.500.000 đ; theo delta N(d1) × 500 làm tròn lô 100
+    delta = cw_scanner.black_scholes_call(25000, 20000, T, 0.04, 0.30)[1]
+    assert "đủ số 500 cp ≈ 12.500.000 đ" in noi_dung and f"theo delta {D.so(D.lo_100(500 * delta))} cp" in noi_dung
+    assert f"Bán hết thu ≈ {D.so(1000 * bid(1.2) * 0.9975)} đ" in noi_dung
+    assert cb(bid(1.1), cung_ma([20, 25, 30])) == ""  # chỉ +10%
+    assert cb(bid(1.2), cung_ma([60, 70, 80])) == ""  # IV thấp hơn trung vị cùng mã
+    assert cb(bid(1.2), cung_ma([20, 25])) == ""  # < 3 CW cùng mã để so
+    assert cb(None, cung_ma([20, 25, 30])) == ""  # không ai đặt mua
+    assert D.lo_100(450) == 500 and D.lo_100(449) == 400
+
+
 def test_chi_gui_canh_bao_vua_xuat_hien():
     a, b = ("CVPB2615", "cat_lo", "..."), ("CVPB2615", "gd_cuoi", "...")
     moi, dang_bao = D.chon_canh_bao_moi([a], [])

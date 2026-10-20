@@ -304,8 +304,8 @@ Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scann
 
 Cảnh báo (ngưỡng ở đầu `danh_muc.py`): còn ≤ 20 ngày tới ngày giao dịch cuối; cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% hoặc đã dưới;
 lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng lệnh mua); sổ lệnh không có giá chờ mua; IV < 50% trung vị CW cùng mã;
-khối lượng niêm yết tăng (tổ chức phát hành bán thêm). **Chỉ gửi khi cảnh báo vừa xuất hiện**; cùng cảnh báo không gửi lại tới khi hết rồi
-xảy ra lần nữa. Tin Discord chỉ có mã, %, giá và lý do - **không có số tiền, khối lượng** (dữ liệu nằm trên máy chủ Discord).
+khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệch ≥ ±15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất); **CW đắt, cân nhắc chuyển sang cổ phiếu**: bán ngay ≥ giá trị theo mô hình × 1,15 và IV theo giá chờ mua > trung vị IV các CW cùng mã (tin này có ghi tiền thu về và vốn mua cổ phiếu đủ số / theo delta, lô 100; cổ phiếu không có giới hạn lỗ như CW). **Chỉ gửi khi cảnh báo vừa xuất hiện**; cùng cảnh báo không gửi lại tới khi hết rồi
+xảy ra lần nữa. Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" và báo cáo 14:00 có số tiền, theo yêu cầu dùng riêng).
 
 ---
 
