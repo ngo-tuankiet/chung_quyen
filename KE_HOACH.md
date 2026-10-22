@@ -434,8 +434,32 @@ mua–bán có thể rộng hơn trong phiên); chênh lệch giá/NAV trong qu�
      chỉ là 1 lô 100 CCQ, và bán ở giá đóng cửa là lạc quan.
   4. Mẫu nhỏ: chỉ FUEVN100, FUESSV30, FUESSV50, FUEDCMID, FUEFCV50, FUEIP100 có ≥ 10 lệnh độc lập ở một kỳ N nào đó (chủ yếu N=1); các quỹ còn
      lại (FUEABVND, FUEKIVFS… với vượt NAV +2…+8%) chỉ 1–7 lệnh, giá 1 lô — không đủ kết luận.
-- Việc tiếp (chưa làm, cần người dùng chọn): giữ `BAT_CANH_BAO_TRONG_PHIEN = False`; để `ket_qua/inav_*.csv` tích lũy vài tuần rồi kiểm kịch bản A
-  bằng giá chào bán và iNAV thật trong phiên; cân nhắc ngưỡng **tương đối** (chiết khấu sâu hơn mức thường lệch của chính quỹ) thay ngưỡng tuyệt đối.
+- **Thử ngưỡng tương đối** (22/10/2026, `.venv/bin/python kiem_chung_chiet_khau.py tuong_doi` → `ket_qua/kiem_chung_chiet_khau_tuong_doi_*.md/.csv`,
+  cùng dữ liệu và cách mua/bán; công thức người dùng chốt trước khi xem kết quả):
+  - Tín hiệu phiên T: `lai_rong_neu_ve_nav(giá đóng cửa T, NAV T × (1 + m))` ≥ 2%, m = trung vị chênh lệch giá/NAV của 60 phiên có giá và NAV
+    gần nhất **trước T** (`CUA_SO_TRUNG_VI`; chưa đủ 60 phiên → không tín hiệu, mất ~3 tháng đầu). Tức là "về mức thường lệch của chính quỹ" thay
+    "về NAV"; đã bao hàm điều kiện lệch dưới m ≥ ~2,2–2,4 điểm nên không thêm ngưỡng X riêng.
+  - Kết quả kịch bản B (trung vị; n lệnh độc lập · số tháng · vượt NAV; nền vượt NAV −0,4% = chi phí khứ hồi):
+
+    | Nhóm | B, N=5: tuyệt đối → tương đối | B, N=20: tuyệt đối → tương đối | A, N=5 tương đối |
+    |---|---|---|---|
+    | Cao ≥ 1 tỷ | 12 · 6 · −0,2% → 18 · 10 · −0,2% | 7 · 6 · +0,7% → 8 · 7 · +0,1% | +0,1% |
+    | Vừa 0,1–1 tỷ | 37 · 9 · −0,2% → 54 · 16 · −0,2% | 21 · 9 · +0,6% → 31 · 14 · +0,2% | +1,1% |
+    | Mỏng < 0,1 tỷ | 143 · 26 · −0,1% → 64 · 20 · −0,5% | 54 · 24 · +0,1% → 30 · 18 · −0,8% | +2,2% |
+    | FUEFCV50 (CL TV kỳ −8,4%) | 72 · 26 · −0,6% → 30 · 17 · −0,6% | 23 · 23 · −0,8% → 14 · 14 · −0,7% | +0,8% |
+    | FUEIP100 (CL TV kỳ −7,2%) | 61 · 26 · −0,1% → 29 · 15 · −1,4% | 21 · 21 · −0,1% → 12 · 12 · −1,4% | +3,6% |
+
+  - **Kết luận: ngưỡng tương đối không tốt hơn — không thay ngưỡng 2% tuyệt đối bằng nó.**
+    1. Kịch bản B (không lookahead): vượt NAV vẫn ≈ 0 sau phí (−0,2%…+0,2% nhóm cao/vừa ở N ≥ 5), N=20 còn kém tuyệt đối. Tín hiệu trải ra nhiều tháng hơn
+       (nhóm cao 10 tháng, vừa 16 tháng; ~40% lệnh còn ở 04–07/2025) nên lãi danh nghĩa giảm (vừa, N=20: +6,2% → +2,1%) — khẳng định lãi của ngưỡng
+       tuyệt đối chủ yếu là thị trường.
+    2. FUEFCV50/FUEIP100: tín hiệu tương đối bỏ được khoảng một nửa số lệnh "chiết khấu thường trực", nhưng lệnh còn lại vẫn lỗ so với NAV ở B
+       (−0,6%, −1,4%) trong khi A dương (+0,8%, +3,6%): độ lệch thêm so với mức thường là giá đóng cửa 1 lô, tự đảo chiều ngay phiên sau
+       (FUEIP100 trung vị CL tín hiệu −8,8% → CL lúc mua −8,1%) — không mua được ở đó nếu chờ NAV chính thức.
+    3. Khoảng cách A–B lặp lại ở mọi nhóm: phần lời (nếu có) chỉ nằm ở việc mua **đúng lúc trong phiên** với giá chào bán thật — cần
+       `ket_qua/inav_*.csv` mới kiểm được. Mẫu nhóm cao vẫn nhỏ (8–18 lệnh).
+- Việc tiếp (chưa làm, cần người dùng chọn): giữ `BAT_CANH_BAO_TRONG_PHIEN = False` và ngưỡng 2%; để `ket_qua/inav_*.csv` tích lũy vài tuần rồi
+  kiểm kịch bản A bằng giá chào bán và iNAV thật trong phiên (cả ngưỡng tuyệt đối lẫn tương đối).
 
 Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
 (dữ liệu trước 2024 có dấu hiệu lookahead).
