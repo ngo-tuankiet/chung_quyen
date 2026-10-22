@@ -158,7 +158,7 @@ def test_doc_von():
 def test_doc_ghi_file_luon_co_encoding():
     # Windows không mặc định UTF-8: đọc/ghi file thiếu encoding thì tiếng Việt trong JSON (danh sách HOSE) làm lỗi lưu/đọc
     # Duyệt cây cú pháp (không theo dòng): black có thể tách một lời gọi ra nhiều dòng
-    for ten in ("cw_scanner.py", "web.py", "danh_muc.py"):
+    for ten in ("cw_scanner.py", "web.py", "danh_muc.py", "etf.py"):
         cay = ast.parse((Path(__file__).parent / ten).read_text(encoding="utf-8"))
         for n in ast.walk(cay):
             if isinstance(n, ast.Call) and getattr(n.func, "attr", "") in ("read_text", "write_text"):

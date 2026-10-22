@@ -22,6 +22,7 @@ import pandas as pd
 
 import cw_scanner
 import danh_muc
+import etf
 
 CONG = 8000
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
@@ -176,6 +177,8 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
 .tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
 .tc-hoa-von { stroke: var(--cam); stroke-width: 1.5; }
+.ma-ngan { fill: none; stroke: var(--cam); stroke-width: 1.5; }
+.ma-dai { fill: none; stroke: var(--chu-mo); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .dan { stroke: var(--truc); stroke-width: 1; }
 .nhan-tc { fill: var(--chu-phu); font-size: 12px; }
 .gia-tc { fill: var(--chu); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -297,6 +300,7 @@ def trang(tieu_de, than, duong_dan=""):
         for dd, ten in (
             ("/", "Danh sách chứng quyền"),
             ("/danh-muc", "💼 Danh mục"),
+            ("/etf", "📊 ETF"),
             ("/sap-ra-mat", "🆕 CW sắp ra mắt"),
             ("/huong-dan", "❓ Hướng dẫn sử dụng"),
         )
@@ -452,11 +456,13 @@ def trang_chinh():
 
 
 # ============ TRANG CHI TIẾT ============
-def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)"):
-    """SVG một chuỗi số theo ngày [[ngày, giá trị]] + đường tham chiếu [(nhãn, giá trị, lớp)], kèm bảng dữ liệu cho người không xem được hình."""
+def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)", duong_phu=()):
+    """SVG một chuỗi số theo ngày [[ngày, giá trị]] + đường tham chiếu [(nhãn, giá trị, lớp)], kèm bảng dữ liệu cho người không xem được hình.
+    duong_phu [(nhãn, [giá trị từng ngày hoặc None], lớp)]: đường vẽ cùng trục (vd MA50), nhãn ở mép phải."""
     R, C, TRAI, PHAI, TREN, DUOI = 900, 320, 60, 150, 16, 30
     gia = [g for _, g in lich_su]
-    thap, cao = min(gia + [v for _, v, _ in duong_ke]), max(gia + [v for _, v, _ in duong_ke])
+    moi_so = gia + [v for _, v, _ in duong_ke] + [v for _, ds, _ in duong_phu for v in ds if v is not None]
+    thap, cao = min(moi_so), max(moi_so)
     le = (cao - thap) * 0.06 or 1
     thap, cao = thap - le, cao + le
     x = lambda i: TRAI + i * (R - TRAI - PHAI) / max(len(gia) - 1, 1)
@@ -480,18 +486,24 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
             f'<text class="nhan-truc" x="{x(i):.1f}" y="{C - 8}" text-anchor="{neo}">{lich_su[i][0][5:7]}/{lich_su[i][0][:4]}</text>'
         )
     # đường tham chiếu + nhãn bên phải; nhãn gần nhau thì đẩy ra và nối bằng đường dẫn (không chồng chữ)
-    vi_tri = sorted([(y(v), nhan, v, lop) for nhan, v, lop in duong_ke])
+    vi_tri = sorted(
+        [(y(v), nhan, v, lop, True) for nhan, v, lop in duong_ke]
+        + [(y(ds[-1]), nhan, ds[-1], lop, False) for nhan, ds, lop in duong_phu if ds and ds[-1] is not None]
+    )
     for k in range(1, len(vi_tri)):
         if vi_tri[k][0] - vi_tri[k - 1][0] < 34:
             vi_tri[k] = (vi_tri[k - 1][0] + 34,) + vi_tri[k][1:]
-    for yn, nhan, v, lop in vi_tri:
+    for yn, nhan, v, lop, ke_ngang in vi_tri:
         phan.append(
-            f'<line class="{lop}" x1="{TRAI}" x2="{R - PHAI}" y1="{y(v):.1f}" y2="{y(v):.1f}"/>'
-            f'<line class="dan" x1="{R - PHAI}" x2="{R - PHAI + 10}" y1="{y(v):.1f}" y2="{yn:.1f}"/>'
+            (f'<line class="{lop}" x1="{TRAI}" x2="{R - PHAI}" y1="{y(v):.1f}" y2="{y(v):.1f}"/>' if ke_ngang else "")
+            + f'<line class="dan" x1="{R - PHAI}" x2="{R - PHAI + 10}" y1="{y(v):.1f}" y2="{yn:.1f}"/>'
             f'<line class="{lop}" x1="{R - PHAI + 12}" x2="{R - PHAI + 24}" y1="{yn:.1f}" y2="{yn:.1f}"/>'
             f'<text class="nhan-tc" x="{R - PHAI + 30}" y="{yn - 2:.1f}">{nhan}</text>'
             f'<text class="gia-tc" x="{R - PHAI + 30}" y="{yn + 13:.1f}">{so(v)}</text>'
         )
+    for _, ds, lop in duong_phu:
+        diem_phu = " ".join(f"{x(i):.1f},{y(v):.1f}" for i, v in enumerate(ds) if v is not None)
+        phan.append(f'<polyline class="{lop}" points="{diem_phu}"/>')
     phan.append(
         f'<polyline class="duong-gia" points="{" ".join(f"{x(i):.1f},{y(g):.1f}" for i, g in enumerate(gia))}"/>'
     )
@@ -1517,6 +1529,210 @@ def trang_danh_muc():
     return trang("Danh mục", "".join(phan), "/danh-muc")
 
 
+# ============ ETF ============
+GIAI_THICH_SO_CS = (
+    "Chỉ số giá chưa gồm cổ tức nên quỹ thường cao hơn một chút; thấp hơn nhiều thì cần đối chiếu NAV (chưa có)"
+)
+# (cột trong file kết quả, tiêu đề, số lẻ (None = chữ), có dấu +/−, hậu tố, giải thích khi rê chuột)
+COT_CHI_SO = [
+    ("Giá", "Điểm", 2, False, "", "Điểm chỉ số phiên cuối"),
+    ("1T %", "1T", 1, True, "%", "Lợi nhuận 1 tháng lịch (theo giá, chưa gồm cổ tức)"),
+    ("3T %", "3T", 1, True, "%", "Lợi nhuận 3 tháng lịch"),
+    ("6T %", "6T", 1, True, "%", "Lợi nhuận 6 tháng lịch"),
+    ("1N %", "1N", 1, True, "%", "Lợi nhuận 1 năm"),
+    (
+        "Xu hướng",
+        "Xu hướng",
+        None,
+        False,
+        "",
+        "Tăng: giá và MA50 cùng trên MA200 · Giảm: cùng dưới · còn lại: Đi ngang",
+    ),
+    ("RSI14", "RSI14", 0, False, "", "RSI 14 phiên (Wilder): trên 70 là tăng nóng, dưới 30 là bị bán quá mức"),
+    ("Biến động năm %", "Biến động", 1, False, "%", "Độ lệch chuẩn lợi suất ngày × √250 (như HV của CW)"),
+    ("Giảm sâu nhất 1N %", "Sâu nhất 1N", 1, True, "%", "Mức giảm lớn nhất từ đỉnh trong 1 năm"),
+    ("Cách đỉnh 1N %", "Cách đỉnh", 1, True, "%", "Giá hiện tại so với đỉnh 1 năm"),
+]
+COT_ETF = (
+    [("Chỉ số", "Chỉ số", None, False, "", "Chỉ số mà quỹ mô phỏng"), ("Giá", "Giá (đ)", 0, False, "", "Giá khớp cuối")]
+    + COT_CHI_SO[1:5]
+    + [
+        (
+            "so CS",
+            "so CS 1N",
+            1,
+            True,
+            "",
+            "Lợi nhuận 1 năm của quỹ − của chỉ số (điểm %). " + GIAI_THICH_SO_CS,
+        )
+    ]
+    + COT_CHI_SO[5:]
+    + [
+        (
+            "GTGD TB20 (tỷ)",
+            "GTGD TB20",
+            2,
+            False,
+            "",
+            "Giá trị giao dịch TB 20 phiên, tỷ đồng (phiên không khớp tính 0)",
+        ),
+        ("Khối ngoại ròng (tỷ)", "Khối ngoại", 2, True, "", "Nhà đầu tư nước ngoài mua − bán trong phiên, tỷ đồng"),
+        ("CCQ lưu hành", "CCQ lưu hành", 0, False, "", "Số chứng chỉ quỹ lưu hành: tăng = có tiền góp thêm vào quỹ"),
+        (
+            "Phiên khớp 1N",
+            "Phiên khớp",
+            0,
+            False,
+            "",
+            f"Số phiên có khớp lệnh trong 1 năm (dưới {etf.MIN_PHIEN_KHOP}: chỉ số kỹ thuật kém tin cậy)",
+        ),
+        ("Phí quản lý %", "Phí QL", 2, False, "%", "Phí quản lý %/năm (điền trong etf.py, PHI_QUAN_LY)"),
+    ]
+)
+
+
+def bang_etf(df, cot, la_quy, id_bang=""):
+    """Bảng chỉ số / quỹ ETF; bấm tiêu đề để sắp xếp, bấm vào quỹ để xem biểu đồ."""
+    dau = "".join(
+        f'<th class="{"" if le is None else "so"}"><button type="button" title="{ESC(gt)} (Bấm để sắp xếp.)">{ESC(td)}</button></th>'
+        for _, td, le, _, _, gt in cot
+    )
+    dong = []
+    for _, h in df.iterrows():
+        ma = ESC(h["Mã"])
+        chip = (
+            f'<span class="chip" style="color:var(--chu-am)" title="{ESC(h["Cảnh báo"])}" aria-label="Cảnh báo: {ESC(h["Cảnh báo"])}">⚠</span>'
+            if h["Cảnh báo"]
+            else ""
+        )
+        o = [f'<td><a href="/etf/{ma}">{ma}</a>{chip}</td>' if la_quy else f"<td>{ma}{chip}</td>"]
+        for c, _, le, co_dau, hau_to, _ in cot:
+            v = h[c]
+            if le is None:
+                o.append(f"<td>{ESC(str(v))}</td>")
+            elif not math.isfinite(v):
+                o.append('<td class="so" data-v="-1e18">—</td>')
+            else:
+                lop = (" duong" if v > 0 else " am" if v < 0 else "") if co_dau else ""
+                o.append(f'<td class="so{lop}" data-v="{v}">{so(v, le, co_dau)}{hau_to}</td>')
+        dong.append(f'<tr{f" data-href=/etf/{ma}" if la_quy else ""}>{"".join(o)}</tr>')
+    return (
+        f'<table{f" id={id_bang}" if id_bang else ""}><thead><tr><th><button type="button" title="Bấm để sắp xếp.">'
+        f'{"Quỹ" if la_quy else "Chỉ số"}</button></th>{dau}</tr></thead><tbody>{"".join(dong)}</tbody></table>'
+    )
+
+
+def doc_etf():
+    """(chỉ số, quỹ có cột "so CS", ngày) từ file kết quả ETF mới nhất; chưa có -> (None, None, None)."""
+    df, ngay = etf.doc_ket_qua()
+    if df is None:
+        return None, None, None
+    cs, quy = df[df["Loại"] == "Chỉ số"], df[df["Loại"] == "ETF"].copy()
+    quy["so CS"] = quy["1N %"] - quy["Chỉ số"].map(dict(zip(cs["Mã"], cs["1N %"])))
+    return cs, quy, ngay
+
+
+def trang_etf():
+    cs, quy, ngay = doc_etf()
+    phan = [
+        '<h1>Quỹ ETF</h1><p class="phu">'
+        + (
+            f"Dữ liệu ngày {ngay:%d/%m/%Y} · {len(quy)} quỹ · tự cập nhật 15:30 thứ Hai–Sáu"
+            if ngay
+            else "Chưa có dữ liệu"
+        )
+        + "</p>"
+    ]
+    if ngay is None:
+        phan.append(
+            '<div class="the"><h2>Chưa có kết quả</h2><p>Chạy <code>.venv/bin/python etf.py --no-discord</code> '
+            "trong thư mục dự án (hoặc chờ lịch 15:30) rồi tải lại trang.</p></div>"
+        )
+        return trang("Quỹ ETF", "".join(phan), "/etf")
+    phan.append(
+        '<p class="phu">Giai đoạn 1: lợi nhuận, xu hướng, rủi ro, thanh khoản, dòng tiền. Chưa có P/E–P/B chỉ số, NAV '
+        "(premium/discount) và chấm điểm. Rê chuột lên tiêu đề cột để xem giải thích, bấm vào một quỹ để xem biểu đồ.</p>"
+    )
+    phan.append(
+        f'<section class="the"><h2>Chỉ số ({len(cs)})</h2><div class="cuon">{bang_etf(cs, COT_CHI_SO, False)}</div></section>'
+    )
+    phan.append(
+        f'<section class="the"><h2>Tất cả {len(quy)} quỹ</h2>'
+        '<input type="search" data-loc="#bang-etf" placeholder="Tìm theo mã quỹ hoặc chỉ số (vd: VN30, DIAMOND)" aria-label="Tìm quỹ ETF">'
+        f'<div class="cuon cao">{bang_etf(quy, COT_ETF, True, "bang-etf")}</div></section>'
+    )
+    canh_bao = [(h["Mã"], h["Cảnh báo"]) for d in (cs, quy) for _, h in d.iterrows() if h["Cảnh báo"]]
+    if canh_bao:
+        phan.append(
+            f'<details class="the"><summary>Cảnh báo dữ liệu ({len(canh_bao)})</summary><ul>'
+            + "".join(f"<li><b>{ESC(m)}</b>: {ESC(c)}</li>" for m, c in canh_bao)
+            + "</ul></details>"
+        )
+    return trang("Quỹ ETF", "".join(phan), "/etf")
+
+
+def trang_etf_chi_tiet(ma):
+    _, quy, ngay = doc_etf()
+    if ngay is None or ma not in set(quy["Mã"]):  # chỉ nhận mã có trong file kết quả (chặn mã lạ từ URL)
+        return None
+    h = quy[quy["Mã"] == ma].iloc[0]
+    o = lambda c, le=1, dau=True, hau_to="%": so(h[c], le, dau) + (hau_to if math.isfinite(h[c]) else "")
+    phan = [
+        (
+            f'<p><a href="/etf">← Tất cả quỹ ETF</a></p><h1>{ESC(ma)}</h1>'
+            f'<p class="phu">Mô phỏng {ESC(h["Chỉ số"])} · dữ liệu ngày {ngay:%d/%m/%Y}</p>'
+        )
+    ]
+    if h["Cảnh báo"]:
+        phan.append(f'<p class="ghi-chu-canh-bao">⚠ {ESC(h["Cảnh báo"])}</p>')
+    phan.append(
+        '<div class="luoi-o">'
+        + o_so("Giá", f"{so(h['Giá'])} đ", f"phiên khớp cuối {ESC(h['Ngày giá cuối'])}")
+        + o_so("Lợi nhuận 1 năm", o("1N %"), f"1T {o('1T %')} · 3T {o('3T %')} · 6T {o('6T %')}")
+        + o_so(
+            f"So với {ESC(h['Chỉ số'])} (1 năm)",
+            o("so CS", hau_to=" điểm"),
+            GIAI_THICH_SO_CS,
+        )
+        + o_so("Xu hướng", ESC(h["Xu hướng"]) or "—", f"MA50 {so(h['MA50'])} · MA200 {so(h['MA200'])}")
+        + o_so("RSI14", so(h["RSI14"], 0), "trên 70 tăng nóng · dưới 30 bị bán quá mức")
+        + o_so("Biến động năm", o("Biến động năm %", dau=False), f"giảm sâu nhất 1 năm {o('Giảm sâu nhất 1N %')}")
+        + o_so("Cách đỉnh 1 năm", o("Cách đỉnh 1N %"))
+        + o_so(
+            "Giá trị giao dịch TB 20 phiên",
+            f"{so(h['GTGD TB20 (tỷ)'], 2)} tỷ",
+            f"{so(h['Phiên khớp 1N'])} phiên có khớp lệnh trong 1 năm",
+        )
+        + o_so("Khối ngoại ròng trong phiên", f"{so(h['Khối ngoại ròng (tỷ)'], 2, True)} tỷ")
+        + o_so("Chứng chỉ quỹ lưu hành", so(h["CCQ lưu hành"]), "tăng = có tiền góp thêm vào quỹ")
+        + "</div>"
+    )
+    try:  # 1 lượt gọi vnstock mỗi lần mở trang
+        ls = cw_scanner.lay_gia_dong_cua(ma, etf.SO_NGAY_LICH_SU)
+        gia = etf.chuoi_gia(ls, 10 ** round(math.log10(h["Giá"] / float(ls["close"].iloc[-1]))))[
+            0
+        ]  # nghìn đồng -> đồng
+        trong_1_nam = gia.index > gia.index[-1] - pd.DateOffset(years=1)
+        lich_su = [[str(d.date()), float(g)] for d, g in gia[trong_1_nam].items()]
+        phu = [
+            (f"MA{n}", [None if math.isnan(v) else float(v) for v in gia.rolling(n).mean()[trong_1_nam]], lop)
+            for n, lop in ((etf.MA_NGAN, "ma-ngan"), (etf.MA_DAI, "ma-dai"))
+        ]
+        bd = (
+            bieu_do(lich_su, [], f"Giá {ma}", duong_phu=phu)
+            if len(lich_su) > 1
+            else "<p>Quá ít phiên có khớp lệnh trong 1 năm để vẽ biểu đồ.</p>"
+        )
+    except Exception as e:  # mất mạng / vnstock lỗi: báo rõ trên trang  # noqa: BLE001
+        bd = f'<p class="loi" role="alert">Không tải được lịch sử giá: {ESC(str(e)[:200])}</p>'
+    phan.append(
+        '<section class="the"><h2>Giá 1 năm, MA50 và MA200</h2>'
+        '<p class="phu">MA50 (cam) / MA200 (xám, nét đứt): trung bình giá đóng cửa 50 / 200 phiên có khớp lệnh.</p>'
+        f"{bd}</section>"
+    )
+    return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")
+
+
 def nguon_hop_le(headers):
     """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này."""
     nguon = headers.get("Origin") or headers.get("Referer") or ""
@@ -1528,19 +1744,28 @@ class XuLy(BaseHTTPRequestHandler):
     def do_GET(self):
         duong_dan = self.path.split("?")[0]
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
+        m_etf = re.fullmatch(r"/etf/([A-Z0-9]{3,12})", duong_dan)
         noi_dung = (
-            trang_chinh()
-            if duong_dan == "/"
+            trang_etf()
+            if duong_dan == "/etf"
             else (
-                trang_huong_dan()
-                if duong_dan == "/huong-dan"
+                trang_etf_chi_tiet(m_etf.group(1))
+                if m_etf
                 else (
-                    trang_danh_muc()
-                    if duong_dan == "/danh-muc"
+                    trang_chinh()
+                    if duong_dan == "/"
                     else (
-                        trang_sap_ra_mat("tai_moi=1" in self.path)
-                        if duong_dan == "/sap-ra-mat"
-                        else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                        trang_huong_dan()
+                        if duong_dan == "/huong-dan"
+                        else (
+                            trang_danh_muc()
+                            if duong_dan == "/danh-muc"
+                            else (
+                                trang_sap_ra_mat("tai_moi=1" in self.path)
+                                if duong_dan == "/sap-ra-mat"
+                                else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                            )
+                        )
                     )
                 )
             )

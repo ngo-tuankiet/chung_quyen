@@ -328,3 +328,44 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 - ~~**Biến động ngầm định (IV)**~~ — đã làm: cột IV % và IV − HV (giải ngược từ giá mua).
 - **Gửi thông báo** qua Telegram/email khi có CW mới đạt "NÊN XEM XÉT".
 - **Kiểm chứng lại (backtest):** lưu file kết quả hằng ngày rồi đối chiếu sau 1–3 tháng xem nhóm "NÊN XEM XÉT" có thực sự tốt hơn không.
+
+---
+
+## Phần 8. Theo dõi quỹ ETF (`etf.py`)
+
+Mục tiêu: theo dõi cả 21 quỹ ETF trên HOSE giống như CW. Khác CW, giá ETF luôn bám NAV (thành viên lập quỹ mua bán chênh lệch
+khi giá lệch), nên "cơ hội" nằm ở **chỉ số đang rẻ hay đắt** (giai đoạn 2) và **cùng một chỉ số thì mua quỹ nào** (thanh khoản,
+mức bám chỉ số, phí). Giai đoạn 1 (đã làm): lợi nhuận, xu hướng, RSI, rủi ro, thanh khoản, dòng tiền; **chưa chấm điểm**.
+
+**Chạy**
+- `.venv/bin/python etf.py --no-discord`: tính, lưu `ket_qua/etf_YYYY-MM-DD.csv`, in báo cáo ra màn hình (bỏ `--no-discord` để gửi Discord).
+- Tự động: `bash cai_lich_quet.sh` cài thêm lịch `vn.cw-scanner.etf` chạy `chay_etf_tu_dong.sh` **15:30 thứ Hai–Sáu**; ngày nghỉ lễ bỏ qua;
+  lỗi thì thử lại tối đa 2 lần cách 5 phút, vẫn lỗi thì gửi "⚠ Báo cáo ETF hôm nay lỗi (lý do)" lên Discord.
+- Web: trang **📊 ETF** (`/etf`) có bảng chỉ số và toàn bộ quỹ (bấm tiêu đề cột để sắp xếp); bấm một quỹ để xem biểu đồ giá 1 năm + MA50/MA200.
+
+**Nguồn dữ liệu**: danh sách ETF và giá ngày của quỹ (vnstock, nguồn KBS, nghìn đồng → nhân về đồng theo bảng giá); giá chỉ số
+(vnstock, nguồn VCI: điểm chia 1.000, **phải lấy `floating=6`** vì mặc định làm tròn 2 số lẻ, VN30 1.892,98 chỉ còn 1,89 → sai lợi nhuận ngày);
+giá, giá trị giao dịch, khối ngoại, số chứng chỉ quỹ hôm nay (bảng giá Vietcap). VNMID trong vnstock tên là VNMIDCAP.
+
+**Ý nghĩa từng chỉ số** (ngưỡng ở đầu `etf.py`)
+- **1T / 3T / 6T / 1N**: lợi nhuận theo giá từ phiên gần nhất trước mốc (hôm nay lùi 1/3/6/12 tháng lịch) tới phiên cuối. Quỹ niêm yết sau mốc: "—".
+- **so CS 1N**: lợi nhuận 1 năm của quỹ − của chỉ số mô phỏng (điểm %). Chỉ số VN30, VNDIAMOND… là chỉ số **giá** (không cộng cổ tức)
+  còn quỹ nhận cổ tức của cổ phiếu, nên quỹ tốt thường cao hơn chỉ số khoảng tỷ suất cổ tức trừ phí (các quỹ VN30 ngày 22/10/2026: −1,7 đến +2,6).
+  Thấp hơn nhiều là dấu hiệu cần đối chiếu NAV: ngày 22/10/2026 FUEVN100 −9,4 điểm, chênh tích dần cả năm, không có ngày nhảy giá nào
+  giống cổ tức — chưa rõ nguyên nhân (giá thị trường lệch NAV hay quỹ bám chỉ số kém) cho tới khi có NAV.
+- **Xu hướng**: Tăng khi giá và MA50 cùng trên MA200, Giảm khi cùng dưới, còn lại Đi ngang. MA tính trên các phiên có khớp lệnh; chưa đủ 200 phiên: trống.
+- **RSI14**: RSI của Wilder (trung bình tăng/giảm 14 phiên, làm mượt (TB cũ × 13 + phiên mới) / 14). Trên 70: tăng nóng; dưới 30: bị bán quá mức.
+- **Biến động năm**: độ lệch chuẩn lợi suất log ngày × √250 (như HV của CW). **Sâu nhất 1N / Cách đỉnh**: mức giảm lớn nhất từ đỉnh và khoảng cách tới đỉnh trong 1 năm.
+- **GTGD TB20**: giá trị giao dịch trung bình 20 phiên gần nhất (tỷ đồng), phiên không khớp tính 0. **Khối ngoại**: mua − bán trong phiên (tỷ đồng).
+- **CCQ lưu hành**: số chứng chỉ quỹ. Tăng = nhà đầu tư lớn góp rổ cổ phiếu lấy CCQ (tiền vào quỹ), giảm = hoàn mua (tiền ra). Báo cáo liệt kê quỹ thay đổi so với phiên trước.
+- **Phiên khớp**: số phiên có khớp lệnh trong 1 năm. Dưới 200 (quỹ mới hoặc ít giao dịch) thì cảnh báo: giá đóng cửa có thể cũ nhiều ngày, RSI/MA/biến động kém tin cậy
+  (22/10/2026: FUEBFVND chỉ 1 phiên, FUEABVND 17 phiên).
+
+**Cấu hình**: `QUY_THEO_CHI_SO` (quỹ → chỉ số; quỹ mới chưa có thì báo cáo cảnh báo và so tạm với VNINDEX — FUEVN50G đang như vậy vì chưa tra được chỉ số),
+`PHI_QUAN_LY` (phí quản lý %/năm theo bản cáo bạch, chưa điền thì hiện "—").
+
+**Giới hạn**: giá thị trường không phải NAV; chưa xác minh giá lịch sử quỹ từ KBS đã điều chỉnh theo cổ tức của quỹ; dữ liệu là API không chính thức.
+
+**Các giai đoạn sau** (mỗi giai đoạn lập plan riêng): (2) P/E, P/B chỉ số, percentile 5 năm, z-score, earnings yield − lãi suất nhập tay, chấm điểm —
+vnstock (`Analytics().valuation(...)`) có P/E 5 năm của VNINDEX, VN30, cần kiểm tra các chỉ số khác và P/E có phải số tại thời điểm đó không (chống lookahead);
+(3) backtest quy tắc chấm điểm, ghi rõ số giai đoạn độc lập; (4) NAV, premium/discount, tracking difference theo NAV.

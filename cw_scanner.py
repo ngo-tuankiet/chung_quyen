@@ -218,13 +218,15 @@ def gia_mua(niem_yet, khop_lenh, so_lenh):
     return niem_yet["refPrice"], "tham chiếu"
 
 
-def lay_gia_dong_cua(ma):
-    """DataFrame (time, close) giá đóng cửa ngày 1 năm qua của một mã (cổ phiếu hoặc CW) từ vnstock.
-    Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng."""
+def lay_gia_dong_cua(ma, so_ngay=365, nguon="KBS", **them):
+    """DataFrame (time, open, high, low, close, volume) giá ngày `so_ngay` ngày qua của một mã từ vnstock.
+    Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng.
+    Chỉ số (VN30...) chỉ có ở nguồn VCI, giá chia 1.000: cần floating=6 (mặc định làm tròn 2 số lẻ -> mất độ chính xác).
+    """
     hom_nay = date.today()
     # KBS: nguồn mặc định của vnstock, ổn định hơn API lịch sử của VCI. 365 ngày: mức tối đa của gói Khách.
-    lay = lambda: Quote(source="KBS", symbol=ma).history(
-        start=str(hom_nay - timedelta(days=365)), end=str(hom_nay), interval="1D"
+    lay = lambda: Quote(source=nguon, symbol=ma).history(
+        start=str(hom_nay - timedelta(days=so_ngay)), end=str(hom_nay), interval="1D", **them
     )
     try:
         return lay()
@@ -410,10 +412,8 @@ def rui_ro_theo_tien(von, P, S, K, ty_le, T, r, sigma, don_bay):
 
 
 # ============ PHẦN 4: CHƯƠNG TRÌNH CHÍNH ============
-def main():
-    hom_nay = date.today()
-
-    # Bước 0: đăng nhập vnstock bằng key trong file .env (không có key = gói Khách: 10 lượt gọi/phút, quét chậm hơn)
+def dang_nhap():
+    """Đăng nhập vnstock bằng key trong file .env (không có key = gói Khách: 10 lượt gọi/phút, quét chậm hơn)."""
     api_key = doc_env().get("VNSTOCK_API_KEY", "")
     if api_key:
         try:
@@ -422,6 +422,11 @@ def main():
             print(f"  [!] Không đăng nhập được vnstock: {e}\n  -> quét tiếp bằng gói Khách.")
     else:
         print("Chưa có VNSTOCK_API_KEY trong file .env -> dùng gói Khách (10 lượt gọi/phút).")
+
+
+def main():
+    hom_nay = date.today()
+    dang_nhap()  # Bước 0
 
     # Bước 1: danh sách CW
     ma_cw = list(Listing(source="KBS").all_covered_warrant())

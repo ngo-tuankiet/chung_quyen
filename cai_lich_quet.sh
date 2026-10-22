@@ -1,9 +1,10 @@
 #!/bin/bash
-# Cài 2 lịch chạy nền bằng launchd (máy ngủ đúng giờ thì chạy bù khi thức dậy):
+# Cài 3 lịch chạy nền bằng launchd (máy ngủ đúng giờ thì chạy bù khi thức dậy):
 #   - vn.cw-scanner.quet      : 14:00 thứ Hai–Sáu quét CW, kiểm tra danh mục, sao lưu (chay_quet_tu_dong.sh)
 #   - vn.cw-scanner.danh-muc  : mỗi 5 phút kiểm tra danh mục, gửi Discord khi có cảnh báo mới (kiem_tra_danh_muc.sh)
+#   - vn.cw-scanner.etf       : 15:30 thứ Hai–Sáu báo cáo ETF lên Discord (chay_etf_tu_dong.sh)
 #   bash cai_lich_quet.sh        -> cài / cài lại
-#   bash cai_lich_quet.sh go     -> gỡ cả hai
+#   bash cai_lich_quet.sh go     -> gỡ cả ba
 cd "$(dirname "$0")" || exit 1
 mkdir -p "$HOME/Library/LaunchAgents"
 
@@ -27,10 +28,14 @@ EOF
 }
 
 GO=0; [ "$1" = "go" ] && GO=1
-NGAY=""
-for thu in 1 2 3 4 5; do
-  NGAY="$NGAY<dict><key>Weekday</key><integer>$thu</integer><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>"
-done
-cai vn.cw-scanner.quet chay_quet_tu_dong.sh "<key>StartCalendarInterval</key><array>$NGAY</array>"
+thu_2_6() {  # thu_2_6 <giờ> <phút> -> khối lịch: giờ đó thứ Hai–Sáu
+  local ngay=""
+  for thu in 1 2 3 4 5; do
+    ngay="$ngay<dict><key>Weekday</key><integer>$thu</integer><key>Hour</key><integer>$1</integer><key>Minute</key><integer>$2</integer></dict>"
+  done
+  echo "<key>StartCalendarInterval</key><array>$ngay</array>"
+}
+cai vn.cw-scanner.quet chay_quet_tu_dong.sh "$(thu_2_6 14 0)"
+cai vn.cw-scanner.etf chay_etf_tu_dong.sh "$(thu_2_6 15 30)"
 cai vn.cw-scanner.danh-muc kiem_tra_danh_muc.sh "<key>StartInterval</key><integer>300</integer>"
 [ "$GO" = 1 ] || echo "Nhật ký: $PWD/log.txt"
