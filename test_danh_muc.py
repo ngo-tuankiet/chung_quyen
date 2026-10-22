@@ -322,7 +322,9 @@ def test_gui_discord():
     with mock.patch("urllib.request.urlopen") as mo:
         D.gui_discord("⚠ CVPB2615: lỗ", "https://discord.com/api/webhooks/1/abc")
     yeu_cau = mo.call_args[0][0]
-    assert json.loads(yeu_cau.data) == {"content": "⚠ CVPB2615: lỗ"} and yeu_cau.get_method() == "POST"
+    # allowed_mentions rỗng: chữ lấy từ API ngoài (mã, tên quỹ) không biến thành "@everyone" thông báo cả server
+    goi = json.loads(yeu_cau.data)
+    assert goi == {"content": "⚠ CVPB2615: lỗ", "allowed_mentions": {"parse": []}} and yeu_cau.get_method() == "POST"
 
 
 def test_kiem_tra_ngoai_gio_khong_goi_mang():

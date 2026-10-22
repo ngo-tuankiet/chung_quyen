@@ -145,6 +145,82 @@ def test_bao_cao():
     assert E.bao_cao(df, None, datetime(2026, 10, 22, 15, 30), ngay)  # chưa có ngày trước: bỏ phần so sánh
 
 
+def du_lieu_chiet_khau():
+    """du_lieu_mau + FUESSV30 không khớp từ 16/10 (4 phiên), SSI và NAV cho 2 quỹ."""
+    ds, ls_quy, ls_cs, bang_gia = du_lieu_mau()
+    ls_quy["FUESSV30"] = df_vnstock([20.0] * 295, ket_thuc=date(2026, 10, 16), kl=10_000)
+    bang_gia["FUESSV30"] = bang_gia_mau("FUESSV30", 20_000, matchPrice=0, accumulatedValue=0)
+    lich = E.chuoi_gia(ls_cs["VNINDEX"])[0].index
+    nav = {
+        "E1VFVN30": pd.Series(
+            20_000.0, lich[lich < pd.Timestamp("2026-10-21")]
+        ),  # NAV đứng 20.000, trễ 2 phiên như Vietcap
+        "FUESSV30": pd.Series(20_000.0, lich[lich < pd.Timestamp("2026-10-10")]),  # Vietcap ngừng cập nhật từ 09/10
+        "FUEVN50G": "Vietcap IQ không có quỹ này",
+    }
+    ssi = {
+        "E1VFVN30": {"iNAV": 27_000.0, "prevINAV": 26_900.0, "best1Offer": 26_000, "best1OfferVol": 1_000},
+        "FUESSV30": {"iNAV": 21_000.0, "best1Offer": 20_000, "best1OfferVol": 1_000},
+    }
+    return ds + ["FUESSV30"], ls_quy, ls_cs, bang_gia, HOM_NAY, ssi, nav
+
+
+def test_lap_bang_co_chiet_khau_nav():
+    df, _ = E.lap_bang(*du_lieu_chiet_khau())
+    t = df.set_index("Mã")
+    h = t.loc["E1VFVN30"]
+    # chào bán 26.000 / iNAV 27.000 − 1 = −3,7%; lãi ròng 27.000 × 0,9975 / (26.000 × 1,0015) − 1 = +3,43%; 26 triệu ≥ 5 triệu
+    assert (
+        h["Chiết khấu mua được %"] == -3.7
+        and h["Lãi ròng nếu về NAV %"] == 3.43
+        and h["Mua được đạt ngưỡng (đ)"] == 26e6
+    )
+    # lịch sử giá 20.000 = NAV 20.000 -> thường lệch 0%. NAV so CS tới hôm nay bằng iNAV: 27.000 / 20.000 − 1 = +35%
+    # trừ đúng lợi nhuận 1 năm của VN30 (cùng mốc 22/10/2025)
+    assert h["CL NAV trung vị 1N %"] == 0.0 and h["Ngày NAV cuối"] == "2026-10-20"
+    assert math.isclose(h["NAV so CS 1N"], 35.0 - t.loc["VN30", "1N %"], abs_tol=0.01)
+    # FUESSV30: khớp cuối 16/10, lịch còn 19, 20, 21, 22/10 -> 4 phiên chưa khớp; NAV dừng 09/10 (9 phiên) -> cảnh báo
+    assert t.loc["FUESSV30", "Phiên chưa khớp"] == 4 and h["Phiên chưa khớp"] == 0
+    assert "NAV Vietcap IQ dừng ở 09/10/2026 (9 phiên trước)" in t.loc["FUESSV30", "Cảnh báo"]
+    assert "NAV Vietcap" not in h["Cảnh báo"]  # trễ 2 phiên là bình thường
+    assert "chưa có lịch sử NAV: Vietcap IQ không có quỹ này" in t.loc["FUEVN50G", "Cảnh báo"]
+    bc = E.bao_cao(df, None, datetime(2026, 10, 22, 15, 30), HOM_NAY, ["không lấy được lịch sử NAV từ Vietcap IQ: X"])
+    assert "🟢 **E1VFVN30**: chào bán 26.000 (-3,7% so iNAV 27.000) · lãi ròng +3,4% · mua được 26 triệu" in bc
+    # quỹ đạt ngưỡng nhưng giá khớp cũ: dòng 🟢 ghi rõ số phiên chưa khớp
+    assert "🟢 **FUESSV30**: chào bán 20.000 (-4,8% so iNAV 21.000)" in bc and "· 4 phiên chưa khớp" in bc
+    so_cs = E._d(t.loc["FUESSV30", "1N %"] - t.loc["VN30", "1N %"])
+    assert f"**FUESSV30**: giá {so_cs} điểm so VN30" in bc and "→ — · 4 phiên chưa khớp (khớp cuối 16/10)" in bc
+    assert "⚠ không lấy được lịch sử NAV từ Vietcap IQ: X" in bc and bc.count("```") % 2 == 0
+    assert "**E1VFVN30**: giá" not in bc  # quỹ tăng hơn chỉ số (+30% so với +25%): không nằm trong mục tụt
+
+
+def test_lay_nav_lam_sach_va_khong_sap_vi_1_quy():
+    _, _, ls_cs, _ = du_lieu_mau()
+    cs = E.chuoi_gia(ls_cs["VN30"])[0]
+    dong = [{"tradingDate": str(d.date()), "navPerShare": float(v) * 20_000} for d, v in cs.items()]
+    gai = cs.index[100]
+    dong[100]["navPerShare"] *= 1.05  # 1 ngày nhập sai
+    tho = {"E1VFVN30": dong, "FUEVN50G": "Vietcap IQ không có quỹ này", "FUEKIV30": [{"navPerShare": 1.0}]}
+    with (
+        mock.patch.object(E.CK, "lay_ssi", side_effect=RuntimeError("x")),
+        mock.patch.object(E.CK, "lay_nav_lich_su", return_value=tho),
+    ):
+        ssi, ls_nav, loi_nguon = E.lay_nav(["E1VFVN30", "FUEVN50G", "FUEKIV30"], ls_cs)
+    assert ssi == {} and loi_nguon[0].startswith("không lấy được iNAV / sổ lệnh từ SSI iBoard: RuntimeError")
+    assert gai not in ls_nav["E1VFVN30"].index and len(ls_nav["E1VFVN30"]) == len(cs) - 1
+    assert ls_nav["FUEVN50G"] == "Vietcap IQ không có quỹ này"
+    assert ls_nav["FUEKIV30"].startswith("dữ liệu NAV lạ: KeyError")  # 1 quỹ hỏng không làm sập báo cáo
+
+
+def test_doc_file_cu_thieu_cot_moi():
+    df, _ = E.lap_bang(*du_lieu_mau(), HOM_NAY)
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
+        df.drop(columns=E.COT_CK + ["Phiên chưa khớp"]).to_csv(Path(tmp) / "etf_2026-10-21.csv", index=False)
+        cu, _ = E.doc_ket_qua()
+        assert list(cu.columns) == E.COT and cu["Ngày NAV cuối"].eq("").all() and cu["iNAV"].isna().all()
+        assert E.bao_cao(df, cu, datetime(2026, 10, 22, 15, 30), HOM_NAY)  # so với file cũ không lỗi
+
+
 def test_luu_doc_lai_va_trang_web():
     import web
 
@@ -161,9 +237,35 @@ def test_luu_doc_lai_va_trang_web():
         assert f'data-v="{so_cs}">{web.so(so_cs, 1, True)}</td>' in trang and 'href="/etf/E1VFVN30"' in trang
         assert "Cảnh báo dữ liệu (3)" in trang  # VNDIAMOND (chỉ số lỗi), FUEBFVND (lỗi dữ liệu), FUEVN50G (chưa ánh xạ)
         assert web.trang_etf_chi_tiet("ZZZ") is None  # mã không có trong file kết quả: 404
+        assert 'data-href="/etf/E1VFVN30"' in trang
         with mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=RuntimeError("mất mạng")):
             ct = web.trang_etf_chi_tiet("E1VFVN30")
         assert "26.000 đ" in ct and "Không tải được lịch sử giá: mất mạng" in ct
+
+
+def test_web_bang_chiet_khau_va_bieu_do_nav():
+    import web
+
+    df, _ = E.lap_bang(*du_lieu_chiet_khau())
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
+        df.to_csv(Path(tmp) / f"etf_{HOM_NAY}.csv", index=False, encoding="utf-8-sig")
+        assert "<td>🟢</td>" in web.trang_etf()  # E1VFVN30 đạt ngưỡng
+        ngay = pd.bdate_range(end="2026-10-20", periods=30)
+        pd.DataFrame({"Mã": "E1VFVN30", "Ngày": [str(d.date()) for d in ngay], "NAV": 21_000.0}).to_csv(
+            Path(tmp) / "nav_etf_2026-10-21.csv.gz", index=False, compression="gzip"
+        )
+        pd.DataFrame(columns=["Mã", "Ngày", "NAV"]).to_csv(  # Vietcap IQ lỗi cả nguồn hôm nay: file rỗng
+            Path(tmp) / "nav_etf_2026-10-22.csv.gz", index=False, compression="gzip"
+        )
+        gia = mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df_vnstock([20.0] * 40))
+        with gia:
+            ct = web.trang_etf_chi_tiet("E1VFVN30")
+        # file mới nhất rỗng -> lấy file hôm trước; 20.000 / 21.000 − 1 = −4,76% -> "-4,8"
+        assert "Chênh lệch giá/NAV E1VFVN30" in ct and '<td class="so">-4,8</td>' in ct
+        (Path(tmp) / "nav_etf_2026-10-23.csv.gz").write_bytes(b"\x1f\x8b hong")  # file ghi dở / hỏng
+        with gia:
+            ct = web.trang_etf_chi_tiet("E1VFVN30")
+        assert "Không đọc được lịch sử NAV" in ct and "Giá E1VFVN30" in ct  # biểu đồ giá vẫn còn
 
 
 if __name__ == "__main__":  # chạy không cần pytest

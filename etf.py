@@ -1,11 +1,12 @@
 """
-etf.py - Theo dõi các quỹ ETF niêm yết trên HOSE. Giai đoạn 1: lợi nhuận, xu hướng, RSI, rủi ro, thanh khoản, dòng tiền.
-Chưa có: P/E–P/B chỉ số, NAV/premium, chấm điểm (các giai đoạn sau, xem KE_HOACH.md Phần 8).
+etf.py - Theo dõi các quỹ ETF niêm yết trên HOSE: chiết khấu so với NAV (chiet_khau.py), cùng chỉ số quỹ nào rẻ hơn,
+quỹ tụt so với chỉ số (do bám kém hay do giá rời NAV), lợi nhuận, xu hướng, RSI, rủi ro, thanh khoản, dòng tiền (KE_HOACH.md Phần 8).
 
 Chạy:   python etf.py               lưu ket_qua/etf_YYYY-MM-DD.csv rồi gửi báo cáo lên Discord (DISCORD_WEBHOOK_URL trong .env)
         python etf.py --no-discord  chỉ in báo cáo ra màn hình
         python etf.py --bao-loi     gửi tin "báo cáo ETF lỗi" (chay_etf_tu_dong.sh gọi khi lỗi cả 3 lần, lý do trong QUET_LOI)
-Nguồn:  danh sách ETF, giá ngày của quỹ (vnstock, KBS) và chỉ số (vnstock, VCI); giá, khối ngoại, số CCQ hôm nay (bảng giá Vietcap).
+Nguồn:  danh sách ETF, giá ngày của quỹ và chỉ số (vnstock, VCI); giá, khối ngoại, số CCQ hôm nay (bảng giá Vietcap);
+        iNAV, NAV T-1, sổ lệnh (SSI iBoard); lịch sử NAV (Vietcap IQ).
 """
 
 import math
@@ -16,12 +17,13 @@ from datetime import date, datetime
 import pandas as pd
 from vnstock import Listing
 
+import chiet_khau as CK
 import cw_scanner as C
 import danh_muc as D
 
 # ============ CẤU HÌNH ============
-# Chỉ số mà từng quỹ mô phỏng. Quỹ không có ở đây (vd FUEVN50G chưa tra được chỉ số, quỹ mới niêm yết): báo cáo cảnh báo,
-# so tạm với VNINDEX. Quỹ mới -> thêm vào đúng nhóm.
+# Chỉ số mà từng quỹ mô phỏng. Quỹ không có ở đây (quỹ mới niêm yết; FUEVN50G mô phỏng VN50 GROWTH của HOSE nhưng vnstock
+# chưa có lịch sử chỉ số này): báo cáo cảnh báo, so tạm với VNINDEX. Quỹ mới -> thêm vào đúng nhóm.
 QUY_THEO_CHI_SO = {
     "VN30": ["E1VFVN30", "FUESSV30", "FUEKIV30", "FUEMAV30"],
     "VN100": ["FUEVN100", "FUEIP100"],
@@ -36,7 +38,28 @@ QUY_THEO_CHI_SO = {
 TEN_TRONG_VNSTOCK = {"VNMID": "VNMIDCAP"}  # vnstock đặt tên khác HOSE
 THI_TRUONG = "VNINDEX"
 HE_SO_CHI_SO = 1000  # vnstock (VCI) trả điểm chỉ số chia 1.000 (VN30 1.892,98 điểm -> 1.89298)
-PHI_QUAN_LY = {}  # %/năm theo bản cáo bạch từng quỹ, vd {"E1VFVN30": 0.65}. Chưa điền -> "—" (không đoán số)
+# Phí quản lý %/năm theo website / bản cáo bạch công ty quỹ, tra cứu 22/10/2026 (nguồn từng quỹ trong
+# ket_qua/bao_cao_nguon_nav_etf_2026-10-22.md). FUEFCV50, FUEIP100, FUEABVND chưa tìm được số chắc chắn -> "—" (không đoán)
+PHI_QUAN_LY = {
+    "E1VFVN30": 0.65,
+    "FUEVFVND": 0.80,
+    "FUEDCMID": 0.80,
+    "FUEVN50G": 0.80,
+    "FUESSV30": 0.55,
+    "FUESSV50": 0.65,
+    "FUESSVFL": 0.65,
+    "FUEKIV30": 0.55,
+    "FUEKIVFS": 0.60,
+    "FUEKIVND": 0.70,
+    "FUEMAV30": 0.60,
+    "FUEMAVND": 0.60,
+    "FUEMITEC": 0.80,
+    "FUETCC50": 0.50,
+    "FUETPVND": 0.65,
+    "FUEBFVND": 0.50,
+    "FUEPHVNS": 0.75,
+    "FUEVN100": 0.67,
+}
 SO_NGAY_LICH_SU = 730  # 2 năm: đủ MA200 và lợi nhuận 1 năm
 KY_LOI_NHUAN = {"1T": 1, "3T": 3, "6T": 6, "1N": 12}  # tên kỳ -> số tháng lịch
 MA_NGAN, MA_DAI = 50, 200
@@ -45,8 +68,25 @@ SO_PHIEN_GTGD = 20
 MIN_PHIEN_KHOP = 200  # < 200 phiên có khớp lệnh trong 1 năm (mới niêm yết / ít giao dịch): chỉ số kỹ thuật kém tin cậy
 SO_QUY_NOI_BAT = 5  # báo cáo: số quỹ thanh khoản cao nhất
 SO_DONG_DONG_TIEN = 5  # báo cáo: số quỹ đổi số CCQ lưu hành / khối ngoại mua-bán ròng liệt kê
+SO_PHIEN_NAV_TRE_TOI_DA = (
+    5  # NAV Vietcap IQ thường trễ ~2 phiên; trễ hơn 5 phiên = nguồn ngừng cập nhật quỹ đó -> cảnh báo
+)
 
-COT_CHU = ["Loại", "Mã", "Chỉ số", "Xu hướng", "Cảnh báo", "Ngày giá cuối"]
+COT_CHU = ["Loại", "Mã", "Chỉ số", "Xu hướng", "Cảnh báo", "Ngày giá cuối", "Ngày NAV cuối"]
+COT_CK = [  # chiet_khau.danh_gia_quy + thong_ke_nav
+    "iNAV",
+    "NAV T-1",
+    "Giá chào bán",
+    "KL chào bán",
+    "Chiết khấu mua được %",
+    "Lãi ròng nếu về NAV %",
+    "Mua được đạt ngưỡng (đ)",
+    "CL NAV trung vị 1N %",
+    "CL NAV thấp nhất 1N %",
+    "CL NAV 1N trước %",
+    "NAV so CS 1N",
+    "Ngày NAV cuối",
+]
 COT = (
     COT_CHU[:3]
     + ["Giá"]
@@ -64,10 +104,12 @@ COT = (
         "Khối ngoại ròng (tỷ)",
         "CCQ lưu hành",
         "Phiên khớp 1N",
+        "Phiên chưa khớp",
         "Phí quản lý %",
         "Cảnh báo",
         "Ngày giá cuối",
     ]
+    + COT_CK
 )
 MUI_TEN = {"Tăng": "↑", "Giảm": "↓", "Đi ngang": "→"}
 
@@ -152,10 +194,12 @@ def chi_so_cua(ma):
     return next((cs for cs, ds in QUY_THEO_CHI_SO.items() if ma in ds), "")
 
 
-def lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, hom_nay):
+def lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, hom_nay, ssi=None, ls_nav=None):
     """Bảng kết quả (mỗi dòng 1 chỉ số hoặc 1 quỹ) + ngày của giá cuối.
-    ls_quy / ls_cs: {mã: DataFrame vnstock hoặc chuỗi lý do lỗi}; bang_gia: kết quả cw_scanner.lay_bang_gia.
+    ls_quy / ls_cs: {mã: DataFrame vnstock hoặc chuỗi lý do lỗi}; bang_gia: kết quả cw_scanner.lay_bang_gia;
+    ssi: chiet_khau.lay_ssi(); ls_nav: {mã: NAV đã làm sạch (Series) hoặc chuỗi lý do lỗi}.
     Một mã lỗi chỉ thành dòng cảnh báo, không dừng cả bảng."""
+    ssi, ls_nav = ssi or {}, ls_nav or {}
     lich = chuoi_gia(ls_cs[THI_TRUONG])[0].index
     ngay = lich[-1]
     dong, gia_cs = [], {}
@@ -189,6 +233,15 @@ def lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, hom_nay):
         so_phien = int((gia.index > ngay - pd.DateOffset(years=1)).sum())
         if so_phien < MIN_PHIEN_KHOP:
             canh_bao.append(f"chỉ {so_phien} phiên có khớp lệnh trong 1 năm: chỉ số kỹ thuật kém tin cậy")
+        nav = ls_nav.get(ma)  # thiếu hẳn (cả nguồn lỗi): đã báo 1 dòng ở loi_nguon, không báo lặp từng quỹ
+        if isinstance(nav, str):
+            canh_bao.append(f"chưa có lịch sử NAV: {nav}")
+            nav = None
+        elif nav is not None and len(nav) and (tre := int((lich > nav.index[-1]).sum())) > SO_PHIEN_NAV_TRE_TOI_DA:
+            canh_bao.append(
+                f"NAV Vietcap IQ dừng ở {nav.index[-1]:%d/%m/%Y} ({tre} phiên trước): chênh lệch giá/NAV và NAV−CS là số cũ"
+            )
+        dg = CK.danh_gia_quy(ssi.get(ma, {}))
         dong.append(
             {
                 **h,
@@ -203,9 +256,12 @@ def lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, hom_nay):
                 ),
                 "CCQ lưu hành": ny.get("listedShare", math.nan),
                 "Phiên khớp 1N": so_phien,
+                "Phiên chưa khớp": int((lich > gia.index[-1]).sum()),  # giá cũ: "chiết khấu" theo giá khớp là ảo
                 "Phí quản lý %": PHI_QUAN_LY.get(ma, math.nan),
                 "Cảnh báo": "; ".join(canh_bao),
                 "Ngày giá cuối": str(gia.index[-1].date()),
+                **dg,
+                **CK.thong_ke_nav(gia, nav, gia_cs.get(cs), ngay, dg["iNAV"]),
             }
         )
     df = pd.DataFrame(dong).reindex(columns=COT)  # dòng lỗi thiếu cột số -> NaN
@@ -219,7 +275,7 @@ def doc_ket_qua(truoc=None):
     tep = [f for f in sorted(C.THU_MUC_KET_QUA.glob("etf_*.csv")) if truoc is None or f.stem[4:] < str(truoc)]
     if not tep:
         return None, None
-    df = pd.read_csv(tep[-1], encoding="utf-8-sig")
+    df = pd.read_csv(tep[-1], encoding="utf-8-sig").reindex(columns=COT)  # file cũ thiếu cột mới -> NaN
     df[COT_CHU] = df[COT_CHU].fillna("")
     return df, date.fromisoformat(tep[-1].stem[4:])
 
@@ -228,17 +284,19 @@ def doc_ket_qua(truoc=None):
 _p = lambda x: D.pt(x / 100, 1) if math.isfinite(x) else "—"  # 2.51 (%) -> '+2,5%'
 _d = lambda x: f"{x:+.1f}".replace(".", ",") if math.isfinite(x) else "—"  # chênh lệch, điểm %
 _ty = lambda x: (f"{x:.2f}" if abs(x) < 1 else f"{x:.1f}").replace(".", ",") if math.isfinite(x) else "—"
+_p2 = lambda x: f"{x:.2f}%".replace(".", ",") if math.isfinite(x) else "—"  # 0.65 (%) -> '0,65%'
 GHI_CHU = (
     "_GTGD = giá trị giao dịch TB 20 phiên (tỷ đ) · XH = xu hướng: ↑ giá và MA50 trên MA200, ↓ cùng dưới, → còn lại · "
-    "so CS = lợi nhuận 1 năm của quỹ − của chỉ số (điểm %; chỉ số giá chưa gồm cổ tức nên quỹ thường cao hơn một chút)_"
+    "CK = giá chào bán / iNAV − 1 · Phí = phí quản lý %/năm · NAV−CS = lợi nhuận NAV 1 năm − của chỉ số (điểm %; chỉ số giá "
+    "chưa gồm cổ tức nên quỹ bám tốt thường dương một chút)_"
 )
 
 
-def bao_cao(df, df_truoc, luc, ngay_gia):
-    """Nội dung báo cáo ETF (markdown Discord, bảng chữ đều cột; chia tin bằng danh_muc.chia_tin)."""
+def bao_cao(df, df_truoc, luc, ngay_gia, loi_nguon=()):
+    """Nội dung báo cáo ETF (markdown Discord, bảng chữ đều cột; chia tin bằng danh_muc.chia_tin).
+    loi_nguon: lỗi của cả một nguồn (vd SSI không trả iNAV) để ghi vào mục cảnh báo."""
     cs, quy = df[df["Loại"] == "Chỉ số"], df[df["Loại"] == "ETF"]
-    ln_cs = dict(zip(cs["Mã"], cs["1N %"]))
-    phan = [f"**📊 Báo cáo ETF** ({luc:%H:%M %d/%m}) · giá đến phiên {ngay_gia:%d/%m}"]
+    phan = [f"**📊 Báo cáo ETF** ({luc:%H:%M %d/%m}) · giá đến phiên {ngay_gia:%d/%m}", *CK.muc_bao_cao(df)]
     phan.append(
         "**Chỉ số**\n"
         + D.bang(
@@ -297,19 +355,17 @@ def bao_cao(df, df_truoc, luc, ngay_gia):
         phan.append(
             f"**Cùng mô phỏng {ten}: chọn quỹ nào?**\n"
             + D.bang(
-                ["Quỹ", "GTGD", "Phiên", "1N", "so CS"],
+                ["Quỹ", "GTGD", "CK", "Phí", "NAV−CS"],
                 [
-                    [
-                        h["Mã"],
-                        _ty(h["GTGD TB20 (tỷ)"]),
-                        D.so(h["Phiên khớp 1N"]) if math.isfinite(h["Phiên khớp 1N"]) else "—",
-                    ]
-                    + [_p(h["1N %"]), _d(h["1N %"] - ln_cs.get(ten, math.nan))]
+                    [h["Mã"], _ty(h["GTGD TB20 (tỷ)"]), _p(h["Chiết khấu mua được %"])]
+                    + [_p2(h["Phí quản lý %"]), _d(h["NAV so CS 1N"])]
                     for _, h in nhom.iterrows()
                 ],
             )
         )
-    canh_bao = [f"⚠ **{h['Mã']}**: {h['Cảnh báo']}" for _, h in df.iterrows() if h["Cảnh báo"]]
+    canh_bao = [f"⚠ {l}" for l in loi_nguon] + [
+        f"⚠ **{h['Mã']}**: {h['Cảnh báo']}" for _, h in df.iterrows() if h["Cảnh báo"]
+    ]
     if canh_bao:
         phan.append("**Cảnh báo dữ liệu**\n" + "\n".join(canh_bao))
     phan.append(GHI_CHU)
@@ -328,24 +384,56 @@ def lay_du_lieu(ds_quy):
             ls_cs[cs] = f"{type(e).__name__}: {e}"[:150]
     for ma in ds_quy:
         try:
-            ls_quy[ma] = C.lay_gia_dong_cua(ma, SO_NGAY_LICH_SU)
+            ls_quy[ma] = C.lay_gia_dong_cua(ma, SO_NGAY_LICH_SU, "VCI")  # KBS thiếu phiên thật (vd 20/06/2025 ở 14 quỹ)
         except Exception as e:  # noqa: BLE001
             ls_quy[ma] = f"{type(e).__name__}: {e}"[:150]
     return ls_quy, ls_cs
 
 
+def lay_nav(ds_quy, ls_cs):
+    """(bản ghi SSI, {mã: NAV đã làm sạch hoặc lý do lỗi}, [lỗi cả nguồn]). Nguồn NAV lỗi không dừng báo cáo ETF."""
+    loi_nguon = []
+    try:
+        ssi = CK.lay_ssi()
+    except Exception as e:  # ranh giới gọi mạng: lỗi ghi vào báo cáo  # noqa: BLE001
+        ssi = {}
+        loi_nguon.append(f"không lấy được iNAV / sổ lệnh từ SSI iBoard: {type(e).__name__}: {e}"[:200])
+    try:
+        nav_tho = CK.lay_nav_lich_su(ds_quy)
+    except Exception as e:  # noqa: BLE001
+        nav_tho = {}
+        loi_nguon.append(f"không lấy được lịch sử NAV từ Vietcap IQ: {type(e).__name__}: {e}"[:200])
+    ls_nav = {}
+    for ma, tho in nav_tho.items():
+        if isinstance(tho, str):
+            ls_nav[ma] = tho
+            continue
+        try:
+            nav, cs = CK.lam_sach_nav(tho), ls_cs.get(chi_so_cua(ma))
+            ls_nav[ma] = nav if cs is None or isinstance(cs, str) else CK.bo_nav_loi(nav, chuoi_gia(cs)[0])
+        except Exception as e:  # dữ liệu NAV lạ 1 quỹ: ghi vào cảnh báo quỹ đó, không dừng báo cáo  # noqa: BLE001
+            ls_nav[ma] = f"dữ liệu NAV lạ: {type(e).__name__}: {e}"[:150]
+    return ssi, ls_nav, loi_nguon
+
+
 def chay(gui=True, luc=None):
     luc = luc or datetime.now()
     C.dang_nhap()
-    ds_quy = sorted(Listing(source="VCI").symbols_by_group("ETF"))
+    ds_quy = sorted(m for m in Listing(source="VCI").symbols_by_group("ETF") if CK.MAU_MA_QUY.fullmatch(str(m)))
     print(f"Tìm thấy {len(ds_quy)} ETF đang niêm yết.")
     bang_gia = C.lay_bang_gia(ds_quy)
     ls_quy, ls_cs = lay_du_lieu(ds_quy)
-    df, ngay_gia = lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, luc.date())
+    ssi, ls_nav, loi_nguon = lay_nav(ds_quy, ls_cs)
+    df, ngay_gia = lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, luc.date(), ssi, ls_nav)
     C.THU_MUC_KET_QUA.mkdir(exist_ok=True)
     tep = C.THU_MUC_KET_QUA / f"etf_{luc.date()}.csv"
     df.to_csv(tep, index=False, encoding="utf-8-sig")  # chạy lại trong ngày: ghi đè đúng file của ngày đó
-    noi_dung = bao_cao(df, doc_ket_qua(truoc=luc.date())[0], luc, ngay_gia)
+    nav_dai = [(ma, str(n.date()), v) for ma, s in ls_nav.items() if not isinstance(s, str) for n, v in s.items()]
+    if nav_dai:  # Vietcap IQ lỗi cả nguồn: không ghi file rỗng đè lên file tốt của lần chạy trước trong ngày
+        pd.DataFrame(nav_dai, columns=["Mã", "Ngày", "NAV"]).to_csv(  # lịch sử NAV đã làm sạch: biểu đồ trên web
+            C.THU_MUC_KET_QUA / f"nav_etf_{luc.date()}.csv.gz", index=False, compression="gzip"
+        )
+    noi_dung = bao_cao(df, doc_ket_qua(truoc=luc.date())[0], luc, ngay_gia, loi_nguon)
     print(f"Đã lưu {tep}\n\n{noi_dung}")
     if gui:
         url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")

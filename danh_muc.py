@@ -424,7 +424,8 @@ def gui_discord(noi_dung, url):
         )
     yeu_cau = urllib.request.Request(
         url,
-        data=json.dumps({"content": noi_dung[:1900]}).encode(),
+        # allowed_mentions rỗng: chữ lấy từ API ngoài (mã, tên quỹ) không biến thành "@everyone" thông báo cả server
+        data=json.dumps({"content": noi_dung[:1900], "allowed_mentions": {"parse": []}}).encode(),
         headers={"Content-Type": "application/json", "User-Agent": "cw_scanner"},
     )
     with urllib.request.urlopen(yeu_cau, timeout=10):  # lỗi mạng / 4xx / 5xx -> báo lỗi, lần sau gửi lại

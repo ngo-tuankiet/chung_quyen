@@ -172,9 +172,12 @@ def doc_cw_sap_ra_mat(du_lieu):
 def tai_du_lieu_hose_cw(cho=20, so_lan=2):
     """Dữ liệu thô "CW được chấp thuận" từ HOSE (gồm cả mã đã lên sàn/hết hạn - nơi dùng tự lọc).
     Máy chủ HOSE đôi khi chậm hoặc ngắt giữa chừng nên thử lại 1 lần."""
-    yeu_cau = urllib.request.Request(
-        URL_HOSE_CW_MOI, headers={**HEADERS_HOSE, "Accept-Encoding": "gzip"}
-    )  # nén: nhỏ ~10 lần
+    return tai_json(URL_HOSE_CW_MOI, HEADERS_HOSE, cho, so_lan)
+
+
+def tai_json(url, headers, cho=20, so_lan=2):
+    """GET một API JSON (xin nén gzip: nhỏ ~10 lần); lỗi mạng / máy chủ thì thử lại, hết lượt thử thì báo lỗi."""
+    yeu_cau = urllib.request.Request(url, headers={**headers, "Accept-Encoding": "gzip"})
     for lan in range(so_lan):
         try:
             with urllib.request.urlopen(yeu_cau, timeout=cho) as r:

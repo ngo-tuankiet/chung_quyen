@@ -331,41 +331,79 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 
 ---
 
-## Phần 8. Theo dõi quỹ ETF (`etf.py`)
+## Phần 8. Theo dõi quỹ ETF (`etf.py`, `chiet_khau.py`)
 
-Mục tiêu: theo dõi cả 21 quỹ ETF trên HOSE giống như CW. Khác CW, giá ETF luôn bám NAV (thành viên lập quỹ mua bán chênh lệch
-khi giá lệch), nên "cơ hội" nằm ở **chỉ số đang rẻ hay đắt** (giai đoạn 2) và **cùng một chỉ số thì mua quỹ nào** (thanh khoản,
-mức bám chỉ số, phí). Giai đoạn 1 (đã làm): lợi nhuận, xu hướng, RSI, rủi ro, thanh khoản, dòng tiền; **chưa chấm điểm**.
+**Mục tiêu** (chốt 22/10/2026): tìm ETF đang **giao dịch dưới NAV** để lướt vài ngày–vài tuần, mỗi lệnh dưới 50 triệu. So theo
+(a) chiết khấu so với NAV, (b) cùng một chỉ số thì quỹ nào rẻ hơn, (d) quỹ tụt so với chỉ số — tách phần do quỹ bám kém và phần do giá rời NAV.
+"Rẻ" chỉ có nghĩa khi so với NAV của chính quỹ: giá mỗi CCQ (9.360 đ hay 33.980 đ) không nói gì về đắt/rẻ.
+
+**Vì sao nến ETF giật và gap** (điều tra 22/10/2026, chi tiết + nguồn: `ket_qua/bao_cao_nen_etf_2026-10-22.md`)
+1. Sổ lệnh mỏng: giá mở/đóng cửa thường do 1–2 lô 100 CCQ quyết định, kể cả ở ATO/ATC (vd FUEKIVFS 01/10 −6,5%, 02/10 +6,9%, mỗi lần 100 CCQ,
+   chỉ số chỉ −0,9% và −1,7%). Thanh khoản càng thấp càng gap nhiều (tương quan hạng −0,92); độ lệch thường tự đảo chiều phiên sau.
+   Giá đóng cửa của quỹ mỏng hay bằng đúng giá chào bán tốt nhất → bị lệch lên.
+2. Nhiều phiên không khớp: giá tham chiếu giữ giá cũ, lần khớp sau chỉ đi tối đa ±7% → 1 cây nến gánh biến động nhiều tuần.
+3. Giá rời NAV (premium/discount) rồi quay lại. 4. Lỗi dữ liệu KBS (thiếu phiên thật, vd 20/06 và 26/09/2025 ở 14 quỹ) — nhỏ, ~1% nến lạ.
+Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30 tái đầu tư và mô phỏng VN30-TRI).
 
 **Chạy**
-- `.venv/bin/python etf.py --no-discord`: tính, lưu `ket_qua/etf_YYYY-MM-DD.csv`, in báo cáo ra màn hình (bỏ `--no-discord` để gửi Discord).
-- Tự động: `bash cai_lich_quet.sh` cài thêm lịch `vn.cw-scanner.etf` chạy `chay_etf_tu_dong.sh` **15:30 thứ Hai–Sáu**; ngày nghỉ lễ bỏ qua;
-  lỗi thì thử lại tối đa 2 lần cách 5 phút, vẫn lỗi thì gửi "⚠ Báo cáo ETF hôm nay lỗi (lý do)" lên Discord.
-- Web: trang **📊 ETF** (`/etf`) có bảng chỉ số và toàn bộ quỹ (bấm tiêu đề cột để sắp xếp); bấm một quỹ để xem biểu đồ giá 1 năm + MA50/MA200.
+- `.venv/bin/python etf.py --no-discord`: tính, lưu `ket_qua/etf_YYYY-MM-DD.csv` và lịch sử NAV `ket_qua/nav_etf_YYYY-MM-DD.csv.gz`,
+  in báo cáo (bỏ `--no-discord` để gửi Discord). Báo cáo mở đầu bằng mục **💰 Chiết khấu so với NAV** và **📉 Quỹ tụt so với chỉ số**.
+- Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **15:30 thứ Hai–Sáu**, ngày nghỉ bỏ qua, lỗi thì thử lại
+  2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
+- Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).
+  **Cảnh báo Discord trong phiên đang tắt** (`BAT_CANH_BAO_TRONG_PHIEN = False` trong `chiet_khau.py`): chỉ bật sau khi file iNAV của phiên đầu
+  tiên cho thấy iNAV của SSI thực sự cập nhật trong phiên — iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo. Khi bật: mỗi quỹ tối đa 1 tin/ngày
+  (trạng thái trong `canh_bao_chiet_khau.json`).
+- Web: trang **📊 ETF** (`/etf`): bảng chiết khấu (xếp theo lãi ròng), bảng chỉ số, bảng toàn bộ quỹ; bấm một quỹ để xem chênh lệch giá/NAV 1 năm
+  và giá + MA50/MA200.
 
-**Nguồn dữ liệu**: danh sách ETF và giá ngày của quỹ (vnstock, nguồn KBS, nghìn đồng → nhân về đồng theo bảng giá); giá chỉ số
-(vnstock, nguồn VCI: điểm chia 1.000, **phải lấy `floating=6`** vì mặc định làm tròn 2 số lẻ, VN30 1.892,98 chỉ còn 1,89 → sai lợi nhuận ngày);
-giá, giá trị giao dịch, khối ngoại, số chứng chỉ quỹ hôm nay (bảng giá Vietcap). VNMID trong vnstock tên là VNMIDCAP.
+**Nguồn dữ liệu** (đều là API không chính thức; nguồn từng quỹ, giờ công bố NAV: `ket_qua/bao_cao_nguon_nav_etf_2026-10-22.md`)
+- **SSI iBoard** (`iboard-query.ssi.com.vn`, 1 lần gọi cả rổ): iNAV (NAV ước tính trong phiên), NAV T-1 chính thức (`prevINAV`), 3 bước giá mua/bán.
+- **Vietcap IQ** (`iq.vietcap.com.vn`): NAV/CCQ hằng ngày từ 09/2024 của 20 quỹ (thiếu FUEPHVNS), trễ ~2 phiên. Nhãn ngày lỗi, làm sạch thế này:
+  - `lam_sach_nav`: NAV thứ Sáu ghi vào Chủ nhật (dòng thứ Sáu lặp số thứ Năm) → dòng Chủ nhật thay thứ Sáu; một ngày có 2 số khác nhau
+    (số sau thường là NAV phiên kế tiếp, vd FUEMAV30 07/10/2026) → bỏ hẳn ngày đó, không đoán.
+  - `bo_nav_loi`: tỷ lệ NAV / chỉ số ngày đó lệch trung vị 5 phiên quanh nó > 0,5% → bỏ (vd FUESSVFL 07/04/2026 thật ra là NAV 08/04,
+    E1VFVN30 dòng 16/11/2025 là NAV thứ Hai). Đo trên NAV thật 19 quỹ: bắt đủ lỗi đã biết, chỉ bỏ ~20/9.000 ngày. Ngày cuối chuỗi lệch
+    thì bỏ tạm tới khi có phiên sau.
+  - NAV một quỹ dừng cập nhật quá 5 phiên → cảnh báo "NAV Vietcap IQ dừng ở ...".
+- vnstock (nguồn **VCI**): danh sách ETF, giá ngày của quỹ và chỉ số. Giá quỹ dùng VCI thay KBS vì KBS thiếu phiên thật. Giá chỉ số: điểm chia 1.000,
+  **phải lấy `floating=6`** (mặc định làm tròn 2 số lẻ: VN30 1.892,98 chỉ còn 1,89 → sai lợi nhuận ngày). VNMID trong vnstock tên là VNMIDCAP.
+- Bảng giá Vietcap: giá, giá trị giao dịch, khối ngoại, số CCQ lưu hành hôm nay.
+- vnstock và VNDirect không có NAV của ETF; văn bản NAV gốc trên HOSE phần lớn là ảnh scan (cần OCR) nên chưa dùng.
 
-**Ý nghĩa từng chỉ số** (ngưỡng ở đầu `etf.py`)
+**Chiết khấu (chiet_khau.py)**
+- **CK (chiết khấu mua được)** = giá chào bán tốt nhất / iNAV − 1. Dùng giá chào bán (mua được ngay), không dùng giá khớp cuối: quỹ ít giao dịch có giá
+  khớp cũ nhiều tuần (cột **Phiên chưa khớp**), "chiết khấu" theo giá khớp đó là ảo (22/10/2026: FUEBFVND −6,6%, FUEKIVFS −3,1% đều ảo).
+- **Lãi ròng nếu về NAV** = iNAV × (1 − phí − thuế) / (giá chào bán × (1 + phí)) − 1, phí 0,15%, thuế bán 0,1% (`PHI_GIAO_DICH`, `THUE_BAN`).
+  Ví dụ tính tay: chào bán 9.700, iNAV 10.000 → 9.975 / 9.714,55 − 1 = +2,68%. Chiết khấu 2% chỉ cho lãi ròng +1,63%.
+- **Đạt ngưỡng** (🟢): lãi ròng ≥ 2% (`NGUONG_LAI_RONG`) và tổng giá trị chào bán ở các mức giá đạt lãi ròng đó ≥ 5 triệu (`MIN_GIA_TRI_CHAO_BAN`).
+- **Thường lệch (TV 1N)** = trung vị (giá đóng cửa / NAV − 1) 1 năm của chính quỹ, chỉ các phiên có khớp; **Sâu nhất 1N** = mức thấp nhất.
+  Quỹ lúc nào cũng chiết khấu thì CK âm chưa chắc là rẻ bất thường: 22/10/2026 FUEIP100 đạt ngưỡng (CK −5,6%, lãi ròng +5,5%) nhưng thường lệch −4,6%.
+  Chỉ có lời khi giá quay về sát NAV; người kéo giá về NAV là thành viên lập quỹ (lô 100.000 CCQ), họ không bị buộc làm, nên quỹ mỏng có thể chiết khấu rất lâu.
+- **NAV−CS 1N** = lợi nhuận NAV 1 năm − của chỉ số mô phỏng (điểm %), cùng ngày gốc (hôm nay − 12 tháng) và tới hôm nay bằng iNAV
+  (không có iNAV thì tới ngày NAV cuối): âm nhiều = quỹ bám chỉ số kém (điểm xấu, không phải cơ hội).
+- **Quỹ tụt so với chỉ số** (d): mức tụt của giá ≈ NAV−CS + thay đổi của giá/NAV (giá/NAV đầu kỳ lấy đúng mốc của lợi nhuận giá). Ví dụ 22/10/2026
+  FUEVN100 giá −9,4 điểm so VN100 nhưng NAV +0,8 điểm: quỹ bám chỉ số tốt, giá tụt vì 1 năm trước cao hơn NAV 11,2% nay về −0,4% — không phải
+  cơ hội. Quỹ có giá khớp cũ thì không in giá/NAV hiện tại ("—") và ghi số phiên chưa khớp.
+
+**Các chỉ số kỹ thuật** (ngưỡng ở đầu `etf.py`)
 - **1T / 3T / 6T / 1N**: lợi nhuận theo giá từ phiên gần nhất trước mốc (hôm nay lùi 1/3/6/12 tháng lịch) tới phiên cuối. Quỹ niêm yết sau mốc: "—".
-- **so CS 1N**: lợi nhuận 1 năm của quỹ − của chỉ số mô phỏng (điểm %). Chỉ số VN30, VNDIAMOND… là chỉ số **giá** (không cộng cổ tức)
-  còn quỹ nhận cổ tức của cổ phiếu, nên quỹ tốt thường cao hơn chỉ số khoảng tỷ suất cổ tức trừ phí (các quỹ VN30 ngày 22/10/2026: −1,7 đến +2,6).
-  Thấp hơn nhiều là dấu hiệu cần đối chiếu NAV: ngày 22/10/2026 FUEVN100 −9,4 điểm, chênh tích dần cả năm, không có ngày nhảy giá nào
-  giống cổ tức — chưa rõ nguyên nhân (giá thị trường lệch NAV hay quỹ bám chỉ số kém) cho tới khi có NAV.
+- **so CS 1N** (web): lợi nhuận giá 1 năm của quỹ − của chỉ số. Chỉ số VN30, VNDIAMOND… là chỉ số **giá** (không cộng cổ tức) còn quỹ nhận cổ tức,
+  nên quỹ bám tốt thường cao hơn chỉ số một chút. E1VFVN30 mô phỏng VN30-TRI (có cổ tức) nên số này của nó lệch dương.
 - **Xu hướng**: Tăng khi giá và MA50 cùng trên MA200, Giảm khi cùng dưới, còn lại Đi ngang. MA tính trên các phiên có khớp lệnh; chưa đủ 200 phiên: trống.
 - **RSI14**: RSI của Wilder (trung bình tăng/giảm 14 phiên, làm mượt (TB cũ × 13 + phiên mới) / 14). Trên 70: tăng nóng; dưới 30: bị bán quá mức.
 - **Biến động năm**: độ lệch chuẩn lợi suất log ngày × √250 (như HV của CW). **Sâu nhất 1N / Cách đỉnh**: mức giảm lớn nhất từ đỉnh và khoảng cách tới đỉnh trong 1 năm.
 - **GTGD TB20**: giá trị giao dịch trung bình 20 phiên gần nhất (tỷ đồng), phiên không khớp tính 0. **Khối ngoại**: mua − bán trong phiên (tỷ đồng).
-- **CCQ lưu hành**: số chứng chỉ quỹ. Tăng = nhà đầu tư lớn góp rổ cổ phiếu lấy CCQ (tiền vào quỹ), giảm = hoàn mua (tiền ra). Báo cáo liệt kê quỹ thay đổi so với phiên trước.
-- **Phiên khớp**: số phiên có khớp lệnh trong 1 năm. Dưới 200 (quỹ mới hoặc ít giao dịch) thì cảnh báo: giá đóng cửa có thể cũ nhiều ngày, RSI/MA/biến động kém tin cậy
-  (22/10/2026: FUEBFVND chỉ 1 phiên, FUEABVND 17 phiên).
+- **CCQ lưu hành**: số chứng chỉ quỹ. Tăng = nhà đầu tư lớn góp rổ cổ phiếu lấy CCQ (tiền vào quỹ), giảm = hoàn mua (tiền ra).
+- **Phiên khớp**: số phiên có khớp lệnh trong 1 năm. Dưới 200 thì cảnh báo: RSI/MA/biến động kém tin cậy. Với quỹ mỏng, đừng dùng giá mở cửa và
+  râu nến làm tín hiệu "chạm đáy" — thường chỉ là 1 lô nhỏ.
 
-**Cấu hình**: `QUY_THEO_CHI_SO` (quỹ → chỉ số; quỹ mới chưa có thì báo cáo cảnh báo và so tạm với VNINDEX — FUEVN50G đang như vậy vì chưa tra được chỉ số),
-`PHI_QUAN_LY` (phí quản lý %/năm theo bản cáo bạch, chưa điền thì hiện "—").
+**Cấu hình**: `QUY_THEO_CHI_SO` (quỹ → chỉ số; FUEVN50G mô phỏng VN50 GROWTH của HOSE nhưng vnstock chưa có lịch sử chỉ số này nên đang so tạm
+với VNINDEX và có cảnh báo); `PHI_QUAN_LY` (phí quản lý %/năm theo website / bản cáo bạch, tra 22/10/2026; FUEFCV50, FUEIP100, FUEABVND chưa có số chắc chắn).
 
-**Giới hạn**: giá thị trường không phải NAV; chưa xác minh giá lịch sử quỹ từ KBS đã điều chỉnh theo cổ tức của quỹ; dữ liệu là API không chính thức.
+**Giới hạn**: API không chính thức, có thể đổi bất cứ lúc nào; NAV Vietcap trễ ~2 phiên; sổ lệnh sau 14:45 là lệnh còn lại sau ATC (chênh lệch giá
+mua–bán có thể rộng hơn trong phiên); chênh lệch giá/NAV trong quá khứ tính bằng giá đóng cửa (quỹ mỏng: bị lệch lên, nhiễu).
 
-**Các giai đoạn sau** (mỗi giai đoạn lập plan riêng): (2) P/E, P/B chỉ số, percentile 5 năm, z-score, earnings yield − lãi suất nhập tay, chấm điểm —
-vnstock (`Analytics().valuation(...)`) có P/E 5 năm của VNINDEX, VN30, cần kiểm tra các chỉ số khác và P/E có phải số tại thời điểm đó không (chống lookahead);
-(3) backtest quy tắc chấm điểm, ghi rõ số giai đoạn độc lập; (4) NAV, premium/discount, tracking difference theo NAV.
+**Bước sau** (lập plan riêng): kiểm chứng với lịch sử từ 09/2024 — các lần chiết khấu vượt ngưỡng, sau 1/5/10 phiên chênh lệch có thu hẹp không,
+lãi sau chi phí bao nhiêu. Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
+(dữ liệu trước 2024 có dấu hiệu lookahead).
