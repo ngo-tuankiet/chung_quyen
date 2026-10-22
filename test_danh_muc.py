@@ -108,6 +108,7 @@ def bang_gia_mau(bid, S, ngay_gd_cuoi, kl_niem_yet=18_000_000):
         "exerciseRatio": "2:1",
         "maturityDate": "20270217",
         "lastTradingDate": ngay_gd_cuoi.strftime("%Y%m%d"),
+        "tradingDate": str(HOM_NAY),  # phiên hôm nay (ngày nghỉ lễ thì bảng giá vẫn ghi phiên trước)
         "refPrice": 1000,
         "issuerName": "TEST",
         "listedShare": kl_niem_yet,
@@ -356,6 +357,81 @@ def test_kiem_tra_chi_gui_mot_lan():
         noi_dung = gui.call_args[0][0]
         assert "CVPB2615" in noi_dung and "1.000" not in noi_dung  # không gửi khối lượng / số tiền lên Discord
         assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # lần 2: cảnh báo cũ, không gửi lại
+
+
+def _chay_kiem_tra(tmp, cac_lan, ngay_phien=None):
+    """Chạy kiem_tra() lần lượt với các giá chờ mua trong cac_lan [(thời điểm, giá)]; trả về số tin đã gửi."""
+    import web
+
+    gia = [0]  # giá chờ mua của lần chạy hiện tại
+
+    def bang(ds, cho=30):
+        b = {m: v for m, v in bang_gia_mau(gia[0], 25000, HOM_NAY + timedelta(days=60)).items() if m in ds}
+        for ny, *_ in b.values():
+            ny["tradingDate"] = ngay_phien or str(_chay_kiem_tra.luc.date())
+        return b
+
+    with (
+        mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),
+        mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(
+            cw_scanner, "doc_env", return_value={"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/a"}
+        ),
+        mock.patch.object(cw_scanner, "lay_bang_gia", side_effect=bang),
+        mock.patch.object(D, "gui_discord") as gui,
+        mock.patch("sys.stdout", new=io.StringIO()),
+    ):
+        D.ghi_lenh([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+        for luc, gia_lan in cac_lan:
+            _chay_kiem_tra.luc = luc
+            gia[0] = gia_lan
+            D.kiem_tra(luc=luc)
+        return gui.call_count
+
+
+def test_canh_bao_dao_dong_quanh_nguong_chi_gui_1_lan_moi_ngay():
+    # Lỗi thật 22/10/2026: CVPB2608 dao động quanh ngưỡng -> "lech_duong" gửi 4 lần trong ngày.
+    # Cắt lỗ (giá 700) xuất hiện 10:00, hết 10:05 (giá 1.000), lại xuất hiện 10:10 -> chỉ 1 tin; hôm sau lại xuất hiện -> gửi tiếp
+    with tempfile.TemporaryDirectory() as tmp:
+        lan = [
+            (datetime(2026, 10, 19, 10, 0), 700),
+            (datetime(2026, 10, 19, 10, 5), 1000),
+            (datetime(2026, 10, 19, 10, 10), 700),
+        ]
+        assert _chay_kiem_tra(tmp, lan) == 1
+    with tempfile.TemporaryDirectory() as tmp:
+        lan = [
+            (datetime(2026, 10, 19, 10, 0), 700),
+            (datetime(2026, 10, 20, 10, 0), 1000),
+            (datetime(2026, 10, 20, 10, 5), 700),
+        ]
+        assert _chay_kiem_tra(tmp, lan) == 2
+
+
+def test_ngay_nghi_le_khong_kiem_tra():
+    # Thứ Hai 19/10 nhưng bảng giá vẫn ghi phiên 16/10 (giả lập ngày nghỉ lễ) -> không gửi gì
+    with tempfile.TemporaryDirectory() as tmp:
+        assert _chay_kiem_tra(tmp, [(datetime(2026, 10, 19, 10, 0), 700)], ngay_phien="2026-10-16") == 0
+
+
+def test_la_ngay_giao_dich():
+    phien = lambda ngay: {"VPB": ({"tradingDate": ngay}, {}, {})}
+    with mock.patch.object(cw_scanner, "lay_bang_gia", return_value=phien("2026-10-22")):
+        assert cw_scanner.la_ngay_giao_dich(date(2026, 10, 22)) is True
+    with mock.patch.object(cw_scanner, "lay_bang_gia", return_value=phien("2026-10-16")):
+        assert cw_scanner.la_ngay_giao_dich(date(2026, 10, 19)) is False
+
+
+def test_bao_cao_ghi_ro_khi_quet_loi():
+    df = pd.DataFrame(
+        {"Mã CW": ["A"], "Mã CS": ["VPB"], "Đánh giá": ["THEO DÕI"], "Mới": [""], "IV − HV": [1.0], "Cảnh báo": [""]}
+    )
+    bc = D.bao_cao_ngay(
+        df, HOM_NAY, [], [], 0, datetime(2026, 10, 21, 14, 14), quet_loi=("NetworkError: không kết nối", "19/10 09:02")
+    )
+    dong2 = bc.split("\n\n")[0].splitlines()[1]
+    assert dong2.startswith("⚠ **Quét hôm nay lỗi**") and "NetworkError" in dong2 and "19/10 09:02" in dong2
+    assert "Quét hôm nay lỗi" not in D.bao_cao_ngay(df, HOM_NAY, [], [], 0, datetime(2026, 10, 21, 14, 0))
 
 
 def test_lay_bang_gia_bo_ma_khong_ton_tai():

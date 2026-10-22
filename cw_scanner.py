@@ -192,6 +192,15 @@ def tong_kl(so_lenh, ben):
     return sum(muc.get("volume") or 0 for muc in so_lenh.get(ben) or [])
 
 
+MA_KIEM_TRA_PHIEN = ["VPB", "FPT", "HPG"]  # cổ phiếu lớn luôn niêm yết, dùng để biết hôm nay có phiên không
+
+
+def la_ngay_giao_dich(hom_nay=None):
+    """Hôm nay có phiên giao dịch không: ngày nghỉ lễ, Tết thì bảng giá Vietcap vẫn ghi ngày của phiên trước (tradingDate)."""
+    hom_nay = hom_nay or date.today()
+    return any(ny.get("tradingDate") == str(hom_nay) for ny, *_ in lay_bang_gia(MA_KIEM_TRA_PHIEN, cho=15).values())
+
+
 def gia_hien_tai(niem_yet, khop_lenh, *_):
     """Giá khớp gần nhất; nếu chưa có giao dịch trong phiên thì lấy giá tham chiếu."""
     return khop_lenh["matchPrice"] or niem_yet["refPrice"]

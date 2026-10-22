@@ -283,7 +283,9 @@ bash ~/cw_scanner/cai_lich_quet.sh
 ```
 - Quét lúc 14:00 thứ Hai–Sáu theo giờ của máy (trước phiên ATC: giá trong phiên, chưa phải giá đóng cửa) (đặt máy về giờ Việt Nam). Máy ngủ lúc 14:00 thì launchd chạy bù khi máy thức dậy.
 - Mỗi lần chạy `chay_quet_tu_dong.sh` quét xong thì sao lưu `ket_qua/` và `cw_da_biet.txt` sang `~/cw_scanner_sao_luu/` (không bao giờ xóa bản cũ).
-- Nhật ký trong `log.txt`. Ngày lễ vẫn chạy (bảng giá giữ phiên gần nhất) - không ảnh hưởng.
+- Nhật ký trong `log.txt`. Ngày nghỉ lễ / Tết (bảng giá Vietcap vẫn ghi `tradingDate` của phiên trước) thì bỏ qua, không quét, không gửi báo cáo.
+- Quét lỗi (vd máy chủ vnstock không phản hồi) thì tự thử lại tối đa 2 lần, cách nhau 5 phút. Vẫn lỗi thì báo cáo 14:00 vẫn gửi, dòng đầu ghi
+  "⚠ Quét hôm nay lỗi (lý do); số liệu bên dưới là của lần quét dd/mm HH:MM" (file `ket_qua/` mới nhất).
 - Gỡ lịch: `bash ~/cw_scanner/cai_lich_quet.sh go`.
 
 ### Linux — cron
@@ -299,13 +301,13 @@ Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scann
    Giá vốn bình quân (đã gồm phí mua) như app công ty chứng khoán; lãi/lỗ tính **nếu bán ngay** ở giá chờ mua tốt nhất sau phí và thuế.
 2. Tạo webhook: Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, dán vào `.env`:
    `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` (xem `.env.example`). Không có dòng này thì cảnh báo chỉ hiện trên web.
-3. `bash ~/cw_scanner/cai_lich_quet.sh` cài cả lịch kiểm tra danh mục **mỗi 15 phút** (chỉ trong giờ khớp lệnh 9:15–11:30, 13:00–14:45 thứ Hai–Sáu,
-   ngoài giờ thoát ngay, không gọi mạng) và một lần sau lần quét 14:00.
+3. `bash ~/cw_scanner/cai_lich_quet.sh` cài cả lịch kiểm tra danh mục **mỗi 5 phút** (chỉ trong giờ khớp lệnh 9:15–11:30, 13:00–14:45 thứ Hai–Sáu,
+   ngoài giờ thoát ngay, không gọi mạng; ngày nghỉ lễ cũng không gửi gì) và một lần sau lần quét 14:00.
 
 Cảnh báo (ngưỡng ở đầu `danh_muc.py`): còn ≤ 20 ngày tới ngày giao dịch cuối; cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% hoặc đã dưới;
 lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng lệnh mua); sổ lệnh không có giá chờ mua; IV < 50% trung vị CW cùng mã;
-khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệch ≥ ±15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất); **CW đắt, cân nhắc chuyển sang cổ phiếu**: bán ngay ≥ giá trị theo mô hình × 1,15 và IV theo giá chờ mua > trung vị IV các CW cùng mã (tin này có ghi tiền thu về và vốn mua cổ phiếu đủ số / theo delta, lô 100; cổ phiếu không có giới hạn lỗ như CW). **Chỉ gửi khi cảnh báo vừa xuất hiện**; cùng cảnh báo không gửi lại tới khi hết rồi
-xảy ra lần nữa. Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" và báo cáo 14:00 có số tiền, theo yêu cầu dùng riêng).
+khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệch ≥ ±15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất); **CW đắt, cân nhắc chuyển sang cổ phiếu**: bán ngay ≥ giá trị theo mô hình × 1,15 và IV theo giá chờ mua > trung vị IV các CW cùng mã (tin này có ghi tiền thu về và vốn mua cổ phiếu đủ số / theo delta, lô 100; cổ phiếu không có giới hạn lỗ như CW). **Chỉ gửi khi cảnh báo vừa xuất hiện**, và mỗi loại cảnh báo của mỗi mã **tối đa 1 tin/ngày**
+(giá dao động quanh ngưỡng thì không gửi lặp; trạng thái trong `canh_bao_da_gui.json`). Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" và báo cáo 14:00 có số tiền, theo yêu cầu dùng riêng).
 
 ---
 

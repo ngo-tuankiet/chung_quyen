@@ -2,7 +2,7 @@
 danh_muc.py - Theo dõi danh mục CW đang nắm: lưu lệnh, tính vị thế (giá vốn bình quân), lãi/lỗ nếu bán ngay,
 cảnh báo (gần ngày GD cuối, cổ phiếu cơ sở gần giá thực hiện, chạm chốt lời/cắt lỗ, bất thường) và gửi Discord.
 
-Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 15 phút; ngoài giờ khớp lệnh thì thoát ngay, không gọi mạng)
+Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 5 phút; ngoài giờ khớp lệnh thì thoát ngay, không gọi mạng)
            python danh_muc.py --luon   (kiểm tra bất kể giờ: dùng sau lần quét 14:00)
            python danh_muc.py --bao-cao (báo cáo tổng hợp ngày lên Discord)
 Lệnh lưu trong danh_muc.csv (không đưa lên git). Webhook Discord: DISCORD_WEBHOOK_URL trong .env.
@@ -12,6 +12,7 @@ Chỉ gửi Discord khi một cảnh báo VỪA xuất hiện; cùng cảnh báo
 import csv
 import json
 import math
+import os
 import re
 import shutil
 import sys
@@ -506,12 +507,14 @@ def cw_moi_vao_nhom(df_nay, df_truoc):
     return moi.assign(**{"Từ nhóm": moi["Mã CW"].map(truoc)})
 
 
-def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc, moi_vao=None, lech_moi_vao=None):
+def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc, moi_vao=None, lech_moi_vao=None, quet_loi=None):
     """Nội dung báo cáo tổng hợp hằng ngày (dùng riêng, có số tiền)."""
     phan = [
         f"📊 **Báo cáo CW {luc:%H:%M %d/%m/%Y}** – quét {ngay_quet:%d/%m}: "
         + ", ".join(f"{k} {v}" for k, v in df["Đánh giá"].value_counts().items())
     ]
+    if quet_loi:  # (lý do, thời điểm của số liệu đang dùng)
+        phan[0] += f"\n⚠ **Quét hôm nay lỗi** ({quet_loi[0][:150]}); số liệu bên dưới là của lần quét {quet_loi[1]}"
     # 0. Mới vào nhóm Nên xem xét (so với lần quét trước): độ lệch 20 phiên và IV so với CW cùng mã để tham khảo
     if moi_vao is not None and len(moi_vao):
         hien = moi_vao.head(MAX_MA_MOI_VAO)
@@ -678,7 +681,7 @@ def tinh_lech_20_phien(h, ngay_quet, lich_su):
         return math.nan
 
 
-def gui_bao_cao_ngay(luc=None):
+def gui_bao_cao_ngay(luc=None, quet_loi=""):
     """Lập và gửi báo cáo ngày lên Discord (sau lần quét theo lịch)."""
     luc = luc or datetime.now()
     from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import
@@ -703,11 +706,11 @@ def gui_bao_cao_ngay(luc=None):
     ls = doc_lich_su(ngay)
     for _, h in moi_vao.head(MAX_MA_MOI_VAO).iterrows():
         lech_moi_vao[h["Mã CW"]] = tinh_lech_20_phien(h, ngay, ls)
-    tin = chia_tin(
-        bao_cao_ngay(
-            df, ngay, dong, canh_bao, sum(v["lai_da_chot"] for v in tat_ca.values()), luc, moi_vao, lech_moi_vao
-        )
-    )
+    if quet_loi:  # thời điểm của file kết quả đang dùng (lần quét thành công gần nhất)
+        tep = max(C.THU_MUC_KET_QUA.glob("cw_*.csv"))
+        quet_loi = (quet_loi, f"{datetime.fromtimestamp(tep.stat().st_mtime):%d/%m %H:%M}")
+    lai_chot = sum(v["lai_da_chot"] for v in tat_ca.values())
+    tin = chia_tin(bao_cao_ngay(df, ngay, dong, canh_bao, lai_chot, luc, moi_vao, lech_moi_vao, quet_loi or None))
     for t in tin:
         gui_discord(t, url)
     print(f"{luc:%d/%m %H:%M} Đã gửi báo cáo ngày ({len(tin)} tin)")
@@ -732,11 +735,17 @@ def kiem_tra(luon=False, luc=None):
         df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])
     )  # chưa quét lần nào: bỏ phần IV, đòn bẩy
     bang_gia = tai_bang_gia(list(vt), df)
+    hom_nay = str(luc.date())
+    if not any(ny.get("tradingDate") == hom_nay for ny, *_ in bang_gia.values()):
+        return []  # ngày nghỉ lễ / Tết: bảng giá vẫn là phiên trước, không có gì mới để báo
     trang_thai = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
     _, canh_bao, kl_moi = danh_gia_danh_muc(
         vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), doc_lich_su(ngay_quet)
     )
     moi, dang_bao = chon_canh_bao_moi(canh_bao, trang_thai.get("dang_bao", []))
+    # mỗi loại cảnh báo của mỗi mã tối đa 1 tin/ngày: giá dao động quanh ngưỡng thì không gửi lặp (lỗi thật 22/10/2026)
+    da_gui = {k: ngay for k, ngay in trang_thai.get("da_gui", {}).items() if ngay == hom_nay}
+    moi = [cb for cb in moi if f"{cb[0]}|{cb[1]}" not in da_gui]
     if moi:
         url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
         if not url:
@@ -746,7 +755,15 @@ def kiem_tra(luon=False, luc=None):
         print(f"{luc:%d/%m %H:%M} Đã gửi {len(moi)} cảnh báo lên Discord: " + ", ".join(f"{m} {l}" for m, l, _ in moi))
     # lưu sau khi gửi thành công: gửi lỗi thì lần kiểm tra sau gửi lại
     FILE_TRANG_THAI.write_text(
-        json.dumps({"dang_bao": dang_bao, "kl_niem_yet": kl_moi}, ensure_ascii=False), encoding="utf-8"
+        json.dumps(
+            {
+                "dang_bao": dang_bao,
+                "kl_niem_yet": kl_moi,
+                "da_gui": {**da_gui, **{f"{m}|{l}": hom_nay for m, l, _ in moi}},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
     )
     return moi
 
@@ -754,6 +771,6 @@ def kiem_tra(luon=False, luc=None):
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if "--bao-cao" in sys.argv:
-        gui_bao_cao_ngay()
+        gui_bao_cao_ngay(quet_loi=os.environ.get("QUET_LOI", ""))  # chay_quet_tu_dong.sh truyền lý do khi quét lỗi
     else:
         kiem_tra(luon="--luon" in sys.argv)

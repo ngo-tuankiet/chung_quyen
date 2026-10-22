@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cài 2 lịch chạy nền bằng launchd (máy ngủ đúng giờ thì chạy bù khi thức dậy):
 #   - vn.cw-scanner.quet      : 14:00 thứ Hai–Sáu quét CW, kiểm tra danh mục, sao lưu (chay_quet_tu_dong.sh)
-#   - vn.cw-scanner.danh-muc  : mỗi 15 phút kiểm tra danh mục, gửi Discord khi có cảnh báo mới (kiem_tra_danh_muc.sh)
+#   - vn.cw-scanner.danh-muc  : mỗi 5 phút kiểm tra danh mục, gửi Discord khi có cảnh báo mới (kiem_tra_danh_muc.sh)
 #   bash cai_lich_quet.sh        -> cài / cài lại
 #   bash cai_lich_quet.sh go     -> gỡ cả hai
 cd "$(dirname "$0")" || exit 1
@@ -32,5 +32,5 @@ for thu in 1 2 3 4 5; do
   NGAY="$NGAY<dict><key>Weekday</key><integer>$thu</integer><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>"
 done
 cai vn.cw-scanner.quet chay_quet_tu_dong.sh "<key>StartCalendarInterval</key><array>$NGAY</array>"
-cai vn.cw-scanner.danh-muc kiem_tra_danh_muc.sh "<key>StartInterval</key><integer>900</integer>"
+cai vn.cw-scanner.danh-muc kiem_tra_danh_muc.sh "<key>StartInterval</key><integer>300</integer>"
 [ "$GO" = 1 ] || echo "Nhật ký: $PWD/log.txt"
