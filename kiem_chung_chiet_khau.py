@@ -5,6 +5,8 @@ giá/NAV có thu hẹp không, lãi thực tế sau phí và thuế nếu mua r�
 
 Chạy:   python kiem_chung_chiet_khau.py   lưu ket_qua/kiem_chung_chiet_khau_YYYY-MM-DD.md (bảng kết quả) và
                                           ket_qua/kiem_chung_chiet_khau_su_kien_YYYY-MM-DD.csv (từng lệnh độc lập)
+        python kiem_chung_chiet_khau.py tuong_doi   tín hiệu tương đối (lãi ròng nếu về mức thường lệch của chính quỹ ≥ ngưỡng)
+                                          kèm bảng so với tín hiệu tuyệt đối -> ket_qua/kiem_chung_chiet_khau_tuong_doi_*.md/.csv
 Chỉ đọc dữ liệu (giá và chỉ số vnstock VCI, NAV Vietcap IQ qua etf.lay_nav), không gửi Discord, không đổi ngưỡng đang chạy.
 Giả định (ghi lại trong báo cáo):
 - Tín hiệu phiên T: phiên T có khớp, có NAV(T) và lai_rong_neu_ve_nav(giá đóng cửa T, NAV T) ≥ ngưỡng.
@@ -35,6 +37,10 @@ TEN_KICH_BAN = {"A": "A cùng phiên (giả định có iNAV)", "B": "B trễ 1 
 # Nhóm theo giá trị giao dịch TB/phiên trong kỳ có NAV (phiên không khớp tính 0), đồng; phân nhóm để mô tả, không phải tín hiệu
 NHOM_THANH_KHOAN = ((1e9, "cao ≥ 1 tỷ"), (1e8, "vừa 0,1–1 tỷ"), (0.0, "mỏng < 0,1 tỷ"))
 MIN_SU_KIEN = 10  # dưới số sự kiện độc lập này: ghi "không đủ kết luận" (mẫu nhỏ dễ ra kết quả đẹp do ngẫu nhiên)
+# Tín hiệu tương đối: mức thường lệch = trung vị chênh lệch giá/NAV của bấy nhiêu phiên có giá và NAV trước T (≈ 3 tháng;
+# người dùng chốt 22/10/2026 trước khi xem kết quả — đổi rồi chạy lại để chọn số đẹp là data snooping)
+CUA_SO_TRUNG_VI = 60
+N_SO_SANH_THEO_QUY = (5, 20)  # bảng so sánh tuyệt đối/tương đối theo quỹ: chỉ kịch bản B, 2 kỳ giữ cho gọn
 
 
 # ============ MÔ PHỎNG ============
@@ -42,6 +48,15 @@ def phien_tin_hieu(gia, nav, nguong=CK.NGUONG_LAI_RONG):
     """Các phiên có khớp, có NAV và lãi ròng nếu mua ở giá đóng cửa rồi bán đúng NAV cùng ngày ≥ nguong."""
     g, n = gia.align(nav, join="inner")
     return g.index[CK.lai_rong_neu_ve_nav(g, n) >= nguong]
+
+
+def phien_tin_hieu_tuong_doi(gia, nav, cua_so=CUA_SO_TRUNG_VI, nguong=CK.NGUONG_LAI_RONG):
+    """Các phiên có khớp, có NAV và lãi ròng nếu mua ở giá đóng cửa rồi bán ở mức thường lệch của chính quỹ
+    NAV cùng ngày × (1 + trung vị chênh lệch giá/NAV của `cua_so` phiên có giá và NAV gần nhất TRƯỚC phiên đó) ≥ nguong.
+    Chưa đủ `cua_so` phiên trước đó: không có tín hiệu."""
+    g, n = gia.align(nav, join="inner")
+    muc = (g / n - 1).shift(1).rolling(cua_so).median()  # shift(1): chỉ dữ liệu ≤ phiên trước, chống lookahead
+    return g.index[CK.lai_rong_neu_ve_nav(g, n * (1 + muc)) >= nguong]
 
 
 def mo_phong(gia, nav, lich, ngay_vao, so_phien, tre=0):
@@ -149,19 +164,28 @@ _p = lambda x, so_le=1: D.pt(x, so_le) if math.isfinite(x) else "—"  # 0.0251 
 _t = lambda x: f"{x:.0%}" if math.isfinite(x) else "—"  # tỷ lệ 0.62 -> '62%'
 
 
-def chay(hom_nay=None):
-    hom_nay = hom_nay or date.today()
+TIN_HIEU = {"tuyệt đối": phien_tin_hieu, "tương đối": phien_tin_hieu_tuong_doi}
+MO_TA_TIN_HIEU = {
+    "tuyệt đối": "bán đúng NAV cùng ngày",
+    "tương đối": f"bán ở mức thường lệch của chính quỹ = NAV cùng ngày × (1 + trung vị chênh lệch giá/NAV của {CUA_SO_TRUNG_VI}"
+    f" phiên có giá và NAV gần nhất trước đó; chưa đủ {CUA_SO_TRUNG_VI} phiên: không có tín hiệu)",
+}
+
+
+def chay(hom_nay=None, tuong_doi=False):
+    """Mô phỏng cả 2 loại tín hiệu trên cùng dữ liệu; báo cáo loại được chọn (tương đối: kèm bảng so với tuyệt đối)."""
+    hom_nay, loai = hom_nay or date.today(), "tương đối" if tuong_doi else "tuyệt đối"
     lich, du_lieu, canh_bao = lay_du_lieu()
     thong_tin, tong, su_kien = [], [], []
     for ma, (gia, kl, nav) in du_lieu.items():
         ky = lich[(lich >= nav.index[0]) & (lich <= nav.index[-1])]
         gtgd = (gia * kl).reindex(ky, fill_value=0).mean()
         g, n = gia.align(nav, join="inner")
-        tin_hieu, nen = phien_tin_hieu(gia, nav), g.index
+        tin_hieu, nen = {ten: f(gia, nav) for ten, f in TIN_HIEU.items()}, g.index
         thong_tin.append(
             {"Mã": ma, "Nhóm": nhom_thanh_khoan(gtgd), "GTGD TB (tỷ)": gtgd / 1e9, "Phiên có giá và NAV": len(nen)}
             | {
-                "Phiên tín hiệu": len(tin_hieu),
+                "Phiên tín hiệu": len(tin_hieu[loai]),
                 "CL TV kỳ": (g / n - 1).median(),
                 "Từ": nav.index[0],
                 "Đến": nav.index[-1],
@@ -169,20 +193,22 @@ def chay(hom_nay=None):
         )
         for kb, tre in KICH_BAN.items():
             for so_phien in SO_PHIEN_GIU:
-                lenh = doc_lap(mo_phong(gia, nav, lich, tin_hieu, so_phien, tre))
                 nen_lenh = mo_phong(
                     gia, nav, lich, nen, so_phien, tre
                 )  # nền: mọi phiên, chồng nhau (chỉ để lấy mức TB)
                 nen_tt = {f"Nền {k}": v for k, v in tom_tat(nen_lenh).items()}
-                tong.append({"Mã": ma, "KB": kb, "N": so_phien} | tom_tat(lenh) | nen_tt)
-                su_kien.append(lenh.assign(**{"Mã": ma, "Kịch bản": kb, "N": so_phien}))
+                for ten, ngay in tin_hieu.items():
+                    lenh = doc_lap(mo_phong(gia, nav, lich, ngay, so_phien, tre))
+                    tong.append({"Mã": ma, "Tín hiệu": ten, "KB": kb, "N": so_phien} | tom_tat(lenh) | nen_tt)
+                    su_kien.append(lenh.assign(**{"Mã": ma, "Tín hiệu": ten, "Kịch bản": kb, "N": so_phien}))
     tt, tg = pd.DataFrame(thong_tin), pd.DataFrame(tong)
     sk = pd.concat([x for x in su_kien if len(x)], ignore_index=True)  # bảng rỗng làm cột ngày thành object
     sk = sk.merge(tt[["Mã", "Nhóm"]], on="Mã")
     C.THU_MUC_KET_QUA.mkdir(exist_ok=True)
-    sk.to_csv(C.THU_MUC_KET_QUA / f"kiem_chung_chiet_khau_su_kien_{hom_nay}.csv", index=False, encoding="utf-8-sig")
-    noi_dung = bao_cao(tt, tg, sk, canh_bao, hom_nay)
-    (C.THU_MUC_KET_QUA / f"kiem_chung_chiet_khau_{hom_nay}.md").write_text(noi_dung, encoding="utf-8")
+    ten_tep = "kiem_chung_chiet_khau" + ("_tuong_doi" if tuong_doi else "")
+    sk.to_csv(C.THU_MUC_KET_QUA / f"{ten_tep}_su_kien_{hom_nay}.csv", index=False, encoding="utf-8-sig")
+    noi_dung = bao_cao(tt, tg, sk, canh_bao, hom_nay, loai)
+    (C.THU_MUC_KET_QUA / f"{ten_tep}_{hom_nay}.md").write_text(noi_dung, encoding="utf-8")
     print(noi_dung)
 
 
@@ -206,14 +232,54 @@ def bang_md(cot, dong):
     )
 
 
-def bao_cao(tt, tg, sk, canh_bao, hom_nay):
-    """Báo cáo markdown: giả định, bảng theo nhóm thanh khoản, bảng theo quỹ, cảnh báo dữ liệu."""
-    nhom_cua = dict(zip(tt["Mã"], tt["Nhóm"]))
+def _o_so_sanh(lenh):
+    t = tom_tat(lenh)
+    thang = lenh["Ngày tín hiệu"].dt.to_period("M").nunique()
+    return f"{t['n']} · {thang} · {_p(t['Lãi TV'])} · {_p(t['Vượt NAV TV'])}" if t["n"] else "0"
+
+
+def so_sanh(tt, sk):
+    """Bảng so tín hiệu tuyệt đối với tương đối trên cùng dữ liệu: theo nhóm thanh khoản (cả 2 kịch bản) và theo quỹ (B)."""
+    nhom_cua, ds_kb = dict(zip(tt["Mã"], tt["Nhóm"])), ("B", "A")  # B là kịch bản chính, đặt trước
+    chon = lambda kb, ten, so_phien: sk[(sk["Kịch bản"] == kb) & (sk["Tín hiệu"] == ten) & (sk["N"] == so_phien)]
+    dong = []
+    for nhom in [ten for _, ten in NHOM_THANH_KHOAN] + ["Tất cả"]:
+        ma = [m for m, nh in nhom_cua.items() if nhom in (nh, "Tất cả")]
+        for so_phien in SO_PHIEN_GIU:
+            dong.append(
+                [nhom, str(so_phien)]
+                + [_o_so_sanh((x := chon(kb, ten, so_phien))[x["Mã"].isin(ma)]) for kb in ds_kb for ten in TIN_HIEU]
+            )
+    dong_quy = [
+        [h["Mã"], h["Nhóm"], _p(h["CL TV kỳ"])]
+        + [
+            _o_so_sanh((x := chon("B", ten, so_phien))[x["Mã"] == h["Mã"]])
+            for so_phien in N_SO_SANH_THEO_QUY
+            for ten in TIN_HIEU
+        ]
+        for _, h in tt.sort_values("GTGD TB (tỷ)", ascending=False).iterrows()
+    ]
+    return (
+        "## So sánh tín hiệu tuyệt đối và tương đối (cùng dữ liệu, cùng cách mua/bán)\n"
+        "Mỗi ô: n lệnh độc lập · số tháng có lệnh · lãi TV · vượt NAV TV.\n"
+        + bang_md(["Nhóm", "N"] + [f"{kb} {ten}" for kb in ds_kb for ten in TIN_HIEU], dong)
+        + f"\n\n### Theo quỹ — {TEN_KICH_BAN['B']}\n"
+        + bang_md(
+            ["Quỹ", "Nhóm", "CL TV kỳ"] + [f"N={n} {ten}" for n in N_SO_SANH_THEO_QUY for ten in TIN_HIEU], dong_quy
+        )
+    )
+
+
+def bao_cao(tt, tg, sk, canh_bao, hom_nay, loai="tuyệt đối"):
+    """Báo cáo markdown cho 1 loại tín hiệu: giả định, (tương đối: so với tuyệt đối), bảng theo nhóm thanh khoản,
+    bảng theo quỹ, cảnh báo dữ liệu. tg, sk chứa mọi loại tín hiệu (cột "Tín hiệu")."""
+    nhom_cua, sk_tat_ca = dict(zip(tt["Mã"], tt["Nhóm"])), sk
+    tg, sk = tg[tg["Tín hiệu"] == loai], sk[sk["Tín hiệu"] == loai]
     phan = [
-        f"# Kiểm chứng ngưỡng chiết khấu NAV ETF ({hom_nay:%d/%m/%Y})",
+        f"# Kiểm chứng ngưỡng chiết khấu NAV ETF — tín hiệu {loai} ({hom_nay:%d/%m/%Y})",
         (
-            f"Dữ liệu NAV {min(tt['Từ']):%d/%m/%Y} – {max(tt['Đến']):%d/%m/%Y}, {len(tt)} quỹ. Tín hiệu: lãi ròng nếu mua ở giá đóng cửa"
-            f" rồi bán đúng NAV cùng ngày ≥ {CK.NGUONG_LAI_RONG:.0%} (phí {_p(C.PHI_GIAO_DICH, 2)} × 2, thuế bán {_p(C.THUE_BAN)})."
+            f"Dữ liệu NAV {min(tt['Từ']):%d/%m/%Y} – {max(tt['Đến']):%d/%m/%Y}, {len(tt)} quỹ. Tín hiệu {loai}: lãi ròng nếu mua ở giá"
+            f" đóng cửa rồi {MO_TA_TIN_HIEU[loai]} ≥ {CK.NGUONG_LAI_RONG:.0%} (phí {_p(C.PHI_GIAO_DICH, 2)} × 2, thuế bán {_p(C.THUE_BAN)})."
             " Lãi = mua ở giá đóng cửa, bán ở giá đóng cửa sau N phiên, sau phí và thuế. **Vượt NAV** = (1 + lãi) / (1 + lợi nhuận"
             " NAV cùng kỳ) − 1: phần lãi nhờ chênh lệch giá/NAV thu hẹp (bỏ phần thị trường lên/xuống), sau phí và thuế."
             " Nền = mua ở mọi phiên có khớp và có NAV của chính quỹ (cùng cách mua/bán)."
@@ -221,7 +287,7 @@ def bao_cao(tt, tg, sk, canh_bao, hom_nay):
             " không độc lập với nhau)."
         ),
         GIOI_HAN,
-    ]
+    ] + ([so_sanh(tt, sk_tat_ca)] if loai == "tương đối" else [])
     for kb in KICH_BAN:
         dong = []
         for nhom in [ten for _, ten in NHOM_THANH_KHOAN] + ["Tất cả"]:
@@ -272,4 +338,4 @@ def bao_cao(tt, tg, sk, canh_bao, hom_nay):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    chay()
+    chay(tuong_doi="tuong_doi" in sys.argv[1:])

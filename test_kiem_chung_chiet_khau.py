@@ -19,6 +19,21 @@ def test_phien_tin_hieu():
     assert list(K.phien_tin_hieu(GIA, NAV)) == [d("05"), d("09")]
 
 
+def test_phien_tin_hieu_tuong_doi():
+    # NAV 10.000, chênh lệch giá/NAV −10%, −4%, −5%, −6%, −7,5%; cửa sổ 3 phiên trước T
+    gia = pd.Series([9_000.0, 9_600, 9_500, 9_400, 9_250], LICH[:5])
+    nav = pd.Series(10_000.0, LICH)
+    # 3 phiên đầu: chưa đủ 3 phiên trước đó -> không tín hiệu (dù −10% đạt ngưỡng tuyệt đối: lãi về NAV +10,7%)
+    # 08/01: trung vị (−10%, −4%, −5%) = −5% -> đích 9.500: 9.476,25 / (9.400 × 1,0015) − 1 = +0,66% < 2%
+    # 09/01: trung vị (−4%, −5%, −6%) = −5% -> 9.476,25 / 9.263,875 − 1 = +2,29% ≥ 2% -> tín hiệu
+    #   (nếu lấy cả phiên T vào trung vị: (−5%, −6%, −7,5%) = −6% -> 9.376,5 / 9.263,875 − 1 = +1,22%, mất tín hiệu)
+    assert list(K.phien_tin_hieu_tuong_doi(gia, nav, cua_so=3)) == [d("09")]
+    assert len(K.phien_tin_hieu(gia, nav)) == 5  # tuyệt đối: cả 5 phiên đều ≥ 2%
+    # phiên không có NAV không tính vào cửa sổ: bỏ NAV 05/01 -> 09/01 mới có đủ 3 phiên trước (−4%, −5%, −6%)
+    assert list(K.phien_tin_hieu_tuong_doi(gia, nav.drop(d("05")), cua_so=3)) == [d("09")]
+    assert K.phien_tin_hieu_tuong_doi(gia, nav.drop(d("05")), cua_so=4).empty
+
+
 def test_lai_su_kien_tinh_tay():
     lenh = K.mo_phong(GIA, NAV, LICH, [d("05"), d("09")], 1).set_index("Ngày tín hiệu")
     # mua 9.700 (05/01) + phí = 9.714,55; bán 9.800 (06/01) − phí − thuế = 9.775,5 -> 60,95 / 9.714,55 = +0,6274%
