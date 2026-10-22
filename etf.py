@@ -373,18 +373,18 @@ def bao_cao(df, df_truoc, luc, ngay_gia, loi_nguon=()):
 
 
 # ============ CHẠY ============
-def lay_du_lieu(ds_quy):
+def lay_du_lieu(ds_quy, so_ngay=SO_NGAY_LICH_SU):
     """Lịch sử giá các quỹ và chỉ số cần so: {mã: DataFrame} hoặc {mã: lý do lỗi}. Lỗi 1 mã không dừng các mã khác."""
     # VNINDEX là lịch phiên của mọi phép tính: lỗi thì dừng hẳn (lỗi nổi lên, chay_etf_tu_dong.sh thử lại / báo lỗi)
-    ls_quy, ls_cs = {}, {THI_TRUONG: C.lay_gia_dong_cua(THI_TRUONG, SO_NGAY_LICH_SU, "VCI", floating=6)}
+    ls_quy, ls_cs = {}, {THI_TRUONG: C.lay_gia_dong_cua(THI_TRUONG, so_ngay, "VCI", floating=6)}
     for cs in [cs for cs, ds in QUY_THEO_CHI_SO.items() if set(ds) & set(ds_quy)]:
         try:
-            ls_cs[cs] = C.lay_gia_dong_cua(TEN_TRONG_VNSTOCK.get(cs, cs), SO_NGAY_LICH_SU, "VCI", floating=6)
+            ls_cs[cs] = C.lay_gia_dong_cua(TEN_TRONG_VNSTOCK.get(cs, cs), so_ngay, "VCI", floating=6)
         except Exception as e:  # ranh giới gọi vnstock: lỗi được ghi vào báo cáo, không nuốt  # noqa: BLE001
             ls_cs[cs] = f"{type(e).__name__}: {e}"[:150]
     for ma in ds_quy:
         try:
-            ls_quy[ma] = C.lay_gia_dong_cua(ma, SO_NGAY_LICH_SU, "VCI")  # KBS thiếu phiên thật (vd 20/06/2025 ở 14 quỹ)
+            ls_quy[ma] = C.lay_gia_dong_cua(ma, so_ngay, "VCI")  # KBS thiếu phiên thật (vd 20/06/2025 ở 14 quỹ)
         except Exception as e:  # noqa: BLE001
             ls_quy[ma] = f"{type(e).__name__}: {e}"[:150]
     return ls_quy, ls_cs
