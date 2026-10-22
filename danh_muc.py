@@ -6,7 +6,7 @@ Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 5 phút; ngoài gi
            python danh_muc.py --luon   (kiểm tra bất kể giờ: dùng sau lần quét 14:00)
            python danh_muc.py --bao-cao (báo cáo tổng hợp ngày lên Discord)
 Lệnh lưu trong danh_muc.csv (không đưa lên git). Webhook Discord: DISCORD_WEBHOOK_URL trong .env.
-Chỉ gửi Discord khi một cảnh báo VỪA xuất hiện; cùng cảnh báo không gửi lại cho tới khi nó hết rồi xảy ra lần nữa.
+Chỉ gửi Discord khi một cảnh báo VỪA xuất hiện, mỗi loại cảnh báo của mỗi mã tối đa 1 tin/ngày.
 """
 
 import csv
