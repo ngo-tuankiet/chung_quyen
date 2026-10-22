@@ -404,6 +404,38 @@ với VNINDEX và có cảnh báo); `PHI_QUAN_LY` (phí quản lý %/năm theo w
 **Giới hạn**: API không chính thức, có thể đổi bất cứ lúc nào; NAV Vietcap trễ ~2 phiên; sổ lệnh sau 14:45 là lệnh còn lại sau ATC (chênh lệch giá
 mua–bán có thể rộng hơn trong phiên); chênh lệch giá/NAV trong quá khứ tính bằng giá đóng cửa (quỹ mỏng: bị lệch lên, nhiễu).
 
-**Bước sau** (lập plan riêng): kiểm chứng với lịch sử từ 09/2024 — các lần chiết khấu vượt ngưỡng, sau 1/5/10 phiên chênh lệch có thu hẹp không,
-lãi sau chi phí bao nhiêu. Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
+**Kiểm chứng ngưỡng 2% với lịch sử** (`kiem_chung_chiet_khau.py`, chạy 22/10/2026; chỉ đọc dữ liệu, không gửi Discord, không đổi ngưỡng đang chạy)
+- Chạy: `.venv/bin/python kiem_chung_chiet_khau.py` → `ket_qua/kiem_chung_chiet_khau_YYYY-MM-DD.md` (bảng theo nhóm thanh khoản và theo quỹ,
+  giả định, giới hạn) và `ket_qua/kiem_chung_chiet_khau_su_kien_YYYY-MM-DD.csv` (từng lệnh: ngày, giá, chênh lệch, lãi — truy lại được từng số).
+- Dữ liệu: NAV Vietcap IQ 10/09/2024–21/10/2026 làm sạch bằng `lam_sach_nav` + `bo_nav_loi` (chỉ số VCI `floating=6`), giá ngày VCI chỉ phiên có
+  khớp, 20 quỹ (FUEPHVNS không có NAV). Danh sách quỹ là quỹ đang niêm yết hôm nay (quỹ đã hủy niêm yết không có trong mẫu).
+- Tín hiệu phiên T: `lai_rong_neu_ve_nav(giá đóng cửa T, NAV T) ≥ 2%`. Mua rồi bán ở giá đóng cửa sau N = 1/5/10/20 phiên (quỹ không khớp: chờ phiên
+  khớp kế tiếp, giá cũ không mua/bán được), lãi sau phí 0,15% × 2 và thuế bán 0,1%. Lệnh độc lập: mỗi quỹ giữ 1 vị thế mỗi lúc.
+  - Kịch bản **A** (mua ngay ở giá đóng cửa T, coi iNAV lúc ATC ≈ NAV T): cận lạc quan. Kịch bản **B** (mua phiên có khớp kế tiếp; lúc đó NAV T
+    đã công bố — NAV T-1 trên SSI — nên không cần iNAV, không lookahead): kịch bản chính.
+  - **Vượt NAV** = (1 + lãi) / (1 + lợi nhuận NAV cùng kỳ) − 1: phần lãi nhờ chênh lệch thu hẹp, sau phí, bỏ phần thị trường lên/xuống.
+    Nền (mua ở mọi phiên) có vượt NAV −0,4% ở mọi quỹ = đúng chi phí khứ hồi (kiểm chéo công thức).
+- Kết quả (trung vị; n = số lệnh độc lập):
+
+  | Nhóm (GTGD TB cả kỳ) | B, N=5: n · lãi · vượt NAV | B, N=20: n · lãi · vượt NAV | A, N=20: vượt NAV |
+  |---|---|---|---|
+  | Cao ≥ 1 tỷ (có tín hiệu: FUEVN100, FUEMAV30, FUEVFVND) | 12 · +1,5% · −0,2% | 7 · +6,1% · +0,7% | +3,0% |
+  | Vừa 0,1–1 tỷ (7 quỹ) | 37 · +1,0% · −0,2% | 21 · +6,2% · +0,6% | +2,6% |
+  | Mỏng < 0,1 tỷ (5 quỹ, chủ yếu FUEFCV50, FUEIP100) | 143 · +0,1% · −0,1% | 54 · +0,6% · +0,1% | +2,0% |
+
+- **Kết luận: không nên tin ngưỡng 2% tuyệt đối như một tín hiệu mua.**
+  1. Lãi danh nghĩa đẹp của quỹ thanh khoản cao/vừa (+6%/20 phiên) gần hết là do thị trường: tín hiệu dồn vào 04–07/2025 (đợt hồi sau cú sập
+     tháng 4, quỹ giao dịch dưới NAV trong khi NAV tăng): ở N ≥ 5 chỉ có 6 (nhóm cao) và 9 (nhóm vừa) tháng khác nhau có lệnh. Bỏ phần thị trường thì kịch bản B chỉ còn
+     −0,2%…+0,7% — xấp xỉ 0 sau phí. Ví dụ tính tay FUEVN100 16/07/2025: lãi +17,6% nhưng NAV +14,1%, phần nhờ chiết khấu thu hẹp chỉ +3,1%.
+  2. Quỹ mỏng chiết khấu thường trực (FUEFCV50 trung vị −8,4%, FUEIP100 −7,2%): 95% và 80% số phiên "đạt ngưỡng", vượt NAV ≈ 0 hoặc âm —
+     ngưỡng tuyệt đối vô nghĩa với 2 quỹ này, và chúng chiếm ~3/4 số lệnh.
+  3. Chênh lệch giữa A và B cho thấy phần lớn độ lệch ở giá đóng cửa tự đảo chiều ngay phiên sau: chỉ có lời nếu mua được **đúng lúc** đang chiết
+     khấu, ở giá chào bán thật. Lịch sử không có sổ lệnh/iNAV nên chưa biết lúc đó có đủ hàng (≥ 5 triệu) hay không; giá đóng cửa quỹ mỏng thường
+     chỉ là 1 lô 100 CCQ, và bán ở giá đóng cửa là lạc quan.
+  4. Mẫu nhỏ: chỉ FUEVN100, FUESSV30, FUESSV50, FUEDCMID, FUEFCV50, FUEIP100 có ≥ 10 lệnh độc lập ở một kỳ N nào đó (chủ yếu N=1); các quỹ còn
+     lại (FUEABVND, FUEKIVFS… với vượt NAV +2…+8%) chỉ 1–7 lệnh, giá 1 lô — không đủ kết luận.
+- Việc tiếp (chưa làm, cần người dùng chọn): giữ `BAT_CANH_BAO_TRONG_PHIEN = False`; để `ket_qua/inav_*.csv` tích lũy vài tuần rồi kiểm kịch bản A
+  bằng giá chào bán và iNAV thật trong phiên; cân nhắc ngưỡng **tương đối** (chiết khấu sâu hơn mức thường lệch của chính quỹ) thay ngưỡng tuyệt đối.
+
+Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
 (dữ liệu trước 2024 có dấu hiệu lookahead).
