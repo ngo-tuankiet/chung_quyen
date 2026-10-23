@@ -145,6 +145,53 @@ def test_bao_cao():
     assert E.bao_cao(df, None, datetime(2026, 10, 22, 15, 30), ngay)  # chưa có ngày trước: bỏ phần so sánh
 
 
+def bang_xep_hang():
+    """Bảng giống etf.lap_bang, chỉ các cột xếp hạng dùng: (mã, chỉ số, CK 1 lệnh %, trung vị CL 1N %, phiên chưa khớp, NAV−CS)."""
+    q = [
+        ("A", "VN30", 0.2, 1.0, 0, 1.5),  # rẻ hơn thường 0,8 điểm
+        ("B", "VN30", 0.5, 0.8, 0, 1.4),  # rẻ hơn 0,3 nhưng cùng VN30 với A rẻ hơn -> bỏ
+        ("C", "VNMID", 0.4, 3.3, 0, 0.3),  # rẻ hơn 2,9: đứng đầu (giá vẫn trên NAV, nhưng thấp xa mức thường)
+        ("D", "VNX50", 2.4, 0.9, 0, 0.5),  # đắt hơn thường
+        ("E", "VNDIAMOND", -1.3, 0.7, 6, 0.6),  # rẻ nhưng 6 phiên chưa khớp: khó bán ra
+        ("F", "VN100", -4.55, -4.56, 0, 1.7),  # chiết khấu sâu nhưng thường vẫn vậy: không rẻ hơn
+        ("G", "VNFINLEAD", 0.1, 0.5, 0, -1.5),  # bám chỉ số kém
+        ("H", "VNSHINE", 0.2, math.nan, 0, math.nan),  # chưa có NAV
+        ("I", "VNMITECH", math.nan, 0.5, 0, 0.2),  # 3 mức chào bán không đủ 1 lệnh
+        ("K", "VNDIAMOND", 0.1, 0.4, 1, 0.9),  # 1 phiên chưa khớp (9:40 chưa khớp từ sáng): vẫn giữ
+    ]
+    df = pd.DataFrame(
+        q, columns=["Mã", "Chỉ số", "CK 1 lệnh %", "CL NAV trung vị 1N %", "Phiên chưa khớp", "NAV so CS 1N"]
+    )
+    df = df.assign(**{"Loại": "ETF", "iNAV": 11_830.0, "Phí quản lý %": 0.8, "GTGD TB20 (tỷ)": 0.151, "Cảnh báo": ""})
+    df.loc[df["Mã"] == "A", "Cảnh báo"] = "chỉ 161 phiên có khớp lệnh trong 1 năm"
+    cs = {"Loại": "Chỉ số", "Mã": "VN30", "Chỉ số": "VN30", "CK 1 lệnh %": -9.0, "CL NAV trung vị 1N %": 0.0}
+    return pd.concat([df, pd.DataFrame([cs])], ignore_index=True)
+
+
+def test_xep_hang_re_so_voi_muc_thuong():
+    top = E.xep_hang(bang_xep_hang())
+    assert list(top["Mã"]) == ["C", "A", "K"]
+    assert math.isclose(top.iloc[0]["Rẻ hơn thường"], 0.4 - 3.3)
+    with mock.patch.object(E, "SO_QUY_XEP_HANG", 2):
+        assert list(E.xep_hang(bang_xep_hang())["Mã"]) == ["C", "A"]
+
+
+def test_bao_cao_gon():
+    bc = E.bao_cao_gon(bang_xep_hang(), datetime(2026, 10, 23, 9, 40))
+    dong = bc.splitlines()
+    assert dong[0] == "**⭐ ETF rẻ so với mức thường** (09:40 23/10)" and len(dong) == 5
+    # C: CK 1 lệnh +0,4% so iNAV, thường +3,3% -> rẻ hơn 2,9 điểm
+    assert dong[1] == (
+        "1. **C** (VNMID): mua 50 triệu giá TB +0,4% so iNAV 11.830, thường +3,3% → rẻ hơn 2,9 điểm · "
+        "bám chỉ số +0,3 điểm/năm · phí 0,80% · GTGD 0,15 tỷ/phiên"
+    )
+    assert dong[2].startswith("2. **A** (VN30)") and dong[2].endswith("· ⚠ chỉ 161 phiên có khớp lệnh trong 1 năm")
+    assert "Bảng đầy đủ" in dong[4] and len(bc) < 1900  # vừa 1 tin Discord
+    bang = bang_xep_hang()
+    rong = E.bao_cao_gon(bang[bang["Mã"].isin(["D", "F"])], datetime(2026, 10, 23, 9, 40), ["không lấy được iNAV: X"])
+    assert "Không quỹ nào rẻ hơn mức thường mà đủ điều kiện." in rong and "⚠ không lấy được iNAV: X" in rong
+
+
 def du_lieu_chiet_khau():
     """du_lieu_mau + FUESSV30 không khớp từ 16/10 (4 phiên), SSI và NAV cho 2 quỹ."""
     ds, ls_quy, ls_cs, bang_gia = du_lieu_mau()

@@ -36,6 +36,9 @@ HEADERS_IQ = {"User-Agent": "Mozilla/5.0", "Referer": "https://trading.vietcap.c
 # ở cw_scanner.py) VÀ lượng chào bán ở các mức giá đạt ngưỡng đó ≥ 5 triệu đồng (lô 100 CCQ lẻ tẻ không đáng công)
 NGUONG_LAI_RONG = 0.02
 MIN_GIA_TRI_CHAO_BAN = 5_000_000
+# Cỡ lệnh của người dùng (< 50 triệu, KE_HOACH Phần 8): xếp hạng ETF tính giá mua bình quân của đúng 1 lệnh cỡ này qua 3 mức
+# chào bán — giá chào bán tốt nhất thường chỉ có 1 lô 100 CCQ nên không phải giá trả cho cả lệnh
+GIA_TRI_LENH = 50_000_000
 # NAV Vietcap gắn sai ngày (vd FUESSVFL 07/04/2026 thật ra là NAV 08/04; E1VFVN30 dòng Chủ nhật 16/11/2025 là NAV thứ Hai):
 # tỷ lệ NAV / chỉ số ngày đó lệch trung vị 5 phiên quanh nó > 0,5% -> bỏ. Đo trên NAV thật 09/2024–10/2026 của 19 quỹ:
 # ngưỡng 0,5% bắt đủ các lỗi đã biết (lệch 1,2–10,9%) và chỉ bỏ ~20/9.000 ngày (8 ở FUEFCV50, quỹ bám chỉ số nhiễu nhất)
@@ -62,6 +65,19 @@ def muc_chao_ban(bg):
     return [(g, v) for g, v in muc if g > 0 and v > 0]
 
 
+def gia_mua_lenh(bg, gia_tri=GIA_TRI_LENH):
+    """Giá mua bình quân của 1 lệnh gia_tri đồng ăn dần 3 mức chào bán tốt nhất; 3 mức không đủ hàng -> NaN.
+    shortcut: không làm tròn lô 100 CCQ (lệch ≤ 1 lô, ~1–3 triệu/50 triệu), đủ cho xếp hạng; cần số chính xác thì làm tròn lô.
+    """
+    con, ccq = gia_tri, 0.0
+    for g, v in muc_chao_ban(bg):
+        mua = min(con, g * v)
+        con, ccq = con - mua, ccq + mua / g
+        if con <= 0:
+            return gia_tri / ccq
+    return math.nan
+
+
 def danh_gia_quy(bg):
     """Chiết khấu mua được của 1 quỹ từ bản ghi SSI: so giá chào bán (mua được ngay) với iNAV, không dùng giá khớp cuối
     (quỹ ít giao dịch: giá khớp có thể cũ nhiều tuần). Không có iNAV hoặc không có người bán -> NaN."""
@@ -74,6 +90,7 @@ def danh_gia_quy(bg):
         "Chiết khấu mua được %": math.nan,
         "Lãi ròng nếu về NAV %": math.nan,
         "Mua được đạt ngưỡng (đ)": 0.0,
+        "CK 1 lệnh %": math.nan,
     }
     if inav <= 0 or not ban:
         return kq
@@ -85,6 +102,7 @@ def danh_gia_quy(bg):
         "Chiết khấu mua được %": round((gia / inav - 1) * 100, 2),
         "Lãi ròng nếu về NAV %": round(lai_rong_neu_ve_nav(gia, inav) * 100, 2),
         "Mua được đạt ngưỡng (đ)": float(sum(g * v for g, v in ban if lai_rong_neu_ve_nav(g, inav) >= NGUONG_LAI_RONG)),
+        "CK 1 lệnh %": round((gia_mua_lenh(bg) / inav - 1) * 100, 2),  # NaN nếu 3 mức không đủ 1 lệnh
     }
 
 

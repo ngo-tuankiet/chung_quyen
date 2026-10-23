@@ -452,7 +452,17 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 
 **Chạy**
 - `.venv/bin/python etf.py --no-discord`: tính, lưu `ket_qua/etf_YYYY-MM-DD.csv` và lịch sử NAV `ket_qua/nav_etf_YYYY-MM-DD.csv.gz`,
-  in báo cáo (bỏ `--no-discord` để gửi Discord). Báo cáo mở đầu bằng mục **💰 Chiết khấu so với NAV** và **📉 Quỹ tụt so với chỉ số**.
+  in báo cáo (bỏ `--no-discord` để gửi Discord). Từ 23/10/2026 Discord và màn hình chỉ nhận bản gọn **⭐ ETF rẻ so với mức thường** (dưới);
+  báo cáo đầy đủ cũ (chiết khấu, quỹ tụt so với chỉ số, chỉ số, dòng tiền, "chọn quỹ nào", cảnh báo từng quỹ) lưu ở `ket_qua/etf_YYYY-MM-DD.md`.
+- **⭐ ETF rẻ so với mức thường** (tiêu chí người dùng chốt 23/10/2026; `etf.xep_hang`, ngưỡng ở đầu `etf.py`): tối đa 5 quỹ, mỗi chỉ số 1 quỹ, xếp theo
+  **rẻ hơn thường** = CK 1 lệnh − trung vị (giá/NAV − 1) 1 năm của chính quỹ, chỉ lấy quỹ đang rẻ hơn mức thường (< 0). **CK 1 lệnh** = giá mua bình
+  quân của 1 lệnh 50 triệu (`GIA_TRI_LENH`) ăn dần 3 mức chào bán / iNAV − 1 — giá chào bán tốt nhất thường chỉ có 1 lô 100 CCQ. Ví dụ tính tay: chào
+  bán 3.000 CCQ × 9.700 và 3.000 × 9.800, iNAV 10.000 → 29,1 triệu + 20,9 triệu / 9.800 = 5.132,65 CCQ → giá TB 9.741,55 → CK 1 lệnh −2,58%
+  (CK theo giá tốt nhất −3,0%). Lọc: 3 mức đủ 1 lệnh, giá khớp cũ ≤ 1 phiên (lúc 9:40 quỹ chưa khớp từ sáng bị đếm 1), NAV − chỉ số 1 năm
+  ≥ −1 điểm. Mỗi quỹ kèm lý do (CK 1 lệnh, mức thường, bám chỉ số, phí, GTGD, cảnh báo dữ liệu nếu có); không quỹ nào đủ thì ghi rõ; lỗi nguồn
+  vẫn ghi 1 dòng. **Đây là sàng lọc, không phải dự báo**: kiểm chứng 22–23/10/2026 (dưới) cho thấy cả chiết khấu tuyệt đối lẫn so với mức thường
+  đều không tự có lãi khi mua phiên sau. Số 12:41 23/10/2026: FUEDCMID (rẻ hơn 2,8 điểm), FUESSV30 (0,7), FUEVN100 (0,6), FUEKIVND (0,1);
+  FUEIP100 chào bán −4,5% nhưng 3 mức không đủ 50 triệu nên bị loại.
 - Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **9:40 thứ Hai–Sáu**, giữa phiên sáng; trước 23/10/2026
   là 15:30; ngày nghỉ bỏ qua, lỗi thì thử lại 2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
 - Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).

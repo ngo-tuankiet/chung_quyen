@@ -39,6 +39,18 @@ def test_danh_gia_quy_cong_cac_muc_dat_nguong():
     assert it["Mua được đạt ngưỡng (đ)"] == 970_000 and not CK.dat_nguong(it)
 
 
+def test_gia_mua_1_lenh_tinh_tay():
+    # lệnh 5 triệu: 300 CCQ × 9.700 = 2.910.000; còn 2.090.000 / 9.750 = 214,36 CCQ -> 5.000.000 / 514,36 = 9.720,84 đ
+    assert math.isclose(CK.gia_mua_lenh(ban_ghi(), 5_000_000), 5e6 / (300 + 2.09e6 / 9_750))
+    assert math.isclose(CK.gia_mua_lenh(ban_ghi(), 5_000_000), 9_720.84, abs_tol=0.01)
+    assert math.isnan(CK.gia_mua_lenh(ban_ghi()))  # 3 mức chỉ có 17.685.000 đ < 1 lệnh 50 triệu
+    # sổ dày: 3.000 × 9.700 = 29,1 triệu + 20,9 triệu / 9.800 = 2.132,65 CCQ -> 50 triệu / 5.132,65 = 9.741,55 -> CK −2,58%
+    # (giá chào bán tốt nhất 9.700 cho CK −3,0%: phần lệnh ăn sang mức 2 đắt hơn)
+    day = CK.danh_gia_quy(ban_ghi(chao_ban=((9_700, 3_000), (9_800, 3_000))))
+    assert day["CK 1 lệnh %"] == -2.58 and day["Chiết khấu mua được %"] == -3.0
+    assert math.isnan(CK.danh_gia_quy(ban_ghi())["CK 1 lệnh %"])
+
+
 def test_danh_gia_quy_thieu_du_lieu():
     for bg in (ban_ghi(inav=0), ban_ghi(chao_ban=()), {"stockSymbol": "X"}):
         dg = CK.danh_gia_quy(bg)

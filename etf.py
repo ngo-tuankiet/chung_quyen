@@ -68,6 +68,14 @@ SO_PHIEN_GTGD = 20
 MIN_PHIEN_KHOP = 200  # < 200 phiên có khớp lệnh trong 1 năm (mới niêm yết / ít giao dịch): chỉ số kỹ thuật kém tin cậy
 SO_QUY_NOI_BAT = 5  # báo cáo: số quỹ thanh khoản cao nhất
 SO_DONG_DONG_TIEN = 5  # báo cáo: số quỹ đổi số CCQ lưu hành / khối ngoại mua-bán ròng liệt kê
+# Xếp hạng "rẻ so với mức thường" (người dùng chốt 23/10/2026; báo cáo Discord chỉ còn bảng này): rẻ = CK của 1 lệnh
+# (chiet_khau.GIA_TRI_LENH) − trung vị (giá / NAV − 1) 1 năm của chính quỹ < 0. Kiểm chứng 22–23/10/2026: chiết khấu không tự có
+# lãi khi mua phiên sau -> đây là sàng lọc, không phải dự báo.
+SO_QUY_XEP_HANG = 5
+NAV_CS_TOI_THIEU = -1.0  # điểm %/năm: NAV kém chỉ số hơn mức này = quỹ bám chỉ số kém, loại
+SO_PHIEN_CHUA_KHOP_TOI_DA = (
+    1  # báo cáo 9:40: quỹ chưa khớp lệnh nào từ sáng đã bị đếm 1 phiên; cũ hơn = khó bán ra, loại
+)
 SO_PHIEN_NAV_TRE_TOI_DA = (
     5  # NAV Vietcap IQ thường trễ ~2 phiên; trễ hơn 5 phiên = nguồn ngừng cập nhật quỹ đó -> cảnh báo
 )
@@ -81,6 +89,7 @@ COT_CK = [  # chiet_khau.danh_gia_quy + thong_ke_nav
     "Chiết khấu mua được %",
     "Lãi ròng nếu về NAV %",
     "Mua được đạt ngưỡng (đ)",
+    "CK 1 lệnh %",
     "CL NAV trung vị 1N %",
     "CL NAV thấp nhất 1N %",
     "CL NAV 1N trước %",
@@ -372,6 +381,46 @@ def bao_cao(df, df_truoc, luc, ngay_gia, loi_nguon=()):
     return "\n\n".join(phan)
 
 
+def xep_hang(df):
+    """Tối đa SO_QUY_XEP_HANG quỹ rẻ hơn mức thường nhất (cột "Rẻ hơn thường": điểm %, âm = rẻ), mỗi chỉ số 1 quỹ.
+    Lọc: mua đủ 1 lệnh trong 3 mức chào bán (CK 1 lệnh có số), giá khớp cũ ≤ SO_PHIEN_CHUA_KHOP_TOI_DA phiên,
+    NAV − chỉ số 1 năm ≥ NAV_CS_TOI_THIEU. Thiếu số liệu (NaN) thì tự bị loại."""
+    q = df[df["Loại"] == "ETF"].assign(**{"Rẻ hơn thường": df["CK 1 lệnh %"] - df["CL NAV trung vị 1N %"]})
+    q = q[
+        (q["Rẻ hơn thường"] < 0)
+        & (q["Phiên chưa khớp"] <= SO_PHIEN_CHUA_KHOP_TOI_DA)
+        & (q["NAV so CS 1N"] >= NAV_CS_TOI_THIEU)
+    ]
+    return q.sort_values("Rẻ hơn thường").drop_duplicates("Chỉ số").head(SO_QUY_XEP_HANG)
+
+
+def bao_cao_gon(df, luc, loi_nguon=()):
+    """Báo cáo Discord (người dùng chọn 23/10/2026: chỉ còn top quỹ rẻ so với mức thường + lý do). Lỗi nguồn vẫn ghi
+    1 dòng: không có quỹ vì thiếu dữ liệu khác với không có quỹ rẻ."""
+    top = xep_hang(df)
+    dong = [
+        f"{i}. **{h['Mã']}** ({h['Chỉ số']}): mua {D.so(CK.GIA_TRI_LENH / 1e6)} triệu giá TB {_p(h['CK 1 lệnh %'])} so iNAV "
+        f"{D.so(h['iNAV'])}, thường {_p(h['CL NAV trung vị 1N %'])} → rẻ hơn {_d(-h['Rẻ hơn thường']).lstrip('+')} điểm · "
+        f"bám chỉ số {_d(h['NAV so CS 1N'])} điểm/năm · phí {_p2(h['Phí quản lý %'])} · GTGD {_ty(h['GTGD TB20 (tỷ)'])} tỷ/phiên"
+        + (f" · ⚠ {h['Cảnh báo']}" if h["Cảnh báo"] else "")
+        for i, (_, h) in enumerate(top.iterrows(), 1)
+    ]
+    return "\n".join(
+        [f"**⭐ ETF rẻ so với mức thường** ({luc:%H:%M %d/%m})"]
+        + (dong or ["Không quỹ nào rẻ hơn mức thường mà đủ điều kiện."])
+        + [f"⚠ {l}" for l in loi_nguon]
+        + [GHI_CHU_GON]
+    )
+
+
+GHI_CHU_GON = (
+    f"_Rẻ hơn = giá TB 1 lệnh {D.so(CK.GIA_TRI_LENH / 1e6)} triệu (3 mức chào bán) so iNAV, trừ mức chênh thường gặp của chính quỹ "
+    f"(trung vị giá/NAV 1 năm). Lọc: mua đủ 1 lệnh, giá khớp cũ ≤ {SO_PHIEN_CHUA_KHOP_TOI_DA} phiên, NAV bám chỉ số ≥ "
+    f"{_d(NAV_CS_TOI_THIEU)} điểm/năm; mỗi chỉ số 1 quỹ. Kiểm chứng 22–23/10/2026: chiết khấu không tự có lãi khi mua phiên "
+    "sau — đây là sàng lọc, không phải dự báo. Bảng đầy đủ: web /etf và ket_qua/etf_*.md_"
+)
+
+
 # ============ CHẠY ============
 def lay_du_lieu(ds_quy, so_ngay=SO_NGAY_LICH_SU):
     """Lịch sử giá các quỹ và chỉ số cần so: {mã: DataFrame} hoặc {mã: lý do lỗi}. Lỗi 1 mã không dừng các mã khác."""
@@ -433,8 +482,10 @@ def chay(gui=True, luc=None):
         pd.DataFrame(nav_dai, columns=["Mã", "Ngày", "NAV"]).to_csv(  # lịch sử NAV đã làm sạch: biểu đồ trên web
             C.THU_MUC_KET_QUA / f"nav_etf_{luc.date()}.csv.gz", index=False, compression="gzip"
         )
-    noi_dung = bao_cao(df, doc_ket_qua(truoc=luc.date())[0], luc, ngay_gia, loi_nguon)
-    print(f"Đã lưu {tep}\n\n{noi_dung}")
+    day_du = C.THU_MUC_KET_QUA / f"etf_{luc.date()}.md"  # báo cáo đầy đủ cũ: Discord chỉ nhận bản gọn (23/10/2026)
+    day_du.write_text(bao_cao(df, doc_ket_qua(truoc=luc.date())[0], luc, ngay_gia, loi_nguon), encoding="utf-8")
+    noi_dung = bao_cao_gon(df, luc, loi_nguon)
+    print(f"Đã lưu {tep} và báo cáo đầy đủ {day_du}\n\n{noi_dung}")
     if gui:
         url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
         if not url:
