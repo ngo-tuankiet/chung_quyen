@@ -479,7 +479,7 @@ def test_trang_danh_muc():
         # đã chốt: bán 100 @1.200 -> 100 × (1.200 × 0,9975 − 1.001,5) = +19.550 đ
         assert "Lịch sử lệnh (2)" in trang and "+19.550 đ" in trang
         # lỗ −30,3% chạm cắt lỗ mặc định 30% (không tự đặt) -> Cân nhắc; giá mẫu dưới giá trị nội tại (S 25.000, K 20.000, tỷ lệ 2)
-        assert "🟡 Cân nhắc bán" in trang and "chạm cắt lỗ" in trang and "🛑" in trang
+        assert "🟡 Cân nhắc bán" in trang and "lỗ nếu bán ngay -30%" in trang and "🛑" in trang
         D.FILE_DANH_MUC.write_text("hỏng", encoding="utf-8")  # sai tiêu đề: phải báo lỗi, KHÔNG coi là rỗng
         assert "File danh_muc.csv bị lỗi" in web.trang_danh_muc()
         form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["1000"]}
@@ -511,7 +511,10 @@ def test_bao_cao_ngay():
 
 def test_chi_gui_discord_khi_bat_thuong():
     cb = [("A", "gan_gia_th", "x"), ("A", "cat_lo", "y"), ("B", "iv_bat_thuong", "z"), ("B", "phat_hanh_them", "w")]
-    dong = [{"ma": "C", "trang_thai": {"ly_do": [("theta_cao", "mất 2,50%/ngày")]}}, {"ma": "D"}]
+    dong = [
+        {"ma": "C", "trang_thai": {"ly_do": [("theta_cao", "mất giá theo thời gian nhanh: mất 2,50%/ngày")]}},
+        {"ma": "D"},
+    ]
     assert [(m, l) for m, l, _ in D.bat_thuong(dong, cb)] == [
         ("A", "cat_lo"),
         ("B", "phat_hanh_them"),

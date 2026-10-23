@@ -458,7 +458,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         # trạng thái bán: chỉ gắn vào dòng (web), không thêm vào canh_bao nên không đổi tin Discord
         cua_ma = {l: nd for m, l, nd in canh_bao if m == ma}
         muc, ly_do = trang_thai_vi_the(cua_ma, v["chot_loi"] is not None, v["cat_lo"] is not None, mat_gia)
-        chi_tiet = {"theta_cao": f"mất {pt(-mat_gia, 2, False)}/ngày", "theta": f"mất {pt(-mat_gia, 2, False)}/ngày"}
+        chi_tiet = {l: f"{LY_DO_BAN[l]}: mất {pt(-mat_gia, 2, False)}/ngày" for l in ("theta_cao", "theta")}
         ban_duoc = ngay_ban_duoc(v["ngay_mua"]) if v["ngay_mua"] else None
         san = san_ly_thuyet(S, K, C.doc_ty_le(ny["exerciseRatio"]), r_dg, hom_nay, dao_han) if dao_han else float("nan")
         dong[-1]["trang_thai"] = {
@@ -544,7 +544,7 @@ def bang(cot, hang):
 def bat_thuong(dong, canh_bao):
     """Cảnh báo đáng gửi Discord: loại trong BAT_THUONG, cộng "mất giá theo thời gian nhanh" lấy từ trạng thái bán."""
     them = [
-        (d["ma"], l, f"{LY_DO_BAN[l]}: {nd} (CS, IV đứng yên)")
+        (d["ma"], l, f"{nd} (CS, IV đứng yên)")
         for d in dong
         for l, nd in d.get("trang_thai", {}).get("ly_do", [])
         if l == "theta_cao"
