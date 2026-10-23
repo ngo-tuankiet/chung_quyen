@@ -5,7 +5,7 @@ chênh lệch giá/NAV trong quá khứ của chính quỹ, mức bám chỉ s�
 Chạy:   python chiet_khau.py --trong-phien   launchd gọi mỗi 5 phút (kiem_tra_chiet_khau.sh): ghi iNAV vào
                                              ket_qua/inav_YYYY-MM-DD.csv, báo Discord khi có quỹ đạt ngưỡng.
                                              Ngoài giờ khớp lệnh hoặc ngày nghỉ: thoát ngay.
-        Bảng chiết khấu 15:30 nằm trong báo cáo ETF (etf.py dùng các hàm ở đây).
+        Bảng chiết khấu nằm trong báo cáo ETF 9:40 (etf.py dùng các hàm ở đây).
 Nguồn:  SSI iBoard: iNAV, NAV T-1 chính thức, 3 bước giá mua/bán của cả rổ ETF trong 1 lần gọi.
         Vietcap IQ: NAV/CCQ hằng ngày từ 09/2024 (trễ ~2 phiên, nhãn ngày lỗi -> lam_sach_nav).
 """
@@ -119,7 +119,7 @@ def bo_nav_loi(nav, chi_so):
 
 def thong_ke_nav(gia, nav, chi_so, ngay, inav=math.nan):
     """gia: giá đóng cửa (đồng, chỉ phiên có khớp: giá cũ không phải giá thật); nav: NAV đã làm sạch; chi_so: chỉ số mô phỏng
-    (None nếu chưa rõ); ngay: phiên cuối của lịch thị trường; inav: iNAV cuối phiên hôm nay (SSI) nếu có.
+    (None nếu chưa rõ); ngay: phiên cuối của lịch thị trường; inav: iNAV hôm nay lúc chạy (SSI) nếu có.
     - Chênh lệch giá/NAV − 1: trung vị, thấp nhất trong 1 năm tới ngày NAV cuối.
     - "CL NAV 1N trước": ở đúng mốc của lợi nhuận giá 1 năm (ngay − 12 tháng) để phép tách mục quỹ tụt khớp nhau.
     - "NAV so CS 1N": lợi nhuận NAV − lợi nhuận chỉ số trên CÙNG 2 ngày; tới hôm nay bằng iNAV (NAV Vietcap trễ ~2 phiên),
@@ -191,14 +191,14 @@ def _chua_khop(h, ngay_khop=True):
 
 
 def muc_bao_cao(df):
-    """Các mục chiết khấu (a) và tụt so với chỉ số (d) cho báo cáo ETF 15:30 (df: bảng của etf.lap_bang)."""
+    """Các mục chiết khấu (a) và tụt so với chỉ số (d) cho báo cáo ETF (df: bảng của etf.lap_bang)."""
     quy, cs = df[df["Loại"] == "ETF"], df[df["Loại"] == "Chỉ số"]
     ln_cs = dict(zip(cs["Mã"], cs["1N %"]))
     dat = quy[quy["Mua được đạt ngưỡng (đ)"].fillna(0) >= MIN_GIA_TRI_CHAO_BAN].sort_values(
         "Lãi ròng nếu về NAV %", ascending=False
     )
     tieu_de = (
-        f"**💰 Chiết khấu so với NAV** (giá chào bán còn lại sau ATC so với iNAV cuối phiên; báo khi lãi ròng nếu về NAV "
+        f"**💰 Chiết khấu so với NAV** (giá chào bán so với iNAV lúc lập báo cáo; báo khi lãi ròng nếu về NAV "
         f"≥ {NGUONG_LAI_RONG:.0%} và mua được ≥ {D.so(MIN_GIA_TRI_CHAO_BAN / 1e6)} triệu)"
     )
     dong = [

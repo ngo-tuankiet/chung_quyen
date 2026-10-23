@@ -1,5 +1,5 @@
 #!/bin/bash
-# launchd gọi file này 15:30 thứ Hai–Sáu (cài bằng: bash cai_lich_quet.sh): báo cáo ETF lên Discord; nhật ký trong log.txt.
+# launchd gọi file này 9:40 thứ Hai–Sáu (cài bằng: bash cai_lich_quet.sh): báo cáo ETF lên Discord; nhật ký trong log.txt.
 cd "$(dirname "$0")" || exit 1
 echo "===== ETF $(date '+%Y-%m-%d %H:%M:%S') ====="
 export SSL_CERT_FILE="$(.venv/bin/python -m certifi)"  # Python của python.org trên Mac không dùng chứng chỉ hệ thống

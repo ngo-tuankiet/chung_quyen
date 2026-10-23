@@ -2,7 +2,7 @@
 # Cài 4 lịch chạy nền bằng launchd (máy ngủ đúng giờ thì chạy bù khi thức dậy):
 #   - vn.cw-scanner.quet      : 14:00 thứ Hai–Sáu quét CW, kiểm tra danh mục, sao lưu (chay_quet_tu_dong.sh)
 #   - vn.cw-scanner.danh-muc  : mỗi 5 phút kiểm tra danh mục, gửi Discord khi có cảnh báo mới (kiem_tra_danh_muc.sh)
-#   - vn.cw-scanner.etf       : 15:30 thứ Hai–Sáu báo cáo ETF lên Discord (chay_etf_tu_dong.sh)
+#   - vn.cw-scanner.etf       : 9:40 thứ Hai–Sáu báo cáo ETF lên Discord (chay_etf_tu_dong.sh)
 #   - vn.cw-scanner.chiet-khau: mỗi 5 phút ghi iNAV ETF trong phiên, báo quỹ dưới NAV (kiem_tra_chiet_khau.sh)
 #   bash cai_lich_quet.sh        -> cài / cài lại
 #   bash cai_lich_quet.sh go     -> gỡ cả bốn
@@ -37,7 +37,7 @@ thu_2_6() {  # thu_2_6 <giờ> <phút> -> khối lịch: giờ đó thứ Hai–
   echo "<key>StartCalendarInterval</key><array>$ngay</array>"
 }
 cai vn.cw-scanner.quet chay_quet_tu_dong.sh "$(thu_2_6 14 0)"
-cai vn.cw-scanner.etf chay_etf_tu_dong.sh "$(thu_2_6 15 30)"
+cai vn.cw-scanner.etf chay_etf_tu_dong.sh "$(thu_2_6 9 40)"
 cai vn.cw-scanner.danh-muc kiem_tra_danh_muc.sh "<key>StartInterval</key><integer>300</integer>"
 cai vn.cw-scanner.chiet-khau kiem_tra_chiet_khau.sh "<key>StartInterval</key><integer>300</integer>"
 [ "$GO" = 1 ] || echo "Nhật ký: $PWD/log.txt"

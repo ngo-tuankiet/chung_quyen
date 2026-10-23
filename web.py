@@ -1727,7 +1727,7 @@ def trang_etf():
     phan = [
         '<h1>Quỹ ETF</h1><p class="phu">'
         + (
-            f"Dữ liệu ngày {ngay:%d/%m/%Y} · {len(quy)} quỹ · tự cập nhật 15:30 thứ Hai–Sáu"
+            f"Dữ liệu ngày {ngay:%d/%m/%Y} · {len(quy)} quỹ · tự cập nhật 9:40 thứ Hai–Sáu (giữa phiên)"
             if ngay
             else "Chưa có dữ liệu"
         )
@@ -1736,7 +1736,7 @@ def trang_etf():
     if ngay is None:
         phan.append(
             '<div class="the"><h2>Chưa có kết quả</h2><p>Chạy <code>.venv/bin/python etf.py --no-discord</code> '
-            "trong thư mục dự án (hoặc chờ lịch 15:30) rồi tải lại trang.</p></div>"
+            "trong thư mục dự án (hoặc chờ lịch 9:40) rồi tải lại trang.</p></div>"
         )
         return trang("Quỹ ETF", "".join(phan), "/etf")
     phan.append(
@@ -1771,7 +1771,7 @@ def trang_etf():
 
 
 def doc_nav(ma):
-    """NAV đã làm sạch của 1 quỹ từ file ket_qua/nav_etf_*.csv.gz mới nhất CÓ quỹ đó (etf.py lưu lúc 15:30; hôm nguồn lỗi
+    """NAV đã làm sạch của 1 quỹ từ file ket_qua/nav_etf_*.csv.gz mới nhất CÓ quỹ đó (etf.py lưu lúc 9:40; hôm nguồn lỗi
     thì quỹ thiếu ở file mới) -> Series, chưa có -> None. File hỏng: báo lỗi (trang hiện lý do)."""
     for tep in sorted(cw_scanner.THU_MUC_KET_QUA.glob("nav_etf_*.csv.gz"), reverse=True):
         d = pd.read_csv(tep, compression="gzip")

@@ -454,8 +454,8 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 **Chạy**
 - `.venv/bin/python etf.py --no-discord`: tính, lưu `ket_qua/etf_YYYY-MM-DD.csv` và lịch sử NAV `ket_qua/nav_etf_YYYY-MM-DD.csv.gz`,
   in báo cáo (bỏ `--no-discord` để gửi Discord). Báo cáo mở đầu bằng mục **💰 Chiết khấu so với NAV** và **📉 Quỹ tụt so với chỉ số**.
-- Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **15:30 thứ Hai–Sáu**, ngày nghỉ bỏ qua, lỗi thì thử lại
-  2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
+- Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **9:40 thứ Hai–Sáu**, giữa phiên sáng; trước 23/10/2026
+  là 15:30; ngày nghỉ bỏ qua, lỗi thì thử lại 2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
 - Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).
   **Cảnh báo Discord trong phiên đang tắt** (`BAT_CANH_BAO_TRONG_PHIEN = False` trong `chiet_khau.py`): chỉ bật sau khi file iNAV của phiên đầu
   tiên cho thấy iNAV của SSI thực sự cập nhật trong phiên — iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo. Khi bật: mỗi quỹ tối đa 1 tin/ngày
@@ -507,8 +507,9 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 **Cấu hình**: `QUY_THEO_CHI_SO` (quỹ → chỉ số; FUEVN50G mô phỏng VN50 GROWTH của HOSE nhưng vnstock chưa có lịch sử chỉ số này nên đang so tạm
 với VNINDEX và có cảnh báo); `PHI_QUAN_LY` (phí quản lý %/năm theo website / bản cáo bạch, tra 22/10/2026; FUEFCV50, FUEIP100, FUEABVND chưa có số chắc chắn).
 
-**Giới hạn**: API không chính thức, có thể đổi bất cứ lúc nào; NAV Vietcap trễ ~2 phiên; sổ lệnh sau 14:45 là lệnh còn lại sau ATC (chênh lệch giá
-mua–bán có thể rộng hơn trong phiên); chênh lệch giá/NAV trong quá khứ tính bằng giá đóng cửa (quỹ mỏng: bị lệch lên, nhiễu).
+**Giới hạn**: API không chính thức, có thể đổi bất cứ lúc nào; NAV Vietcap trễ ~2 phiên; báo cáo 9:40 chạy giữa phiên: giá, xu hướng, RSI,
+GTGD, khối ngoại của hôm nay mới tính tới giờ chạy, quỹ chưa khớp lệnh nào từ sáng bị đếm 1 phiên chưa khớp; chạy tay sau 14:45 thì sổ lệnh là
+lệnh còn lại sau ATC (chênh lệch giá mua–bán có thể rộng hơn trong phiên); chênh lệch giá/NAV trong quá khứ tính bằng giá đóng cửa (quỹ mỏng: bị lệch lên, nhiễu).
 
 **Kiểm chứng ngưỡng 2% với lịch sử** (`kiem_chung_chiet_khau.py`, chạy 22/10/2026; chỉ đọc dữ liệu, không gửi Discord, không đổi ngưỡng đang chạy)
 - Chạy: `.venv/bin/python kiem_chung_chiet_khau.py` → `ket_qua/kiem_chung_chiet_khau_YYYY-MM-DD.md` (bảng theo nhóm thanh khoản và theo quỹ,
