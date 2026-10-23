@@ -457,9 +457,10 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 - Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **9:40 thứ Hai–Sáu**, giữa phiên sáng; trước 23/10/2026
   là 15:30; ngày nghỉ bỏ qua, lỗi thì thử lại 2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
 - Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).
-  **Cảnh báo Discord trong phiên đang tắt** (`BAT_CANH_BAO_TRONG_PHIEN = False` trong `chiet_khau.py`): chỉ bật sau khi file iNAV của phiên đầu
-  tiên cho thấy iNAV của SSI thực sự cập nhật trong phiên — iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo. Khi bật: mỗi quỹ tối đa 1 tin/ngày
-  (trạng thái trong `canh_bao_chiet_khau.json`).
+  **Cảnh báo Discord trong phiên đang bật thử 1 tuần, 23–30/10/2026** (`BAT_CANH_BAO_TRONG_PHIEN = True` trong `chiet_khau.py`): phiên 23/10
+  đã xác nhận iNAV của SSI cập nhật trong phiên (16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần) — iNAV đứng yên mà giá chạy thì
+  "chiết khấu" là ảo. Mỗi quỹ tối đa 1 tin/ngày (trạng thái trong `canh_bao_chiet_khau.json`); FUEIP100 thường chiết khấu ~5% nên có thể báo
+  gần như mỗi ngày. Ngày 30/10 xem lại số tin và có mua được ở giá báo không, rồi quyết định giữ hay tắt.
 - Web: trang **📊 ETF** (`/etf`): bảng chiết khấu (xếp theo lãi ròng), bảng chỉ số, bảng toàn bộ quỹ; bấm một quỹ để xem chênh lệch giá/NAV 1 năm
   và giá + MA50/MA200.
 

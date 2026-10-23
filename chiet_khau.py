@@ -42,9 +42,10 @@ MIN_GIA_TRI_CHAO_BAN = 5_000_000
 SAI_LECH_NAV_TOI_DA = 0.005
 SO_PHIEN_SO_GAI = 5
 MAU_MA_QUY = re.compile(r"[A-Z0-9]{3,12}")  # mã do API trả về / URL đưa vào phải đúng dạng này mới dùng
-# Cảnh báo trong phiên chỉ bật khi đã xác nhận iNAV của SSI cập nhật trong phiên (xem ket_qua/inav_*.csv của phiên đầu tiên):
-# iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo. Đang tắt: chỉ ghi iNAV để đo.
-BAT_CANH_BAO_TRONG_PHIEN = False
+# Cảnh báo trong phiên: chỉ bật khi iNAV của SSI cập nhật trong phiên (iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo).
+# Đo phiên 23/10/2026 (ket_qua/inav_2026-10-23.csv): 16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần ghi -> bật thử
+# 1 tuần (23–30/10/2026) rồi xem lại. FUEIP100 thường chiết khấu ~5% nên có thể báo gần như mỗi ngày.
+BAT_CANH_BAO_TRONG_PHIEN = True
 FILE_DA_BAO = C.THU_MUC / "canh_bao_chiet_khau.json"
 SO_QUY_TUT = 5  # báo cáo: số quỹ tụt sâu nhất so với chỉ số liệt kê
 
