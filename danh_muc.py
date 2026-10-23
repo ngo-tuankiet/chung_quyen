@@ -20,6 +20,7 @@ import urllib.request
 from datetime import date, datetime, timedelta
 from datetime import time as gio
 
+import numpy as np
 import pandas as pd
 
 import cw_scanner as C
@@ -35,6 +36,23 @@ NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 SO_MA_NOI_BAT = 5
 MAX_MA_MOI_VAO = 10  # báo cáo ngày: tối đa số mã "mới vào nhóm Nên xem xét" liệt kê (mỗi mã tốn 1 lượt vnstock để tính độ lệch)  # báo cáo ngày: số mã "Nên xem xét" đưa vào
+# Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
+MUC_KHONG, MUC_CAN_NHAC, MUC_NEN_BAN = 0, 1, 2
+TEN_MUC = {MUC_KHONG: "⚪ Không có tín hiệu bán", MUC_CAN_NHAC: "🟡 Cân nhắc bán", MUC_NEN_BAN: "🔴 Nên bán"}
+THETA_CAN_NHAC, THETA_NEN_BAN = 0.01, 0.02  # mất giá 1 ngày (CS, IV đứng yên) so với giá CW; heuristic, chờ backtest
+SO_PHIEN_CHO_BAN = 2  # mua phiên T bán được từ chiều T+2 (KE_HOACH 7b; chưa đối chiếu quy chế VSD)
+SO_PHIEN_THANH_TOAN = 5  # giá thanh toán = bình quân giá đóng cửa 5 phiên liền trước đáo hạn (QĐ 34/QĐ-SGDHCM Điều 12)
+# Lý do bán theo thứ tự ưu tiên (đứng trước = lý do chính khi cùng mức); cảnh báo không có ở đây chỉ là thông tin
+LY_DO_BAN = {
+    "cat_lo": "chạm cắt lỗ",
+    "chot_loi": "chạm chốt lời",
+    "cw_dat": "CW đắt hơn mô hình",
+    "theta_cao": "mất giá theo thời gian nhanh",
+    "gd_cuoi": "sắp tới ngày GD cuối",
+    "lech_duong": "CW cao hơn mức lẽ ra theo CS",
+    "phat_hanh_them": "TCPH phát hành thêm",
+    "theta": "mất giá theo thời gian",
+}
 URL_DISCORD_HOP_LE = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/")
 
 FILE_DANH_MUC = C.THU_MUC / "danh_muc.csv"
@@ -213,6 +231,41 @@ def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
     return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
 
 
+def ngay_ban_duoc(ngay_mua):
+    """Ngày sớm nhất bán được CW mua ngày ngay_mua ('YYYY-MM-DD'): phiên T+SO_PHIEN_CHO_BAN (từ buổi chiều).
+    shortcut: chưa trừ ngày lễ, chưa phân biệt sáng/chiều — sửa khi có lịch nghỉ HOSE (lát 4)."""
+    return np.busday_offset(np.datetime64(ngay_mua), SO_PHIEN_CHO_BAN, roll="forward").astype(date)
+
+
+def san_ly_thuyet(S, K, ty_le, r, hom_nay, dao_han):
+    """Giá trị tối thiểu (đ/CW) nếu giữ tới đáo hạn: [0,999·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / tỷ lệ, tᵢ là 5 phiên tính giá
+    thanh toán (bỏ cuối tuần), 0,1% là thuế trên giá thanh toán. Cận dưới call châu Âu (Hull ch. 11) cho giá bình quân.
+    """
+    dh = np.datetime64(dao_han)
+    phien = [np.busday_offset(dh, -i, roll="backward") for i in range(1, SO_PHIEN_THANH_TOAN + 1)]
+    chiet_khau = sum(math.exp(-r * int((dh - p).astype(int)) / 365) for p in phien) / SO_PHIEN_THANH_TOAN
+    return C.can_duoi((1 - C.THUE_BAN) * S * chiet_khau, K, (dao_han - hom_nay).days / 365, r) / ty_le
+
+
+def trang_thai_vi_the(loai, tu_dat_chot, tu_dat_cat, mat_gia_ngay):
+    """(mức, [lý do theo ưu tiên]) từ tập loại cảnh báo đang bật của 1 vị thế. Nên bán: chốt lời/cắt lỗ do người dùng tự đặt,
+    CW đắt, mất giá ≥ THETA_NEN_BAN/ngày; Cân nhắc: ngưỡng mặc định và các lý do khác trong LY_DO_BAN; còn lại là thông tin.
+    """
+    muc = {
+        "cat_lo": MUC_NEN_BAN if tu_dat_cat else MUC_CAN_NHAC,
+        "chot_loi": MUC_NEN_BAN if tu_dat_chot else MUC_CAN_NHAC,
+    }
+    muc["cw_dat"] = muc["theta_cao"] = MUC_NEN_BAN
+    bat = set(loai)
+    if -mat_gia_ngay >= THETA_NEN_BAN:  # NaN: so sánh luôn sai, không bật
+        bat.add("theta_cao")
+    elif -mat_gia_ngay >= THETA_CAN_NHAC:
+        bat.add("theta")
+    thu_tu = list(LY_DO_BAN)
+    ly_do = sorted((l for l in bat if l in LY_DO_BAN), key=lambda l: (-muc.get(l, MUC_CAN_NHAC), thu_tu.index(l)))
+    return (muc.get(ly_do[0], MUC_CAN_NHAC) if ly_do else MUC_KHONG), ly_do
+
+
 def lo_100(x):
     """Làm tròn số cổ phiếu theo lô 100 (làm tròn lên từ 50: 450 -> 500)."""
     return int(x / 100 + 0.5) * 100
@@ -272,7 +325,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         md = ny.get("maturityDate") or ""
         dao_han = date(int(md[:4]), int(md[4:6]), int(md[6:])) if md else None
         r_dg = float(quet["r %"].iloc[0]) / 100 if len(quet) and "r %" in quet else C.LAI_SUAT_PHI_RUI_RO
-        iv, don_bay, canh_bao_iv, sigma = float("nan"), float("nan"), "", float("nan")
+        iv, don_bay, canh_bao_iv, sigma, mat_gia = float("nan"), float("nan"), "", float("nan"), float("nan")
         if len(quet):  # IV, đòn bẩy theo giá trực tiếp; sigma và r như lúc quét
             dg = C.dinh_gia(
                 ny,
@@ -284,6 +337,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 float(quet["r %"].iloc[0]) / 100 if "r %" in quet else None,
             )
             iv, don_bay, sigma = dg["IV %"], dg["Đòn bẩy"], dg["Biến động %/năm"] / 100
+            mat_gia = dg["Mất giá/ngày %"] / 100  # tính ở IV giá chào bán, cùng số với trang ⚡ Lướt CW
             canh_bao_iv = C.so_iv_cung_ma(df, ma, cs, iv)[1]
         chot_loi, cat_lo = v["chot_loi"] or CHOT_LOI_MAC_DINH, v["cat_lo"] or CAT_LO_MAC_DINH
         # Lệch so với CS từ lệnh mua gần nhất: mốc = giá vốn bình quân (bỏ phí) và giá CS đóng cửa ngày mua
@@ -392,6 +446,20 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                     ),
                 )
             )
+        # trạng thái bán: chỉ gắn vào dòng (web), không thêm vào canh_bao nên không đổi tin Discord
+        cua_ma = {l: nd for m, l, nd in canh_bao if m == ma}
+        muc, ly_do = trang_thai_vi_the(cua_ma, v["chot_loi"] is not None, v["cat_lo"] is not None, mat_gia)
+        chi_tiet = {"theta_cao": f"mất {pt(-mat_gia, 2, False)}/ngày", "theta": f"mất {pt(-mat_gia, 2, False)}/ngày"}
+        ban_duoc = ngay_ban_duoc(v["ngay_mua"]) if v["ngay_mua"] else None
+        san = san_ly_thuyet(S, K, C.doc_ty_le(ny["exerciseRatio"]), r_dg, hom_nay, dao_han) if dao_han else float("nan")
+        dong[-1]["trang_thai"] = {
+            "muc": muc,
+            "ly_do": [(l, cua_ma.get(l) or chi_tiet.get(l, "")) for l in ly_do],
+            "ban_duoc_tu": ban_duoc if ban_duoc and ban_duoc > hom_nay else None,
+            "duoi_san": gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) < san,
+            "san": san,
+            "mat_gia_ngay": mat_gia,
+        }
     return dong, canh_bao, kl_moi
 
 

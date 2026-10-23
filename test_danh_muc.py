@@ -175,6 +175,45 @@ def test_canh_bao_lech_so_voi_cs():
     )  # không có lịch sử
 
 
+def test_ngay_ban_duoc_va_san_ly_thuyet():
+    # Mua phiên T bán được từ phiên T+2 (chưa trừ ngày lễ): mua thứ Năm 22/10 -> thứ Hai 26/10; mua thứ Hai 19/10 -> 21/10
+    assert D.ngay_ban_duoc("2026-10-22") == date(2026, 10, 26) and D.ngay_ban_duoc("2026-10-19") == date(2026, 10, 21)
+    # Sàn: S 40.000, K 32.000, tỷ lệ 3, r 4%, còn 115 ngày tới đáo hạn thứ Hai 15/02/2027; 5 phiên thanh toán 08–12/02
+    # cách đáo hạn 3…7 ngày -> chiết khấu TB 0,999452; (0,999 × 40.000 × 0,999452 − 32.000 × e^(−0,04 × 115/365)) / 3
+    san = D.san_ly_thuyet(40000, 32000, 3, 0.04, date(2026, 10, 23), date(2027, 2, 15))
+    assert math.isclose(san, 2779.6225, abs_tol=1e-3)
+    # bid 2.790 -> bán được 2.783,03 > sàn; bid 2.780 -> 2.773,05 < sàn (bán dưới giá trị tối thiểu nếu giữ tới đáo hạn)
+    assert 2790 * 0.9975 > san > 2780 * 0.9975
+
+
+def test_trang_thai_gop_muc():
+    tt = D.trang_thai_vi_the
+    assert tt(set(), False, False, -0.004) == (D.MUC_KHONG, [])  # mất giá 0,4%/ngày: chưa tới ngưỡng
+    assert tt({"gan_gia_th", "iv_bat_thuong", "lech_am"}, False, False, math.nan) == (D.MUC_KHONG, [])  # chỉ thông tin
+    assert tt({"lech_duong"}, False, False, math.nan) == (D.MUC_CAN_NHAC, ["lech_duong"])
+    # chốt lời do người dùng tự đặt -> Nên bán, đứng trước; ngưỡng mặc định -> chỉ Cân nhắc
+    assert tt({"lech_duong", "chot_loi"}, True, False, math.nan) == (D.MUC_NEN_BAN, ["chot_loi", "lech_duong"])
+    assert tt({"chot_loi"}, False, False, math.nan) == (D.MUC_CAN_NHAC, ["chot_loi"])
+    assert tt({"chot_loi", "cat_lo"}, True, True, math.nan)[1] == ["cat_lo", "chot_loi"]  # cắt lỗ ưu tiên hơn
+    assert tt({"cw_dat", "gd_cuoi"}, False, False, math.nan) == (D.MUC_NEN_BAN, ["cw_dat", "gd_cuoi"])
+    # theta: mất 2,5%/ngày -> Nên bán; 1,5% -> Cân nhắc (xếp sau các lý do Cân nhắc khác)
+    assert tt(set(), False, False, -0.025) == (D.MUC_NEN_BAN, ["theta_cao"])
+    assert tt({"phat_hanh_them"}, False, False, -0.015) == (D.MUC_CAN_NHAC, ["phat_hanh_them", "theta"])
+
+
+def test_trang_thai_trong_danh_muc():
+    # Mua 01/10 @1.000, tự đặt chốt lời 50%: bid 1.510 -> Nên bán (chot_loi); không đổi danh sách cảnh báo gửi Discord
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000, chot_loi=0.5)])
+    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(1510, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
+    t = dong[0]["trang_thai"]
+    assert t["muc"] == D.MUC_NEN_BAN and t["ly_do"][0][0] == "chot_loi" and t["ban_duoc_tu"] is None
+    assert {l for _, l, _ in cb} == {"chot_loi"}
+    # Mua đúng hôm nay (19/10): chưa bán được tới 21/10
+    vt = D.tinh_vi_the([lenh(1, str(HOM_NAY), "MUA", 1000, 1000)])
+    t = D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})[0][0]
+    assert t["trang_thai"]["ban_duoc_tu"] == date(2026, 10, 21) and t["trang_thai"]["muc"] == D.MUC_KHONG
+
+
 def test_cw_moi_vao_nhom_va_muc_bao_cao():
     # A: Theo dõi -> Nên xem xét (có); B: Bỏ qua -> Nên xem xét (có); C: đã Nên xem xét từ trước (không);
     # D: mới niêm yết, chưa có ở lần trước (không, đã có mục CW mới); E: Nên xem xét -> Theo dõi (không)
@@ -522,6 +561,8 @@ def test_trang_danh_muc():
         assert "Đang nắm (1 mã)" in trang and "-272.925" in trang and "lỗ nếu bán ngay" in trang
         # đã chốt: bán 100 @1.200 -> 100 × (1.200 × 0,9975 − 1.001,5) = +19.550 đ
         assert "Lịch sử lệnh (2)" in trang and "+19.550 đ" in trang
+        # lỗ −30,3% chạm cắt lỗ mặc định 30% (không tự đặt) -> Cân nhắc; giá mẫu dưới giá trị nội tại (S 25.000, K 20.000, tỷ lệ 2)
+        assert "🟡 Cân nhắc bán" in trang and "chạm cắt lỗ" in trang and "🛑" in trang
         D.FILE_DANH_MUC.write_text("hỏng", encoding="utf-8")  # sai tiêu đề: phải báo lỗi, KHÔNG coi là rỗng
         assert "File danh_muc.csv bị lỗi" in web.trang_danh_muc()
         form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["1000"]}

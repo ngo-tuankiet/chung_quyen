@@ -1396,6 +1396,19 @@ def trang_huong_dan():
 
 
 # ============ TRANG DANH MỤC ============
+def o_trang_thai(tt):
+    """Ô "Trạng thái" của 1 vị thế: mức, các lý do (lý do chính đứng đầu), cổng chưa bán được / dưới sàn lý thuyết."""
+    if not tt:
+        return "—"
+    dong = [f"<b>{ESC(danh_muc.TEN_MUC[tt['muc']])}</b>"]
+    dong += [f"<small>{ESC(danh_muc.LY_DO_BAN[l])}{': ' + ESC(nd) if nd else ''}</small>" for l, nd in tt["ly_do"]]
+    if tt["ban_duoc_tu"]:
+        dong.append(f"<small class=am>⛔ bán được từ chiều {tt['ban_duoc_tu']:%d/%m}</small>")
+    if tt["duoi_san"]:
+        dong.append(f"<small class=am>🛑 bán dưới giá trị tối thiểu nếu giữ tới đáo hạn ({so(tt['san'])} đ)</small>")
+    return "<br>".join(dong)
+
+
 def trang_danh_muc():
     """Danh mục CW đang nắm: thêm/xóa lệnh, vị thế và cảnh báo theo giá trực tiếp."""
     global LOI_DANH_MUC
@@ -1453,7 +1466,7 @@ def trang_danh_muc():
             if not d["co_gia"]:
                 hang.append(
                     f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td></td><td class="so">{so(d["so_luong"])}</td>'
-                    f'<td class="so">{so(d["gia_von"], 1)}</td><td colspan="6">không có giá trực tiếp</td></tr>'
+                    f'<td class="so">{so(d["gia_von"], 1)}</td><td colspan="7">không có giá trực tiếp</td></tr>'
                 )
                 continue
             lop = "duong" if d["lai"] > 0 else ("am" if d["lai"] < 0 else "")
@@ -1468,7 +1481,7 @@ def trang_danh_muc():
                 f'<td class="so">+{so(d["chot_loi"] * 100, 0)}% / −{so(d["cat_lo"] * 100, 0)}%</td>'
                 f'<td class="so">{so(d["S"])} / {so(d["K"])}<br><small>{so(d["cach_K"] * 100, 1, True)}%</small></td>'
                 f"<td>{ngay_gd}</td>"
-                f'<td class="so">{so(d["don_bay"], 1)}x</td></tr>'
+                f'<td class="so">{so(d["don_bay"], 1)}x</td><td>{o_trang_thai(d.get("trang_thai"))}</td></tr>'
             )
         co_gia = [d for d in dong if d["co_gia"]]
         tiep_xuc = {}
@@ -1498,7 +1511,7 @@ def trang_danh_muc():
             + "</div>"
             '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Số lượng</th><th class="so">Giá vốn</th>'
             '<th class="so">Giá bán được</th><th class="so">Lãi/lỗ nếu bán ngay</th><th class="so">Chốt lời / cắt lỗ</th>'
-            '<th class="so">Giá CS / giá TH</th><th>Ngày GD cuối</th><th class="so">Đòn bẩy</th></tr></thead>'
+            '<th class="so">Giá CS / giá TH</th><th>Ngày GD cuối</th><th class="so">Đòn bẩy</th><th>Trạng thái</th></tr></thead>'
             f'<tbody>{"".join(hang)}</tbody></table></div></section>'
         )
     lai_chot = sum(v["lai_da_chot"] for v in tat_ca.values())
