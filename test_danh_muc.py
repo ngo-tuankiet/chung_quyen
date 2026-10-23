@@ -175,9 +175,7 @@ def test_canh_bao_lech_so_voi_cs():
     )  # không có lịch sử
 
 
-def test_ngay_ban_duoc_va_san_ly_thuyet():
-    # Mua phiên T bán được từ phiên T+2 (chưa trừ ngày lễ): mua thứ Năm 22/10 -> thứ Hai 26/10; mua thứ Hai 19/10 -> 21/10
-    assert D.ngay_ban_duoc("2026-10-22") == date(2026, 10, 26) and D.ngay_ban_duoc("2026-10-19") == date(2026, 10, 21)
+def test_san_ly_thuyet():
     # Sàn: S 40.000, K 32.000, tỷ lệ 3, r 4%, còn 115 ngày tới đáo hạn thứ Hai 15/02/2027; 5 phiên thanh toán 08–12/02
     # cách đáo hạn 3…7 ngày -> chiết khấu TB 0,999452; (0,999 × 40.000 × 0,999452 − 32.000 × e^(−0,04 × 115/365)) / 3
     san = D.san_ly_thuyet(40000, 32000, 3, 0.04, date(2026, 10, 23), date(2027, 2, 15))
@@ -206,12 +204,8 @@ def test_trang_thai_trong_danh_muc():
     vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000, chot_loi=0.5)])
     dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(1510, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
     t = dong[0]["trang_thai"]
-    assert t["muc"] == D.MUC_NEN_BAN and t["ly_do"][0][0] == "chot_loi" and t["ban_duoc_tu"] is None
+    assert t["muc"] == D.MUC_NEN_BAN and t["ly_do"][0][0] == "chot_loi"
     assert {l for _, l, _ in cb} == {"chot_loi"}
-    # Mua đúng hôm nay (19/10): chưa bán được tới 21/10
-    vt = D.tinh_vi_the([lenh(1, str(HOM_NAY), "MUA", 1000, 1000)])
-    t = D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})[0][0]
-    assert t["trang_thai"]["ban_duoc_tu"] == date(2026, 10, 21) and t["trang_thai"]["muc"] == D.MUC_KHONG
 
 
 def test_giu_hay_ban_tinh_tay():

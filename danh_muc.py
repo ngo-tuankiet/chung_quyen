@@ -37,7 +37,6 @@ CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo c
 MUC_KHONG, MUC_CAN_NHAC, MUC_NEN_BAN = 0, 1, 2
 TEN_MUC = {MUC_KHONG: "⚪ Không có tín hiệu bán", MUC_CAN_NHAC: "🟡 Cân nhắc bán", MUC_NEN_BAN: "🔴 Nên bán"}
 THETA_CAN_NHAC, THETA_NEN_BAN = 0.01, 0.02  # mất giá 1 ngày (CS, IV đứng yên) so với giá CW; heuristic, chờ backtest
-SO_PHIEN_CHO_BAN = 2  # mua phiên T bán được từ chiều T+2 (KE_HOACH 7b; chưa đối chiếu quy chế VSD)
 SO_PHIEN_THANH_TOAN = 5  # giá thanh toán = bình quân giá đóng cửa 5 phiên liền trước đáo hạn (QĐ 34/QĐ-SGDHCM Điều 12)
 # Lý do bán theo thứ tự ưu tiên (đứng trước = lý do chính khi cùng mức); cảnh báo không có ở đây chỉ là thông tin
 LY_DO_BAN = {
@@ -238,12 +237,6 @@ def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
     )
     cs_can = K + ty_le * ban_ngay / (1 - C.THUE_BAN)
     return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
-
-
-def ngay_ban_duoc(ngay_mua):
-    """Ngày sớm nhất bán được CW mua ngày ngay_mua ('YYYY-MM-DD'): phiên T+SO_PHIEN_CHO_BAN (từ buổi chiều).
-    shortcut: chưa trừ ngày lễ, chưa phân biệt sáng/chiều — sửa khi có lịch nghỉ HOSE (lát 4)."""
-    return np.busday_offset(np.datetime64(ngay_mua), SO_PHIEN_CHO_BAN, roll="forward").astype(date)
 
 
 def san_ly_thuyet(S, K, ty_le, r, hom_nay, dao_han):
@@ -459,12 +452,10 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         cua_ma = {l: nd for m, l, nd in canh_bao if m == ma}
         muc, ly_do = trang_thai_vi_the(cua_ma, v["chot_loi"] is not None, v["cat_lo"] is not None, mat_gia)
         chi_tiet = {l: f"{LY_DO_BAN[l]}: mất {pt(-mat_gia, 2, False)}/ngày" for l in ("theta_cao", "theta")}
-        ban_duoc = ngay_ban_duoc(v["ngay_mua"]) if v["ngay_mua"] else None
         san = san_ly_thuyet(S, K, C.doc_ty_le(ny["exerciseRatio"]), r_dg, hom_nay, dao_han) if dao_han else float("nan")
         dong[-1]["trang_thai"] = {
             "muc": muc,
             "ly_do": [(l, cua_ma.get(l) or chi_tiet.get(l, "")) for l in ly_do],
-            "ban_duoc_tu": ban_duoc if ban_duoc and ban_duoc > hom_nay else None,
             "duoi_san": gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) < san,
             "san": san,
             "mat_gia_ngay": mat_gia,

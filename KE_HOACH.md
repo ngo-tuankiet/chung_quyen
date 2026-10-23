@@ -323,11 +323,10 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 - 🟡 **Cân nhắc bán**: chạm ngưỡng chốt lời / cắt lỗ **mặc định** (50% / 30%); còn ≤ 20 ngày tới ngày GD cuối; CW cao hơn mức lẽ ra theo CS
   (`lech_duong`); TCPH phát hành thêm; mất giá ≥ 1%/ngày (`THETA_CAN_NHAC`).
 - ⚪ còn lại. `gan_gia_th`, `iv_bat_thuong`, `lech_am` chỉ là thông tin. Lý do chính = lý do có mức cao nhất, cùng mức thì theo thứ tự `LY_DO_BAN`.
-- Kèm 2 ghi chú: ⛔ **bán được từ chiều T+2** kể từ lệnh mua gần nhất (`ngay_ban_duoc`; chưa trừ ngày lễ, chưa đối chiếu quy chế VSD) và
-  🛑 **bán dưới giá trị tối thiểu nếu giữ tới đáo hạn** (`san_ly_thuyet`: [0,999·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / tỷ lệ, tᵢ là 5 phiên tính
+- Kèm ghi chú 🛑 **bán dưới giá trị tối thiểu nếu giữ tới đáo hạn** (`san_ly_thuyet`: [0,999·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / tỷ lệ, tᵢ là 5 phiên tính
   giá thanh toán, thuế 0,1%; cận dưới call châu Âu, Hull ch. 11). Tính tay: S 40.000, K 32.000, tỷ lệ 3, r 4%, 115 ngày tới 15/02/2027 → 2.779,6 đ.
 - Ngưỡng theta 1% / 2% là heuristic, chưa backtest. Ví dụ 23/10/2026 11:11: CVPB2608 🟡 (cao hơn mức lẽ ra theo VPB +22%: lãi đến từ IV
-  ACBS nâng, không từ VPB), CHPG2638 ⚪, CTCB2619 ⚪ · ⛔ bán được từ 26/10. Các lát sau (Discord gọn lại, phân rã lãi theo CS / thời gian / IV,
+  ACBS nâng, không từ VPB), CHPG2638 ⚪, CTCB2619 ⚪. Các lát sau (Discord gọn lại, phân rã lãi theo CS / thời gian / IV,
   kế hoạch lúc mua, cuối đời CW và Tết 2027, backtest) chờ làm theo kế hoạch đã duyệt.
 
 ---

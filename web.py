@@ -1397,13 +1397,11 @@ def trang_huong_dan():
 
 # ============ TRANG DANH MỤC ============
 def o_trang_thai(tt):
-    """Ô "Trạng thái" của 1 vị thế: mức, các lý do (lý do chính đứng đầu), cổng chưa bán được / dưới sàn lý thuyết."""
+    """Ô "Trạng thái" của 1 vị thế: mức, các lý do (lý do chính đứng đầu), ghi chú dưới sàn lý thuyết."""
     if not tt:
         return "—"
     dong = [f"<b>{ESC(danh_muc.TEN_MUC[tt['muc']])}</b>"]
     dong += [f"<small>{ESC(nd or danh_muc.LY_DO_BAN[l])}</small>" for l, nd in tt["ly_do"]]  # nd: nội dung cảnh báo
-    if tt["ban_duoc_tu"]:
-        dong.append(f"<small class=am>⛔ bán được từ chiều {tt['ban_duoc_tu']:%d/%m}</small>")
     if tt["duoi_san"]:
         dong.append(f"<small class=am>🛑 bán dưới giá trị tối thiểu nếu giữ tới đáo hạn ({so(tt['san'])} đ)</small>")
     return "<br>".join(dong)
