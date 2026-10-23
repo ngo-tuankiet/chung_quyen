@@ -214,54 +214,6 @@ def test_trang_thai_trong_danh_muc():
     assert t["trang_thai"]["ban_duoc_tu"] == date(2026, 10, 21) and t["trang_thai"]["muc"] == D.MUC_KHONG
 
 
-def test_cw_moi_vao_nhom_va_muc_bao_cao():
-    # A: Theo dõi -> Nên xem xét (có); B: Bỏ qua -> Nên xem xét (có); C: đã Nên xem xét từ trước (không);
-    # D: mới niêm yết, chưa có ở lần trước (không, đã có mục CW mới); E: Nên xem xét -> Theo dõi (không)
-    truoc = pd.DataFrame({"Mã CW": list("ABCE"), "Đánh giá": ["THEO DÕI", "BỎ QUA", "NÊN XEM XÉT", "NÊN XEM XÉT"]})
-    nay = pd.DataFrame(
-        {
-            "Mã CW": list("ABCDE"),
-            "Mã CS": ["VPB"] * 5,
-            "TCPH": ["SSI"] * 5,
-            "Mới": ["", "", "", "MỚI", ""],
-            "Đánh giá": ["NÊN XEM XÉT"] * 4 + ["THEO DÕI"],
-            "Ngày còn lại": [100] * 5,
-            "Giá CS": [24000] * 5,
-            "Giá thực hiện": [22000] * 5,
-            "Tỷ lệ CĐ": [2.0] * 5,
-            "Giá mua": [1200] * 5,
-            "Giá hợp lý": [1300] * 5,
-            "Đắt/rẻ %": [-7.7] * 5,
-            "IV − HV": [-2.0] * 5,
-            "CS tăng % để hòa vốn": [1.7] * 5,
-            "Đòn bẩy": [8.5] * 5,
-            "IV %": [27.0, 30.0, 31.0, 32.0, 33.0],
-            "IV cùng mã %": [47.0, float("nan"), 45.0, 45.0, 45.0],
-            "Cảnh báo": [""] * 5,
-        }
-    )
-    moi = D.cw_moi_vao_nhom(nay, truoc)
-    assert list(moi["Mã CW"]) == ["A", "B"] and list(moi["Từ nhóm"]) == ["THEO DÕI", "BỎ QUA"]
-    assert D.cw_moi_vao_nhom(nay, None).empty  # lần quét đầu: chưa có gì để so
-    bc = D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi, {"A": -0.032})
-    assert bc.index("🔔") < bc.index("💼")  # mục đầu tiên
-    dong = {d.split()[0]: d.split() for d in bc.split("🔔")[1].split("💼")[0].splitlines() if d[:1] in ("A", "B")}
-    assert dong["A"][-3:] == ["TD", "27/47", "-3,2%"] and dong["B"][-3:] == ["BQ", "—", "—"]  # thiếu số liệu -> "—"
-    with mock.patch.object(D, "MAX_MA_MOI_VAO", 1):
-        assert "và 1 mã khác" in D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi, {})
-    assert "🔔" not in D.bao_cao_ngay(nay, HOM_NAY, [], [], 0, datetime(2026, 10, 20, 14, 0), moi.iloc[0:0], {})
-
-
-def test_doc_ket_qua_truoc():
-    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
-        for ngay, nhom in (("2026-10-16", "BỎ QUA"), ("2026-10-19", "THEO DÕI"), ("2026-10-20", "NÊN XEM XÉT")):
-            pd.DataFrame({"Mã CW": ["A"], "Đánh giá": [nhom]}).to_csv(
-                Path(tmp) / f"cw_{ngay}.csv", index=False, encoding="utf-8-sig"
-            )
-        assert D.doc_ket_qua_truoc(date(2026, 10, 20))["Đánh giá"][0] == "THEO DÕI"  # bỏ qua file của chính hôm nay
-        assert D.doc_ket_qua_truoc(date(2026, 10, 16)) is None
-
-
 def test_giu_hay_ban_tinh_tay():
     # CVPB2608 ngày 19/10/2026: VPB 24.000, K 23.379, tỷ lệ 1,5586, giá chờ mua 830
     # bán ngay = 830 × (1 − 0,0015 − 0,001) = 827,925; CS cần = 23.379 + 1,5586 × 827,925 / 0,999 = 24.670,7 (+2,79%)
@@ -272,38 +224,6 @@ def test_giu_hay_ban_tinh_tay():
     gt = cw_scanner.black_scholes_call(24000, 23379, 118 / 365, 0.04, 0.318)[0] / 1.5586 * 0.999
     assert abs(g["giu_mh"] - gt) < 1e-9 and math.isnan(
         D.giu_hay_ban(24000, 23379, 1.5586, 0.3, 0.04, math.nan, 830)["giu_mh"]
-    )
-
-
-def test_muc_sap_het_han_chi_hien_khi_con_20_ngay():
-    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
-    df = pd.DataFrame(
-        {
-            "Mã CW": ["CVPB2615"],
-            "Mã CS": ["VPB"],
-            "Đánh giá": ["THEO DÕI"],
-            "Mới": [""],
-            "IV − HV": [1.0],
-            "Cảnh báo": [""],
-        }
-    )
-    bc = lambda con: D.bao_cao_ngay(
-        df,
-        HOM_NAY,
-        D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=con)), DF, HOM_NAY, {})[0],
-        [],
-        0,
-        datetime(2026, 10, 19, 14),
-    )
-    co, khong = bc(20), bc(21)
-    assert "⏳" in co and "⏳" not in khong
-    # CS cần = 20.000 + 2 × (1.000 × 0,9975) / 0,999 = 21.997 (+... so với VPB 25.000: −12,0%)
-    hang = next(d for d in co.split("⏳")[1].splitlines() if d.startswith("CVPB2615"))
-    assert (
-        hang.split()[0] == "CVPB2615"
-        and hang.split()[1] == "998"
-        and hang.split()[3] == "21.997"
-        and hang.split()[4] == "-12,0%"
     )
 
 
@@ -464,15 +384,12 @@ def test_la_ngay_giao_dich():
 
 
 def test_bao_cao_ghi_ro_khi_quet_loi():
-    df = pd.DataFrame(
-        {"Mã CW": ["A"], "Mã CS": ["VPB"], "Đánh giá": ["THEO DÕI"], "Mới": [""], "IV − HV": [1.0], "Cảnh báo": [""]}
-    )
     bc = D.bao_cao_ngay(
-        df, HOM_NAY, [], [], 0, datetime(2026, 10, 21, 14, 14), quet_loi=("NetworkError: không kết nối", "19/10 09:02")
+        [], [], 0, datetime(2026, 10, 21, 14, 14), quet_loi=("NetworkError: không kết nối", "19/10 09:02")
     )
-    dong2 = bc.split("\n\n")[0].splitlines()[1]
+    dong2 = bc.splitlines()[1]
     assert dong2.startswith("⚠ **Quét hôm nay lỗi**") and "NetworkError" in dong2 and "19/10 09:02" in dong2
-    assert "Quét hôm nay lỗi" not in D.bao_cao_ngay(df, HOM_NAY, [], [], 0, datetime(2026, 10, 21, 14, 0))
+    assert D.bao_cao_ngay([], [], 0, datetime(2026, 10, 21, 14, 0)) == ""  # không nắm gì, không lỗi: không gửi
 
 
 def test_lay_bang_gia_bo_ma_khong_ton_tai():
@@ -574,67 +491,32 @@ def test_trang_danh_muc():
 
 
 def test_bao_cao_ngay():
-    # Vị thế lỗ 30,3% (giá vốn 1.001,5; bán được 700) -> có trong "Gần ngưỡng" và báo ĐÃ CHẠM cắt lỗ −30%
+    # Vị thế lỗ 30,3% (giá vốn 1.001,5; bán được 700): chạm cắt lỗ 30% -> mục Bất thường; gần giá thực hiện thì không
     vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
-    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(700, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
-    df = pd.DataFrame(
-        {
-            "Mã CW": ["CNEW2601", "CXXX2601"],
-            "Mã CS": ["VPB", "VPB"],
-            "TCPH": ["SSI", "SSI"],
-            "Mới": ["MỚI", ""],
-            "Ngày còn lại": [120, 90],
-            "Giá CS": [24000, 24000],
-            "Giá thực hiện": [22000, 23000],
-            "Tỷ lệ CĐ": [2.0, 2.0],
-            "Giá mua": [1200, 900],
-            "Giá hợp lý": [1300, 950],
-            "Đắt/rẻ %": [-7.7, -5.3],
-            "IV − HV": [-2.0, 1.0],
-            "CS tăng % để hòa vốn": [1.7, 3.3],
-            "Đòn bẩy": [8.5, float("nan")],
-            "Đánh giá": ["NÊN XEM XÉT", "THEO DÕI"],
-            "Cảnh báo": ["", ""],
-        }
-    )
-    bc = D.bao_cao_ngay(df, HOM_NAY, dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
-    # hàng CNEW2601: giá 1.200, hợp lý 1.300, -7,7%, IV-HV -2,0, hòa vốn 22.000 + 1.200 × 2 = 24.400 (+1,7%), đòn bẩy 8,5x
-    hang = next(d for d in bc.splitlines() if d.startswith("CNEW2601"))
-    assert hang.split() == ["CNEW2601", "1.200", "1.300", "-7,7", "-2,0", "+1,7", "8,5x"]
-    assert "CXXX2601" not in bc.split("⭐")[0].split("🆕")[1]  # IV-HV +1 nhưng không phải mã mới
-    # danh mục: 1.000 CW, vốn 1.001,5, bán được 700 -> -30,3%, (700 × 0,9975 − 1.001,5) × 1.000 = -303.250 đ
+    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(700, 20500, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
+    assert {l for _, l, _ in cb} >= {"cat_lo", "gan_gia_th"}
+    bc = D.bao_cao_ngay(dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
+    # 1.000 CW, vốn 1.001,5, bán được 700 -> -30,3%, (700 × 0,9975 − 1.001,5) × 1.000 = -303.250 đ
     assert next(d for d in bc.splitlines() if d.startswith("CVPB2615")).split()[-2:] == ["-30,3", "-303.250"]
-    assert "ĐÃ CHẠM" in bc and "đã chốt +19.550 đ" in bc and bc.count("```") % 2 == 0
+    assert "đã chốt +19.550 đ" in bc and bc.count("```") % 2 == 0
+    bat = bc.split("⚠ **Bất thường**")[1]
+    assert "lỗ nếu bán ngay" in bat and "giá thực hiện" not in bat  # gan_gia_th chỉ hiện trên web
+    assert "Nên xem xét" not in bc and "⚡" not in bc  # danh sách CW để mua: xem trên web
+    # bình thường (lãi nhỏ, xa giá thực hiện): chỉ có bảng lãi/lỗ, không có mục Bất thường
+    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
+    assert "Bất thường" not in D.bao_cao_ngay(dong, cb, 0, datetime(2026, 10, 19, 14, 0))
     tin = D.chia_tin(bc * 5, 500)
     assert all(len(t) <= 500 for t in tin) and "\n".join(tin).replace("\n", "") == (bc * 5).replace("\n", "")
 
 
-def test_bao_cao_co_top_luot():
-    df = pd.DataFrame(
-        {
-            "Mã CW": ["CA", "CB", "CC"],
-            "Mã CS": ["VPB", "HPG", "FPT"],
-            "Đánh giá": ["THEO DÕI"] * 3,
-            "Giá mua": [1_200, 800, 500],
-            "Nguồn giá mua": ["ask", "ask", "ask"],
-            "Giá chờ mua": [1_190, 790, 480],
-            "Spread %": [0.8, 1.3, 4.1],
-            "Bên mua 3 bước (triệu)": [80.0, 50.0, 5.0],  # CC: bên mua 5 triệu < 20 triệu -> loại
-            "Ngày GD cuối": ["2027-01-15"] * 3,
-            "Ngày còn lại": [90] * 3,
-            "Lướt: CS cần tăng %": [1.25, 0.9, 0.5],
-            "Lướt: lãi kịch bản %": [30.0, 38.5, 60.0],
-            "Đòn bẩy": [8.0, 9.5, 14.0],
-        }
-    )
-    bc = D.bao_cao_ngay(df, HOM_NAY, [], [], 0, datetime(2026, 10, 19, 14, 0))
-    muc = bc[bc.index("⚡ **Top 2 CW lướt 5 phiên**") :]
-    hang = [d.split() for d in muc.splitlines() if d[:2] in ("CA", "CB", "CC")]
-    assert hang == [["CB", "HPG", "800", "+0,9%", "+38,5%", "9,5x"], ["CA", "VPB", "1.200", "+1,2%", "+30,0%", "8,0x"]]
-    assert "bên mua < 20 triệu" in muc and muc.count("```") % 2 == 0
-    assert "⚡" not in D.bao_cao_ngay(
-        df.drop(columns=["Lướt: CS cần tăng %"]), HOM_NAY, [], [], 0, datetime(2026, 10, 19, 14, 0)
-    )
+def test_chi_gui_discord_khi_bat_thuong():
+    cb = [("A", "gan_gia_th", "x"), ("A", "cat_lo", "y"), ("B", "iv_bat_thuong", "z"), ("B", "phat_hanh_them", "w")]
+    dong = [{"ma": "C", "trang_thai": {"ly_do": [("theta_cao", "mất 2,50%/ngày")]}}, {"ma": "D"}]
+    assert [(m, l) for m, l, _ in D.bat_thuong(dong, cb)] == [
+        ("A", "cat_lo"),
+        ("B", "phat_hanh_them"),
+        ("C", "theta_cao"),
+    ]
 
 
 if __name__ == "__main__":  # chạy không cần pytest

@@ -309,6 +309,14 @@ lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng 
 khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệch ≥ ±15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất); **CW đắt, cân nhắc chuyển sang cổ phiếu**: bán ngay ≥ giá trị theo mô hình × 1,15 và IV theo giá chờ mua > trung vị IV các CW cùng mã (tin này có ghi tiền thu về và vốn mua cổ phiếu đủ số / theo delta, lô 100; cổ phiếu không có giới hạn lỗ như CW). **Chỉ gửi khi cảnh báo vừa xuất hiện**, và mỗi loại cảnh báo của mỗi mã **tối đa 1 tin/ngày**
 (giá dao động quanh ngưỡng thì không gửi lặp; trạng thái trong `canh_bao_da_gui.json`). Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" và báo cáo 14:00 có số tiền, theo yêu cầu dùng riêng).
 
+**Discord gọn lại** (người dùng chốt 23/10/2026)
+- **Báo cáo ngày 14:00** (`--bao-cao`) chỉ còn: bảng lãi/lỗ nếu bán ngay của từng mã đang giữ, tổng, lãi đã chốt; dòng ⚠ nếu quét lỗi;
+  mục **⚠ Bất thường** chỉ khi có. Không nắm mã nào và không lỗi thì không gửi gì. Các danh sách CW để mua (mới vào nhóm Nên xem xét,
+  CW mới, Top Nên xem xét, Top 5 lướt, IV bất thường, mục ⏳ giữ hay bán, 🎯 gần ngưỡng) đã bỏ khỏi Discord: xem trên web.
+- **Cảnh báo 5 phút** chỉ gửi loại bất thường (`BAT_THUONG`): chạm chốt lời / cắt lỗ, CW đắt, mất giá ≥ 2%/ngày, còn ≤ 20 ngày tới
+  ngày GD cuối, TCPH phát hành thêm, không có người mua, mã không còn trên bảng giá. CS gần giá thực hiện, IV bất thường, CW lệch so với
+  CS chỉ hiện trên web (cột Trạng thái).
+
 **Khi nào bán: trạng thái mỗi vị thế** (lát 1a, 23/10/2026; chỉ hiện ở cột *Trạng thái* trang 💼, **không gửi Discord**, không đổi cảnh báo cũ)
 - 🔴 **Nên bán**: chạm chốt lời / cắt lỗ **do bạn tự đặt** ở lệnh mua; **CW đắt** (cảnh báo `cw_dat`); **mất giá theo thời gian ≥ 2%/ngày**
   (`THETA_NEN_BAN`, cột *Mất giá/ngày %*: CS và IV đứng yên, tính ở IV giá chào bán).
@@ -344,7 +352,7 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 
 ---
 
-## Phần 7b. Lướt CW 2–5 phiên (trang **⚡ Lướt CW**, báo cáo 14:00)
+## Phần 7b. Lướt CW 2–5 phiên (trang **⚡ Lướt CW**)
 
 Mục đích: bạn tự nhận định cổ phiếu cơ sở nào sắp tăng; công cụ chỉ ra **CW nào rẻ và hiệu quả nhất** để đặt cược đó trong 2–5 phiên,
 lệnh dưới 20 triệu. **Python không đoán hướng cổ phiếu** — CW không tạo ra lợi thế, nó khuếch đại biến động của cổ phiếu theo cả 2 chiều,
