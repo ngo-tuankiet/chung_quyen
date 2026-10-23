@@ -367,8 +367,52 @@ Quét thật 23/10/2026 10:31: 333 CW, 229 lướt được, 104 bị loại (68
 đứng đầu CVPB2615 (CS cần +0,37%, CS +5% thì lãi +44%), cuối bảng là CW IV rất cao (CSHB2609 IV − HV +159 điểm: CS +5% vẫn lỗ 8,7%).
 
 **Giới hạn**: IV có thể đổi trong 5 phiên (tổ chức phát hành yết lại); sổ lệnh lúc quét khác lúc đặt lệnh (trang chi tiết CW định giá lại
-theo giá trực tiếp); mua phiên T thì sớm nhất chiều T+2 mới bán được; đòn bẩy cao cũng là lỗ nhanh. Chưa backtest: chưa biết CW xếp đầu có thật
-sự lời hơn khi CS chạy cùng mức (bước sau, lập plan riêng).
+theo giá trực tiếp); mua phiên T thì sớm nhất chiều T+2 mới bán được; đòn bẩy cao cũng là lỗ nhanh.
+
+### Backtest thứ tự xếp hạng (23/10/2026, `python kiem_chung_luot.py`)
+Câu hỏi: với **cùng một biến động CS**, CW hòa vốn thấp (đầu bảng ⚡) có lãi/lỗ tốt hơn CW hòa vốn cao không, sau phí và thuế?
+Báo cáo đầy đủ: `ket_qua/kiem_chung_luot_2026-10-23.md`; từng lệnh: `ket_qua/kiem_chung_luot_lenh_2026-10-23.csv`.
+- **Dữ liệu:** giá ngày 14/08/2024 – 23/10/2026 (vnstock); điều khoản từ Vietcap, gồm cả CW đã hết hạn (dò mã `C{CS}{24–26}{01–79}`).
+  488 CW của 20 CS: 333 CW còn sống và 155 CW đã hết hạn. Đã loại:
+  - 494 CW hết hạn mà CS có sự kiện quyền sau ngày GD cuối (giá CS đã điều chỉnh tiếp, còn điều khoản thì dừng lúc hết hạn, nên K và giá CS lệch thang);
+  - 7 CW STB năm 2024 có K bị ×10.
+
+  109 ngày vào lệnh, cách nhau 5 phiên, đây cũng là số giai đoạn độc lập; tổng cộng 5.994 lệnh. Điểm xếp hạng tính đúng bằng `luot_ngan_han` và chỉ
+  dùng giá có tới ngày vào lệnh. Đã kiểm: IV không nhảy vào ngày GDKHQ (|ΔIV| trung vị 2,0 điểm, phiên thường 1,5 điểm), nghĩa là điều khoản và giá CS cùng thang.
+- **Giới hạn lớn nhất: không có lịch sử sổ lệnh.** Giá chào bán / chờ mua được giả định bằng giá đóng cửa ± nửa spread 1 bước giá (10 đ;
+  trung vị sổ lệnh 23/10). Chạy thêm kịch bản spread 2 bước. Ngoài ra không kiểm được điều kiện bên mua ≥ 20 triệu (dùng KL khớp ≥ 10.000 CW thay thế).
+
+**So CW cùng CS, cùng ngày vào** (kịch bản giữ 5 phiên, spread 1 bước). Đầu = CW hòa vốn thấp nhất trong nhóm, cuối = cao nhất.
+ρ = tương quan hạng giữa hòa vốn và lãi: âm nghĩa là thứ tự đúng.
+
+| CS thực tế 5 phiên | Nhóm (ngày vào) | Lãi TV đầu | Lãi TV cuối | % nhóm đầu > cuối | ρ TB (t) |
+|---|---|---|---|---|---|
+| ≤ −5% | 54 (26) | −24,1% | −27,3% | 67% | −0,17 (−2,9) |
+| −5…−2% | 141 (45) | −13,4% | −24,9% | 76% | −0,32 (−4,4) |
+| −2…0% | 175 (58) | −5,7% | −12,5% | 77% | −0,31 (−5,3) |
+| 0…+2% | 131 (51) | −0,4% | −6,7% | 77% | −0,35 (−8,0) |
+| +2…+5% | 101 (45) | +9,0% | +5,1% | 64% | −0,20 (−3,0) |
+| > +5% | 65 (36) | +24,1% | +21,7% | 58% | −0,04 (−0,0) |
+| Tất cả | 667 (91) | −3,6% | −10,1% | 72% | −0,27 (−7,9) |
+
+- **Ngũ phân vị của cả bảng mỗi ngày** (giống trang ⚡): lãi trung vị từ Q1 (hòa vốn thấp nhất) đến Q5 là −2,3% / −4,1% / −5,9% / −6,9% / −10,2%.
+  Q5 là nhóm CW giá thấp (trung vị 440 đ, nên 1 bước giá = 2,3%), ít ngày còn lại hơn, đòn bẩy 5,5 so với 4,3 của Q1.
+  Gộp mọi biến động CS thì lãi trung vị nhóm nào cũng âm, nên đây **không phải tín hiệu**.
+- **Độ nhạy:** ρ giữ ở −0,25…−0,28 (t ρ từ −5,7 đến −9,0) ở các kịch bản spread 2 bước, giữ 2 phiên, và mua trễ 1 phiên. Mua trễ 1 phiên nghĩa là điểm
+  xếp hạng và giá mua không cùng dùng giá đóng cửa ngày T, để loại nhiễu bid-ask bounce.
+- **"IV giữ nguyên" sai bao nhiêu:**
+  - IV đổi trong 5 phiên: trung vị −0,2 điểm; 80% số lệnh nằm trong khoảng −5,6…+5,1 điểm. CW còn 20–60 ngày dao động mạnh hơn, khoảng −12…+14 điểm.
+  - Lãi thực tế lệch so với mô hình (cùng giá CS thật): trung vị −0,5%, độ lệch tuyệt đối trung vị 4,2%. Độ lệch này tương quan 0,74 với ΔIV, tức chủ yếu do IV đổi.
+  - Theo tổ chức phát hành: IV của VNDS và MSVN hay giảm khoảng 0,5 điểm trong 5 phiên, làm lãi thực thấp hơn mô hình khoảng 1,1–1,4%.
+  - 86% số lệnh đúng chiều hòa vốn (CS tăng vượt mức "CS cần tăng" thì lời, không vượt thì lỗ).
+
+**Kết luận:**
+- **Tin được thứ tự xếp hạng, nếu hiểu nó là thước đo chi phí.** Khi CS đi trong khoảng −5% tới +5% trong 5 phiên, CW đầu bảng lời hơn hoặc lỗ ít hơn CW cuối
+  cùng CS ở 64–77% số nhóm, kể cả khi CS giảm.
+- **Đừng dựa vào thứ tự khi bạn cược CS tăng mạnh (> 5% trong 5 phiên).** Khi đó thứ tự gần như ngẫu nhiên (ρ −0,04). Tính trung bình, CW cuối bảng (đòn bẩy cao hơn)
+  còn lời hơn 11 điểm, nhờ vài lệnh lời rất lớn.
+- **Con số "CS cần tăng %" chỉ là ước lượng.** IV do tổ chức phát hành yết lại có thể làm lãi thực lệch ±4% so với "lãi kịch bản".
+- Không đổi ngưỡng nào đang chạy.
 
 ---
 
