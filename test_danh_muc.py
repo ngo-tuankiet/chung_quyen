@@ -208,6 +208,30 @@ def test_trang_thai_trong_danh_muc():
     assert {l for _, l, _ in cb} == {"chot_loi"}
 
 
+def test_lech_duong_chi_can_nhac_khi_cw_khong_con_re():
+    # CW ngoài tiền: VPB 18.500 -> 19.000, K 20.000, tỷ lệ 2, HV trong file quét 30%. Giá = 1,2 × giá lẽ ra theo IV lúc mua
+    dh, ls = date(2027, 2, 17), {"VPB": [["2026-10-01", 18500]]}
+    bs = lambda S, ngay, sigma: cw_scanner.black_scholes_call(S, 20000, (dh - ngay).days / 365, 0.04, sigma)[0] / 2
+
+    def trang_thai(sigma_mua):
+        vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, bs(18500, date(2026, 10, 1), sigma_mua))])
+        gia = round(1.2 * bs(19000, HOM_NAY, sigma_mua))
+        dong, cb, _ = D.danh_gia_danh_muc(
+            vt, bang_gia_mau(gia, 19000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {}, ls
+        )
+        assert "lech_duong" in {l for _, l, _ in cb}  # cảnh báo vẫn có (web), chỉ đổi mức trạng thái
+        return dong[0]["trang_thai"], gia
+
+    # Mua ở IV 30% (= HV): 598 đ > giá trị theo HV 498 đ -> CW không còn rẻ -> Cân nhắc bán
+    tt, _ = trang_thai(0.30)
+    assert tt["muc"] == D.MUC_CAN_NHAC and tt["ly_do"][0][0] == "lech_duong" and not tt["thong_tin"]
+    # Mua ở IV 10% (TCPH yết rẻ): lệch +20% (102 đ) nhưng vẫn dưới giá trị theo HV 498 đ -> chỉ thông tin
+    tt, gia = trang_thai(0.10)
+    re_hon = gia * 0.9975 / (bs(19000, HOM_NAY, 0.30) * 0.999) - 1
+    assert "lech_duong" not in [l for l, _ in tt["ly_do"]] and re_hon < 0  # (chốt lời +114% vẫn bật riêng)
+    assert f"vẫn rẻ hơn mô hình {D.pt(-re_hon, dau=False)}" in tt["thong_tin"][0]
+
+
 def test_giu_hay_ban_tinh_tay():
     # CVPB2608 ngày 19/10/2026: VPB 24.000, K 23.379, tỷ lệ 1,5586, giá chờ mua 830
     # bán ngay = 830 × (1 − 0,0015 − 0,001) = 827,925; CS cần = 23.379 + 1,5586 × 827,925 / 0,999 = 24.670,7 (+2,79%)

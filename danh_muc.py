@@ -450,6 +450,19 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
             )
         # trạng thái bán: chỉ gắn vào dòng (web), không thêm vào canh_bao nên không đổi tin Discord
         cua_ma = {l: nd for m, l, nd in canh_bao if m == ma}
+        thong_tin = []
+        if "lech_duong" in cua_ma and dao_han:
+            # lãi do TCPH nâng IV chỉ là lý do Cân nhắc bán khi CW không còn rẻ: bán ngay ≥ giá trị theo HV, hoặc IV (giá chào bán)
+            # ≥ trung vị IV cùng mã. Còn rẻ thì chỉ là thông tin (người dùng chốt 23/10/2026)
+            g = giu_hay_ban(
+                S, K, C.doc_ty_le(ny["exerciseRatio"]), (dao_han - hom_nay).days / 365, r_dg, sigma, gia_ban
+            )
+            tv = C.so_iv_cung_ma(df, ma, cs, iv)[0] if len(quet) else math.nan
+            if g["ban_ngay"] < g["giu_mh"] and not iv >= tv:  # NaN: không đủ CW cùng mã thì chỉ xét theo HV
+                thong_tin.append(
+                    f"{cua_ma.pop('lech_duong').split(':')[0]}, nhưng vẫn rẻ hơn mô hình "
+                    f"{pt(1 - g['ban_ngay'] / g['giu_mh'], dau=False)} (giá trị theo HV {so(g['giu_mh'])} đ, không phải dự báo)"
+                )
         muc, ly_do = trang_thai_vi_the(cua_ma, v["chot_loi"] is not None, v["cat_lo"] is not None, mat_gia)
         chi_tiet = {l: f"{LY_DO_BAN[l]}: mất {pt(-mat_gia, 2, False)}/ngày" for l in ("theta_cao", "theta")}
         san = san_ly_thuyet(S, K, C.doc_ty_le(ny["exerciseRatio"]), r_dg, hom_nay, dao_han) if dao_han else float("nan")
@@ -459,6 +472,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
             "duoi_san": gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) < san,
             "san": san,
             "mat_gia_ngay": mat_gia,
+            "thong_tin": thong_tin,
         }
     return dong, canh_bao, kl_moi
 

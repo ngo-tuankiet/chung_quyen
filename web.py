@@ -1402,6 +1402,7 @@ def o_trang_thai(tt):
         return "—"
     dong = [f"<b>{ESC(danh_muc.TEN_MUC[tt['muc']])}</b>"]
     dong += [f"<small>{ESC(nd or danh_muc.LY_DO_BAN[l])}</small>" for l, nd in tt["ly_do"]]  # nd: nội dung cảnh báo
+    dong += [f"<small>ℹ {ESC(x)}</small>" for x in tt.get("thong_tin", [])]
     if tt["duoi_san"]:
         dong.append(f"<small class=am>🛑 bán dưới giá trị tối thiểu nếu giữ tới đáo hạn ({so(tt['san'])} đ)</small>")
     return "<br>".join(dong)
