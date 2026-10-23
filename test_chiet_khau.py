@@ -34,9 +34,9 @@ def test_danh_gia_quy_cong_cac_muc_dat_nguong():
     assert dg["Chiết khấu mua được %"] == -3.0 and dg["Lãi ròng nếu về NAV %"] == 2.68
     # 9.750: 9.975 / (9.750 × 1,0015) − 1 = +2,15% đạt; 9.900: +0,61% không đạt
     # -> mua được 9.700 × 300 + 9.750 × 500 = 2.910.000 + 4.875.000 = 7.785.000 đ ≥ 5 triệu
-    assert dg["Mua được đạt ngưỡng (đ)"] == 7_785_000 and CK.dat_nguong(dg)
+    assert dg["Mua được đạt ngưỡng (đ)"] == 7_785_000 >= CK.MIN_GIA_TRI_CHAO_BAN
     it = CK.danh_gia_quy(ban_ghi(chao_ban=((9_700, 100),)))  # 1 lô 100 CCQ = 970.000 đ: không đáng báo
-    assert it["Mua được đạt ngưỡng (đ)"] == 970_000 and not CK.dat_nguong(it)
+    assert it["Mua được đạt ngưỡng (đ)"] == 970_000 < CK.MIN_GIA_TRI_CHAO_BAN
 
 
 def test_gia_mua_1_lenh_tinh_tay():
@@ -51,10 +51,27 @@ def test_gia_mua_1_lenh_tinh_tay():
     assert math.isnan(CK.danh_gia_quy(ban_ghi())["CK 1 lệnh %"])
 
 
+def test_gia_tri_chao_ban_duoi_inav_tinh_tay():
+    # iNAV 10.000, ngưỡng −2% -> giá ≤ 9.800: 9.700 × 300 + 9.750 × 500 = 2.910.000 + 4.875.000 = 7.785.000; 9.900 không tính
+    assert CK.gia_tri_duoi_inav(ban_ghi()) == 7_785_000
+    assert CK.gia_tri_duoi_inav(ban_ghi(chao_ban=((9_800, 600),))) == 5_880_000  # đúng −2,0%: tính
+    assert CK.gia_tri_duoi_inav(ban_ghi(chao_ban=((9_801, 600),))) == 0  # −1,99%: chưa tới
+    assert CK.gia_tri_duoi_inav(ban_ghi(inav=0)) == 0
+
+
+def test_giu_may_thuc_trong_khung_gio():
+    with mock.patch.object(CK.subprocess, "Popen") as p:
+        CK.giu_may_thuc(datetime(2026, 10, 23, 12, 0))  # thứ Sáu nghỉ trưa: vẫn giữ để 13:00 máy còn thức
+        assert p.call_args[0][0] == ["/usr/bin/caffeinate", "-i", "-t", "360"] and p.call_args[1]["start_new_session"]
+        for luc in (datetime(2026, 10, 23, 8, 59), datetime(2026, 10, 23, 14, 46), datetime(2026, 10, 24, 10, 0)):
+            CK.giu_may_thuc(luc)  # trước 9:00, sau 14:45, thứ Bảy
+        assert p.call_count == 1
+
+
 def test_danh_gia_quy_thieu_du_lieu():
     for bg in (ban_ghi(inav=0), ban_ghi(chao_ban=()), {"stockSymbol": "X"}):
         dg = CK.danh_gia_quy(bg)
-        assert math.isnan(dg["Chiết khấu mua được %"]) and dg["Mua được đạt ngưỡng (đ)"] == 0 and not CK.dat_nguong(dg)
+        assert math.isnan(dg["Chiết khấu mua được %"]) and dg["Mua được đạt ngưỡng (đ)"] == 0
 
 
 def test_lam_sach_nav_cua_vietcap():
@@ -182,18 +199,27 @@ def test_kiem_tra_trong_phien():
         dong = (Path(tmp) / "inav_2026-10-23.csv").read_text(encoding="utf-8-sig").splitlines()
         assert dong[0].startswith("Giờ,Mã,iNAV") and dong[1].startswith("10:00:00,E1VFVN30,33900")
         assert _chay(tmp, ssi, luc, url="")[0] == []  # chưa có webhook: không lưu trạng thái
-        pd.DataFrame({"Mã": ["FUEIP100"], "CL NAV trung vị 1N %": [-4.6], "GTGD TB20 (tỷ)": [0.012]}).to_csv(
-            Path(tmp) / "etf_2026-10-22.csv", index=False, encoding="utf-8-sig"
-        )
+        # FUESSV30 bình thường cao hơn NAV +1,0%: chào bán 7,8 triệu ở giá ≤ iNAV −2% là bất thường -> báo.
+        # FUEIP100 cùng sổ lệnh nhưng thường đã −4,6%: rẻ như vậy là bình thường của nó -> không báo
+        pd.DataFrame(
+            {"Mã": ["FUEIP100", "FUESSV30"], "CL NAV trung vị 1N %": [-4.6, 1.0], "GTGD TB20 (tỷ)": [0.012, 0.24]}
+        ).to_csv(Path(tmp) / "etf_2026-10-22.csv", index=False, encoding="utf-8-sig")
+        ssi["FUESSV30"] = ban_ghi("FUESSV30")
         bao, gui, _ = _chay(tmp, ssi, luc)
-        assert bao == ["FUEIP100"] and gui.call_count == 1 and "FUEIP100" in gui.call_args[0][0]
-        assert "thường lệch NAV -4,6% (trung vị 1 năm) · GTGD TB20 0,01 tỷ" in gui.call_args[0][0]
-        assert "E1VFVN30" not in gui.call_args[0][0]  # chào bán cao hơn iNAV
+        tin = gui.call_args[0][0]
+        assert bao == ["FUESSV30"] and gui.call_count == 1 and tin.startswith("**🔻 ETF giảm bất thường so với iNAV**")
+        assert (
+            "🔻 **FUESSV30**: chào bán 9.700 × 300 CCQ, iNAV 10.000 (-3,0%) · có 8 triệu chào bán ở giá ≤ iNAV −2%"
+            " · thường lệch NAV +1,0% (trung vị 1 năm) · GTGD TB20 0,24 tỷ" in tin
+        )
+        assert "FUEIP100" not in tin and "E1VFVN30" not in tin  # E1VFVN30: chào bán cao hơn iNAV
         assert _chay(tmp, ssi, datetime(2026, 10, 23, 10, 5))[1].call_count == 0  # cùng ngày: không báo lại
         hom_sau = {m: {**b, "tradingDate": "20261026"} for m, b in ssi.items()}
-        assert _chay(tmp, hom_sau, datetime(2026, 10, 26, 9, 30))[0] == ["FUEIP100"]
-        assert json.loads((Path(tmp) / "da_bao.json").read_text(encoding="utf-8")) == {"FUEIP100": "2026-10-26"}
-        assert len((Path(tmp) / "inav_2026-10-23.csv").read_text(encoding="utf-8-sig").splitlines()) == 1 + 2 * 4
+        assert _chay(tmp, hom_sau, datetime(2026, 10, 26, 9, 30))[0] == ["FUESSV30"]
+        assert json.loads((Path(tmp) / "da_bao.json").read_text(encoding="utf-8")) == {"FUESSV30": "2026-10-26"}
+        assert (
+            len((Path(tmp) / "inav_2026-10-23.csv").read_text(encoding="utf-8-sig").splitlines()) == 1 + 2 * 2 + 3 * 2
+        )  # 2 lần 2 quỹ, 2 lần 3 quỹ
 
 
 def test_lay_ssi_chi_nhan_ma_hop_le():

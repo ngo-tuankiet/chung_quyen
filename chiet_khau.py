@@ -2,7 +2,7 @@
 chiet_khau.py - ETF đang giao dịch dưới NAV (chiết khấu): so giá chào bán tốt nhất với iNAV (NAV ước tính trong phiên),
 chênh lệch giá/NAV trong quá khứ của chính quỹ, mức bám chỉ số tính bằng NAV.
 
-Chạy:   python chiet_khau.py --trong-phien   launchd gọi mỗi 5 phút (kiem_tra_chiet_khau.sh): ghi iNAV vào
+Chạy:   python chiet_khau.py --trong-phien   launchd gọi mỗi 5 phút (kiem_tra_chiet_khau.sh): giữ máy thức 9:00–14:45, ghi iNAV vào
                                              ket_qua/inav_YYYY-MM-DD.csv, báo Discord khi có quỹ đạt ngưỡng.
                                              Ngoài giờ khớp lệnh hoặc ngày nghỉ: thoát ngay.
         Bảng chiết khấu nằm trong báo cáo ETF 9:40 (etf.py dùng các hàm ở đây).
@@ -14,8 +14,9 @@ import csv
 import json
 import math
 import re
+import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, time
 
 import pandas as pd
 
@@ -46,9 +47,16 @@ SAI_LECH_NAV_TOI_DA = 0.005
 SO_PHIEN_SO_GAI = 5
 MAU_MA_QUY = re.compile(r"[A-Z0-9]{3,12}")  # mã do API trả về / URL đưa vào phải đúng dạng này mới dùng
 # Cảnh báo trong phiên: chỉ bật khi iNAV của SSI cập nhật trong phiên (iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo).
-# Đo phiên 23/10/2026 (ket_qua/inav_2026-10-23.csv): 16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần ghi -> bật thử
-# 1 tuần (23–30/10/2026) rồi xem lại. FUEIP100 thường chiết khấu ~5% nên có thể báo gần như mỗi ngày.
+# Đo phiên 23/10/2026 (ket_qua/inav_2026-10-23.csv): 16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần ghi -> bật.
 BAT_CANH_BAO_TRONG_PHIEN = True
+# Từ 23/10/2026 (người dùng chốt, thay cảnh báo "lãi ròng nếu về NAV ≥ 2%"): báo khi có ≥ MIN_GIA_TRI_CHAO_BAN đang chào bán
+# ở giá ≤ iNAV × (1 − NGUONG_GIAM_SO_INAV), trừ quỹ mà trung vị giá/NAV 1 năm đã ≤ −ngưỡng (FUEIP100 ~−4,6%, FUEFCV50 ~−7,6%:
+# rẻ như vậy là bình thường của chúng, không phải bất thường). Mỗi quỹ tối đa 1 tin/ngày.
+NGUONG_GIAM_SO_INAV = 0.02
+# Máy Mac tự ngủ (chạy pin, ngủ sau 1 phút) làm lỡ lần quét: 23/10/2026 ngủ 08:10–10:06, 13:07–13:53. Người dùng chọn để lịch
+# 5 phút giữ máy thức trong khung này (cả nghỉ trưa), mỗi lần thêm GIU_THUC_GIAY > 5 phút để nối liền lần sau
+GIU_MAY_THUC = (time(9, 0), time(14, 45))
+GIU_THUC_GIAY = 360
 FILE_DA_BAO = C.THU_MUC / "canh_bao_chiet_khau.json"
 SO_QUY_TUT = 5  # báo cáo: số quỹ tụt sâu nhất so với chỉ số liệt kê
 
@@ -106,8 +114,10 @@ def danh_gia_quy(bg):
     }
 
 
-def dat_nguong(dg):
-    return dg["Mua được đạt ngưỡng (đ)"] >= MIN_GIA_TRI_CHAO_BAN
+def gia_tri_duoi_inav(bg, nguong=NGUONG_GIAM_SO_INAV):
+    """Tổng giá trị (đồng) đang chào bán ở các mức giá ≤ iNAV × (1 − nguong) trong 3 mức tốt nhất. Không có iNAV -> 0."""
+    inav = bg.get("iNAV") or 0
+    return float(sum(g * v for g, v in muc_chao_ban(bg) if inav > 0 and g <= inav * (1 - nguong)))
 
 
 def lam_sach_nav(dong):
@@ -285,23 +295,32 @@ def ghi_inav(ssi, luc):
 
 
 def noi_dung_canh_bao(dat, luc, tham_khao=None):
-    """tham_khao: {mã: (trung vị chênh lệch giá/NAV 1 năm %, GTGD TB20 tỷ)} từ báo cáo ETF gần nhất."""
+    """dat: [(mã, danh_gia_quy, giá trị chào bán dưới ngưỡng đ)]; tham_khao: {mã: (trung vị chênh lệch giá/NAV 1 năm %,
+    GTGD TB20 tỷ)} từ báo cáo ETF gần nhất."""
     tham_khao = tham_khao or {}
-    return f"**💰 ETF dưới NAV** ({luc:%H:%M %d/%m})\n" + "\n".join(
-        f"🟢 **{ma}**: chào bán {D.so(dg['Giá chào bán'])} × {D.so(dg['KL chào bán'])} CCQ, iNAV {D.so(dg['iNAV'])} "
-        f"({_p(dg['Chiết khấu mua được %'])}) · lãi ròng nếu về NAV {_p(dg['Lãi ròng nếu về NAV %'])} · "
-        f"mua được {D.so(dg['Mua được đạt ngưỡng (đ)'] / 1e6)} triệu ở mức đạt ngưỡng"
+    return f"**🔻 ETF giảm bất thường so với iNAV** ({luc:%H:%M %d/%m})\n" + "\n".join(
+        f"🔻 **{ma}**: chào bán {D.so(dg['Giá chào bán'])} × {D.so(dg['KL chào bán'])} CCQ, iNAV {D.so(dg['iNAV'])} "
+        f"({_p(dg['Chiết khấu mua được %'])}) · có {D.so(gia_tri / 1e6)} triệu chào bán ở giá ≤ iNAV −{NGUONG_GIAM_SO_INAV:.0%}"
         + (
             f" · thường lệch NAV {_p(tham_khao[ma][0])} (trung vị 1 năm) · GTGD TB20 {_ty(tham_khao[ma][1])} tỷ"
             if ma in tham_khao
-            else ""
+            else " · chưa rõ mức thường lệch NAV"
         )
-        for ma, dg in dat
+        for ma, dg, gia_tri in dat
     )
 
 
+def giu_may_thuc(luc=None):
+    """Trong GIU_MAY_THUC thứ Hai–Sáu: chặn máy tự ngủ GIU_THUC_GIAY giây (lần chạy 5 phút sau gia hạn tiếp).
+    Phiên riêng (start_new_session): launchd giết cả nhóm tiến trình khi lần chạy kết thúc. Không đánh thức được máy đã ngủ;
+    gập nắp máy vẫn ngủ. shortcut: ngày lễ trong tuần vẫn giữ thức, cần thì kiểm tra la_ngay_giao_dich trước."""
+    luc = luc or datetime.now()
+    if luc.weekday() < 5 and GIU_MAY_THUC[0] <= luc.time() <= GIU_MAY_THUC[1]:
+        subprocess.Popen(["/usr/bin/caffeinate", "-i", "-t", str(GIU_THUC_GIAY)], start_new_session=True)
+
+
 def kiem_tra_trong_phien(luon=False, luc=None):
-    """Lần chạy 5 phút: ghi iNAV; nếu đã bật cảnh báo thì báo Discord quỹ vừa đạt ngưỡng (mỗi quỹ tối đa 1 tin/ngày).
+    """Lần chạy 5 phút: ghi iNAV; nếu đã bật cảnh báo thì báo Discord quỹ giảm bất thường so với iNAV (mỗi quỹ tối đa 1 tin/ngày).
     Trả về danh sách mã đã báo."""
     luc = luc or datetime.now()
     if not luon and not D.trong_gio_khop_lenh(luc):
@@ -315,31 +334,40 @@ def kiem_tra_trong_phien(luon=False, luc=None):
     hom_nay = str(luc.date())
     da_bao = json.loads(FILE_DA_BAO.read_text(encoding="utf-8")) if FILE_DA_BAO.exists() else {}
     da_bao = {ma: ngay for ma, ngay in da_bao.items() if ngay == hom_nay}
-    danh_gia = {ma: danh_gia_quy(bg) for ma, bg in sorted(ssi.items()) if ma not in da_bao}
-    dat = [(ma, dg) for ma, dg in danh_gia.items() if dat_nguong(dg)]
+    gia_tri = {ma: gia_tri_duoi_inav(bg) for ma, bg in sorted(ssi.items()) if ma not in da_bao}
+    gia_tri = {ma: g for ma, g in gia_tri.items() if g >= MIN_GIA_TRI_CHAO_BAN}
+    if not gia_tri:
+        return []
+    from etf import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (etf.py dùng chiet_khau.py)
+
+    df, _ = doc_ket_qua()
+    tham_khao = (
+        {h["Mã"]: (h["CL NAV trung vị 1N %"], h["GTGD TB20 (tỷ)"]) for _, h in df.iterrows()} if df is not None else {}
+    )
+    # quỹ thường đã rẻ hơn NAV từ ngưỡng trở lên: không phải bất thường. Chưa rõ mức thường (NaN, chưa có báo cáo) -> vẫn báo
+    dat = [
+        (ma, danh_gia_quy(ssi[ma]), g)
+        for ma, g in gia_tri.items()
+        if not tham_khao.get(ma, (math.nan,))[0] <= -NGUONG_GIAM_SO_INAV * 100
+    ]
     if dat:
         url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
         if not url:
-            print(f"{luc:%d/%m %H:%M} [!] Có {len(dat)} quỹ dưới NAV nhưng chưa có DISCORD_WEBHOOK_URL trong .env")
+            print(
+                f"{luc:%d/%m %H:%M} [!] Có {len(dat)} quỹ giảm bất thường nhưng chưa có DISCORD_WEBHOOK_URL trong .env"
+            )
             return []  # không lưu trạng thái: có webhook rồi thì lần sau vẫn báo
-        from etf import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (etf.py dùng chiet_khau.py)
-
-        df, _ = doc_ket_qua()
-        tham_khao = (
-            {h["Mã"]: (h["CL NAV trung vị 1N %"], h["GTGD TB20 (tỷ)"]) for _, h in df.iterrows()}
-            if df is not None
-            else {}
-        )
         for tin in D.chia_tin(noi_dung_canh_bao(dat, luc, tham_khao)):
             D.gui_discord(tin, url)
-        print(f"{luc:%d/%m %H:%M} Đã báo {len(dat)} quỹ dưới NAV: " + ", ".join(ma for ma, _ in dat))
+        print(f"{luc:%d/%m %H:%M} Đã báo {len(dat)} quỹ giảm bất thường: " + ", ".join(ma for ma, *_ in dat))
         FILE_DA_BAO.write_text(
-            json.dumps({**da_bao, **{ma: hom_nay for ma, _ in dat}}), encoding="utf-8"
+            json.dumps({**da_bao, **{ma: hom_nay for ma, *_ in dat}}), encoding="utf-8"
         )  # lưu sau khi gửi được: gửi lỗi thì lần sau gửi lại
-    return [ma for ma, _ in dat]
+    return [ma for ma, *_ in dat]
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if "--trong-phien" in sys.argv:
+        giu_may_thuc()
         kiem_tra_trong_phien(luon="--luon" in sys.argv)

@@ -467,10 +467,17 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 - Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **9:40 thứ Hai–Sáu**, giữa phiên sáng; trước 23/10/2026
   là 15:30; ngày nghỉ bỏ qua, lỗi thì thử lại 2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
 - Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).
-  **Cảnh báo Discord trong phiên đang bật thử 1 tuần, 23–30/10/2026** (`BAT_CANH_BAO_TRONG_PHIEN = True` trong `chiet_khau.py`): phiên 23/10
-  đã xác nhận iNAV của SSI cập nhật trong phiên (16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần) — iNAV đứng yên mà giá chạy thì
-  "chiết khấu" là ảo. Mỗi quỹ tối đa 1 tin/ngày (trạng thái trong `canh_bao_chiet_khau.json`); FUEIP100 thường chiết khấu ~5% nên có thể báo
-  gần như mỗi ngày. Ngày 30/10 xem lại số tin và có mua được ở giá báo không, rồi quyết định giữ hay tắt.
+  **Cảnh báo Discord trong phiên: 🔻 ETF giảm bất thường so với iNAV** (`BAT_CANH_BAO_TRONG_PHIEN = True`; tiêu chí người dùng chốt 23/10/2026,
+  thay cảnh báo cũ "lãi ròng nếu về NAV ≥ 2%"): báo khi có ≥ 5 triệu (`MIN_GIA_TRI_CHAO_BAN`) đang chào bán ở giá ≤ iNAV × (1 − 2%)
+  (`NGUONG_GIAM_SO_INAV`) trong 3 mức chào bán tốt nhất, **trừ quỹ thường đã rẻ như vậy** (trung vị giá/NAV 1 năm ≤ −2% trong báo cáo ETF
+  gần nhất: FUEIP100 ~−4,6%, FUEFCV50 ~−7,6%); quỹ chưa rõ mức thường vẫn báo. Ví dụ tính tay: iNAV 10.000, chào bán 9.700 × 300, 9.750 × 500,
+  9.900 × 1.000 → mức ≤ 9.800: 2,91 + 4,875 = 7,785 triệu ≥ 5 triệu → báo. Mỗi quỹ tối đa 1 tin/ngày (trạng thái `canh_bao_chiet_khau.json`):
+  lần đầu trong ngày quỹ xuống dưới ngưỡng chính là lúc "đột nhiên", nên không so thêm với lần quét trước. iNAV của SSI đã xác nhận cập nhật trong
+  phiên 23/10 (iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo).
+- **Máy ngủ = lỡ lần quét**: launchd không chạy khi Mac ngủ (23/10/2026 máy chạy pin, ngủ 08:10–10:06 và 13:07–13:53 nên không có lần quét nào).
+  Lần chạy 5 phút giữ máy thức (`caffeinate -i`, `GIU_MAY_THUC` 9:00–14:45 thứ Hai–Sáu, cả nghỉ trưa, mỗi lần 6 phút): chỉ có tác dụng khi máy
+  đang thức lúc 9:00 — không đánh thức được máy đã ngủ, gập nắp vẫn ngủ, tốn pin; ngày lễ trong tuần vẫn giữ thức. Muốn máy tự thức trước phiên,
+  bạn tự chạy trong Terminal (lệnh hệ thống, cần mật khẩu): `sudo pmset repeat wakeorpoweron MTWRF 08:55:00`.
 - Web: trang **📊 ETF** (`/etf`): bảng chiết khấu (xếp theo lãi ròng), bảng chỉ số, bảng toàn bộ quỹ; bấm một quỹ để xem chênh lệch giá/NAV 1 năm
   và giá + MA50/MA200.
 
