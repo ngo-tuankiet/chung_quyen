@@ -647,6 +647,25 @@ def bao_cao_ngay(df, ngay_quet, dong, canh_bao, lai_da_chot, luc, moi_vao=None, 
         + "\n"
         + GHI_CHU_CW
     )
+    # 5b. Lướt 2–5 phiên: CW hiệu quả nhất nếu bạn đã chọn hướng CS (Python không đoán hướng CS)
+    luot = C.chon_luot(df, ngay_quet)[0].head(SO_MA_NOI_BAT) if "Lướt: CS cần tăng %" in df else df.iloc[0:0]
+    if len(luot):
+        dau = lambda x: f"{x:+.1f}%".replace(".", ",")
+        phan.append(
+            f"⚡ **Top {len(luot)} CW lướt {C.SO_PHIEN_GIU} phiên** (bạn chọn hướng CS; xếp theo CS cần tăng ít nhất)\n"
+            + bang(
+                ["Mã CW", "CS", "Giá", "Cần", "Lãi", "ĐB"],
+                [
+                    [h["Mã CW"], h["Mã CS"], so(h["Giá mua"]), dau(h["Lướt: CS cần tăng %"])]
+                    + [dau(h["Lướt: lãi kịch bản %"]), _x(h["Đòn bẩy"])]
+                    for _, h in luot.iterrows()
+                ],
+            )
+            + f"\n_Cần = CS phải tăng trong {C.SO_PHIEN_GIU} phiên để hòa vốn (mua giá chào bán, bán giá chờ mua, sau phí, thuế"
+            f" và mất giá theo thời gian; IV giữ nguyên) · Lãi = nếu CS +{C.KICH_BAN_TANG:.0%} · đã loại CW spread > "
+            f"{C.MAX_SPREAD_LUOT:.0%}, bên mua < {so(C.MIN_BEN_MUA_LUOT / 1e6)} triệu, còn < {C.MIN_NGAY_GD_CUOI_LUOT} ngày"
+            " tới GD cuối · xem đủ ở trang ⚡ Lướt CW_"
+        )
     if "Cảnh báo" in df and (df["Cảnh báo"].fillna("") != "").any():
         phan.append(
             "❗ **IV bất thường**\n"

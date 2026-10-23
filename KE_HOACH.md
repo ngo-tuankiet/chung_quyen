@@ -331,6 +331,47 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 
 ---
 
+## Phần 7b. Lướt CW 2–5 phiên (trang **⚡ Lướt CW**, báo cáo 14:00)
+
+Mục đích: bạn tự nhận định cổ phiếu cơ sở nào sắp tăng; công cụ chỉ ra **CW nào rẻ và hiệu quả nhất** để đặt cược đó trong 2–5 phiên,
+lệnh dưới 20 triệu. **Python không đoán hướng cổ phiếu** — CW không tạo ra lợi thế, nó khuếch đại biến động của cổ phiếu theo cả 2 chiều,
+và bạn trả tiền thời gian, spread, IV cho việc đó.
+
+**Ngoài hướng đi của cổ phiếu, giá CW lên/xuống vì đâu** (Black-Scholes của `cw_scanner.py`, S = 100, σ = 30%, r = 4%; % không phụ thuộc tỷ lệ chuyển đổi):
+
+| CW | Đòn bẩy (CS +1% thì CW) | Mất giá 1 ngày (CS đứng yên) | IV +1 điểm thì CW |
+|---|---|---|---|
+| ngang giá, còn 120 ngày | +7,7% | −0,45% | +3,0% |
+| ngang giá, còn 60 ngày | +10,9% | −0,89% | +3,1% |
+| ngang giá, còn 30 ngày | +15,5% | −1,75% | +3,2% |
+| ngang giá, còn 10 ngày | +27,4% | −5,26% | +3,2% |
+| K cao hơn giá CS 10%, còn 60 ngày | +15,4% | −2,03% | +7,6% |
+| K thấp hơn giá CS 10%, còn 60 ngày | +7,2% | −0,28% | +0,9% |
+
+Thứ tự quan trọng: (1) đòn bẩy/delta, (2) mất giá theo thời gian, (3) IV — giá tổ chức phát hành đang yết, (4) tổ chức phát hành (spread,
+độ sâu bên mua, phát hành thêm), (5) phí 0,15% × 2 + thuế 0,1%, (6) sự kiện (KQKD, GDKHQ, 5 phiên trước đáo hạn), (7) lãi suất (rất nhỏ).
+
+**Thứ tự ưu tiên khi chọn CW để lướt** (`chon_luot`, ngưỡng ở đầu `cw_scanner.py`)
+1. Loại CW khó thoát lệnh: không có người chào bán hoặc chờ mua; tổng chờ mua 3 bước giá < 20 triệu (`MIN_BEN_MUA_LUOT`);
+   spread = (chào bán − chờ mua) / giá giữa > 5% (`MAX_SPREAD_LUOT`); còn < 20 ngày lịch tới ngày GD cuối (`MIN_NGAY_GD_CUOI_LUOT`).
+2. **CS cần tăng bao nhiêu trong 5 phiên để hòa vốn** (xếp theo cột này, `luot_ngan_han`): mua 1 CW ở giá chào bán × (1 + phí); sau 5 phiên
+   (`SO_PHIEN_GIU`, ≈ 7 ngày lịch) bán theo giá Black-Scholes với **IV giải ngược từ giá chờ mua hôm nay** (giả định IV giữ nguyên) × (1 − phí − thuế).
+   Tìm giá CS để hai vế bằng nhau (chia đôi). Gộp sẵn đòn bẩy, mất giá theo thời gian, spread, phí, thuế. Tính tay: CW sâu trong tiền, S 30.000,
+   K 20.000, tỷ lệ 2, chờ mua ≈ 5.000, chào bán 5.100 → CW phải bán được 5.100 × 1,0015 / 0,9975 = 5.120,45 → S = 20.000 + 2 × 5.120,45 = 30.240,9 (+0,80%).
+3. Lãi nếu CS tăng 5% trong 5 phiên (`KICH_BAN_TANG`), cùng giả định.
+4. IV − HV và IV so với trung vị các CW cùng mã: cao = đắt, IV giảm về thì CW mất giá dù CS tăng.
+5. Khối lượng chào bán của tổ chức phát hành còn nhiều thì giá khó lên nhanh.
+
+Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bước (triệu), Mất giá/ngày %, Lướt: CS cần tăng %, Lướt: lãi kịch bản %.
+Quét thật 23/10/2026 10:31: 333 CW, 229 lướt được, 104 bị loại (68 spread > 5%, 58 bên mua < 20 triệu, 18 sắp hết hạn, 11 không có người chờ mua);
+đứng đầu CVPB2615 (CS cần +0,37%, CS +5% thì lãi +44%), cuối bảng là CW IV rất cao (CSHB2609 IV − HV +159 điểm: CS +5% vẫn lỗ 8,7%).
+
+**Giới hạn**: IV có thể đổi trong 5 phiên (tổ chức phát hành yết lại); sổ lệnh lúc quét khác lúc đặt lệnh (trang chi tiết CW định giá lại
+theo giá trực tiếp); mua phiên T thì sớm nhất chiều T+2 mới bán được; đòn bẩy cao cũng là lỗ nhanh. Chưa backtest: chưa biết CW xếp đầu có thật
+sự lời hơn khi CS chạy cùng mức (bước sau, lập plan riêng).
+
+---
+
 ## Phần 8. Theo dõi quỹ ETF (`etf.py`, `chiet_khau.py`)
 
 **Mục tiêu** (chốt 22/10/2026): tìm ETF đang **giao dịch dưới NAV** để lướt vài ngày–vài tuần, mỗi lệnh dưới 50 triệu. So theo

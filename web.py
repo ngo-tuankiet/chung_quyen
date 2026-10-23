@@ -301,6 +301,7 @@ def trang(tieu_de, than, duong_dan=""):
         for dd, ten in (
             ("/", "Danh sách chứng quyền"),
             ("/danh-muc", "💼 Danh mục"),
+            ("/luot-cw", "⚡ Lướt CW"),
             ("/etf", "📊 ETF"),
             ("/sap-ra-mat", "🆕 CW sắp ra mắt"),
             ("/huong-dan", "❓ Hướng dẫn sử dụng"),
@@ -322,6 +323,16 @@ def doc_von(duong_dan):
     return int(chuoi) if chuoi.isdigit() and 1 <= int(chuoi) <= 10_000 else VON_MAC_DINH
 
 
+COT_SO_LUOT = (  # cột số của phần lướt sóng (cw_scanner.dinh_gia); ô trống = không tính được
+    "Giá chờ mua",
+    "Spread %",
+    "Bên mua 3 bước (triệu)",
+    "Mất giá/ngày %",
+    "Lướt: CS cần tăng %",
+    "Lướt: lãi kịch bản %",
+)
+
+
 def doc_ket_qua():
     """(bảng kết quả mới nhất, ngày quét) hoặc (None, None) nếu chưa quét lần nào."""
     cac_file = sorted(cw_scanner.THU_MUC_KET_QUA.glob("cw_*.csv"))
@@ -332,7 +343,7 @@ def doc_ket_qua():
         cac_file[-1],
         encoding="utf-8-sig",
         keep_default_na=False,
-        na_values={"IV %": [""], "IV − HV": [""], "IV cùng mã %": [""]},
+        na_values={c: [""] for c in ("IV %", "IV − HV", "IV cùng mã %", *COT_SO_LUOT)},
     )
     for cot in (
         "KL niêm yết",
@@ -342,6 +353,7 @@ def doc_ket_qua():
         "IV %",
         "IV − HV",
         "IV cùng mã %",
+        *COT_SO_LUOT,
     ):  # file quét bằng bản cũ chưa có các cột này -> hiện "—"
         if cot not in df:
             df[cot] = math.nan
@@ -1654,21 +1666,22 @@ COT_CK = [
 ]
 
 
-def bang_etf(df, cot, la_quy, id_bang=""):
-    """Bảng chỉ số / quỹ ETF; bấm tiêu đề để sắp xếp, bấm vào quỹ để xem biểu đồ."""
+def bang_etf(df, cot, la_quy, id_bang="", cot_ma="Mã", lien_ket="/etf/", ten_ma=None):
+    """Bảng số theo danh sách cột (dùng cho ETF và trang Lướt CW); bấm tiêu đề để sắp xếp, bấm vào mã để mở trang chi tiết
+    (la_quy: có liên kết lien_ket + mã)."""
     dau = "".join(
         f'<th class="{"" if le is None else "so"}"><button type="button" title="{ESC(gt)} (Bấm để sắp xếp.)">{ESC(td)}</button></th>'
         for _, td, le, _, _, gt in cot
     )
     dong = []
     for _, h in df.iterrows():
-        ma = ESC(h["Mã"])
+        ma = ESC(h[cot_ma])
         chip = (
             f'<span class="chip" style="color:var(--chu-am)" title="{ESC(h["Cảnh báo"])}" aria-label="Cảnh báo: {ESC(h["Cảnh báo"])}">⚠</span>'
             if h["Cảnh báo"]
             else ""
         )
-        o = [f'<td><a href="/etf/{ma}">{ma}</a>{chip}</td>' if la_quy else f"<td>{ma}{chip}</td>"]
+        o = [f'<td><a href="{lien_ket}{ma}">{ma}</a>{chip}</td>' if la_quy else f"<td>{ma}{chip}</td>"]
         for c, _, le, co_dau, hau_to, _ in cot:
             v = h[c]
             if le is None:
@@ -1678,11 +1691,11 @@ def bang_etf(df, cot, la_quy, id_bang=""):
             else:
                 lop = (" duong" if v > 0 else " am" if v < 0 else "") if co_dau else ""
                 o.append(f'<td class="so{lop}" data-v="{v}">{so(v, le, co_dau)}{hau_to}</td>')
-        href = f' data-href="/etf/{ma}"' if la_quy else ""
+        href = f' data-href="{lien_ket}{ma}"' if la_quy else ""
         dong.append(f'<tr{href}>{"".join(o)}</tr>')
     return (
         f'<table{f" id={id_bang}" if id_bang else ""}><thead><tr><th><button type="button" title="Bấm để sắp xếp.">'
-        f'{"Quỹ" if la_quy else "Chỉ số"}</button></th>{dau}</tr></thead><tbody>{"".join(dong)}</tbody></table>'
+        f'{ten_ma or ("Quỹ" if la_quy else "Chỉ số")}</button></th>{dau}</tr></thead><tbody>{"".join(dong)}</tbody></table>'
     )
 
 
@@ -1854,6 +1867,115 @@ def trang_etf_chi_tiet(ma):
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")
 
 
+# ============ LƯỚT CW ============
+COT_LUOT = [
+    ("Mã CS", "Mã CS", None, False, "", "Cổ phiếu cơ sở: hướng đi của nó là phần bạn tự nhận định"),
+    (
+        "Lướt: CS cần tăng %",
+        f"CS cần tăng ({cw_scanner.SO_PHIEN_GIU} phiên)",
+        2,
+        True,
+        "%",
+        (
+            f"Ưu tiên 2 (xếp theo cột này): CS phải tăng bao nhiêu trong {cw_scanner.SO_PHIEN_GIU} phiên để hòa vốn — mua ở giá "
+            "chào bán + phí, bán ở mức giá chờ mua − phí, thuế, CW mất giá theo thời gian; IV giữ nguyên. Càng thấp càng tốt"
+        ),
+    ),
+    (
+        "Lướt: lãi kịch bản %",
+        f"Lãi nếu CS +{cw_scanner.KICH_BAN_TANG:.0%}",
+        1,
+        True,
+        "%",
+        (
+            f"Ưu tiên 3: lãi sau phí, thuế nếu CS tăng {cw_scanner.KICH_BAN_TANG:.0%} trong {cw_scanner.SO_PHIEN_GIU} phiên "
+            "(cùng giả định); CS đứng yên hoặc giảm thì lỗ tương ứng"
+        ),
+    ),
+    (
+        "Đòn bẩy",
+        "Đòn bẩy",
+        1,
+        False,
+        "x",
+        "CS +1% thì CW tăng khoảng bấy nhiêu % (theo giá mua); lỗ cũng nhanh như vậy",
+    ),
+    ("Mất giá/ngày %", "Mất giá/ngày", 2, True, "%", "CW mất bao nhiêu mỗi ngày nếu CS và IV đứng yên"),
+    (
+        "IV − HV",
+        "IV − HV",
+        1,
+        True,
+        "",
+        "Ưu tiên 4: IV (theo giá mua) − biến động lịch sử, điểm %: cao = đắt, IV giảm về thì CW mất giá dù CS tăng",
+    ),
+    (
+        "IV cùng mã %",
+        "IV TV cùng mã",
+        0,
+        False,
+        "%",
+        "Trung vị IV các CW khác cùng mã CS: IV của CW này cao hơn = đắt hơn",
+    ),
+    ("Giá mua", "Chào bán", 0, False, "", "Giá chào bán thấp nhất lúc quét: giá mua được ngay"),
+    ("Giá chờ mua", "Chờ mua", 0, False, "", "Giá chờ mua cao nhất lúc quét: giá bán ra được ngay"),
+    ("Spread %", "Spread", 1, False, "%", "(chào bán − chờ mua) / giá giữa"),
+    ("Bên mua 3 bước (triệu)", "Bên mua (tr)", 1, False, "", "Tổng giá trị chờ mua ở 3 bước giá: chỗ để bán ra"),
+    ("KL chào bán", "KL chào bán", 0, False, "", "Ưu tiên 5: còn nhiều = TCPH sẵn hàng, giá khó lên nhanh"),
+    ("Ngày GD cuối", "GD cuối", None, False, "", "Sau ngày này không bán được"),
+    ("TCPH", "TCPH", None, False, "", "Tổ chức phát hành (bên yết giá chính)"),
+]
+
+
+def trang_luot():
+    df, ngay = doc_ket_qua()
+    phan = ["<h1>⚡ Lướt CW 2–5 phiên</h1>"]
+    if df is None:
+        phan.append(
+            '<div class="the"><p>Chưa có kết quả quét. Bấm <b>Quét ngay</b> ở <a href="/">trang chính</a>.</p></div>'
+        )
+        return trang("Lướt CW", "".join(phan), "/luot-cw")
+    dat, loai = cw_scanner.chon_luot(df, ngay)
+    C = cw_scanner
+    phan.append(
+        f'<p class="phu">Số liệu lần quét {ngay:%d/%m/%Y} (sổ lệnh lúc quét; bấm vào mã để định giá lại theo giá trực tiếp). '
+        f"Python <b>không đoán hướng cổ phiếu</b>: bạn chọn mã CS mình nhận định sẽ tăng, trang này chỉ ra CW nào rẻ và hiệu quả "
+        f"nhất để đặt cược đó.</p>"
+        '<details class="the" open><summary>Thứ tự ưu tiên khi chọn CW để lướt</summary><ol>'
+        f"<li><b>Loại CW khó thoát lệnh:</b> không có người chào bán / chờ mua, bên mua dưới {so(C.MIN_BEN_MUA_LUOT / 1e6)} triệu, "
+        f"spread trên {C.MAX_SPREAD_LUOT:.0%}, còn dưới {C.MIN_NGAY_GD_CUOI_LUOT} ngày tới ngày GD cuối.</li>"
+        f"<li><b>CS cần tăng ít nhất để hòa vốn trong {C.SO_PHIEN_GIU} phiên</b> (bảng xếp theo cột này): đã gồm đòn bẩy, mất giá "
+        "theo thời gian, spread, phí, thuế.</li>"
+        f"<li><b>Lãi nếu CS tăng {C.KICH_BAN_TANG:.0%}</b>: CW nào khuếch đại tốt nhất sau chi phí.</li>"
+        "<li><b>IV:</b> IV − HV cao hoặc IV cao hơn các CW cùng mã = đắt, IV giảm về thì CW mất giá dù CS tăng.</li>"
+        "<li><b>Tổ chức phát hành:</b> khối lượng chào bán còn rất nhiều hoặc vừa phát hành thêm thì giá khó lên.</li></ol>"
+        f'<p class="phu">Giả định IV giữ nguyên {C.SO_PHIEN_GIU} phiên; mua phiên T thì sớm nhất chiều T+2 mới bán được. '
+        "Đòn bẩy cao cũng là lỗ nhanh.</p></details>"
+    )
+    if dat["Lướt: CS cần tăng %"].isna().all() and loai["Lướt: CS cần tăng %"].isna().all():
+        phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở trang chính.</p>')
+    phan.append(
+        f'<section class="the"><h2>Lướt được ({len(dat)} CW)</h2>'
+        '<input type="search" data-loc="#bang-luot" placeholder="Lọc theo mã cổ phiếu hoặc mã CW (vd: VPB, HPG)" '
+        'aria-label="Lọc CW theo mã">'
+        f'<div class="cuon cao">{bang_etf(dat, COT_LUOT, True, "bang-luot", "Mã CW", "/cw/", "Mã CW")}</div></section>'
+    )
+    phan.append(
+        f'<details class="the"><summary>Bị loại ({len(loai)} CW) và lý do</summary><div class="cuon cao">'
+        + bang_etf(
+            loai,
+            [("Mã CS", "Mã CS", None, False, "", "Cổ phiếu cơ sở"), ("Lý do loại lướt", "Lý do", None, False, "", "")],
+            True,
+            "",
+            "Mã CW",
+            "/cw/",
+            "Mã CW",
+        )
+        + "</div></details>"
+    )
+    return trang("Lướt CW", "".join(phan), "/luot-cw")
+
+
 def nguon_hop_le(headers):
     """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này."""
     nguon = headers.get("Origin") or headers.get("Referer") or ""
@@ -1867,24 +1989,28 @@ class XuLy(BaseHTTPRequestHandler):
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
         noi_dung = (
-            trang_etf()
-            if duong_dan == "/etf"
+            trang_luot()
+            if duong_dan == "/luot-cw"
             else (
-                trang_etf_chi_tiet(m_etf.group(1))
-                if m_etf
+                trang_etf()
+                if duong_dan == "/etf"
                 else (
-                    trang_chinh()
-                    if duong_dan == "/"
+                    trang_etf_chi_tiet(m_etf.group(1))
+                    if m_etf
                     else (
-                        trang_huong_dan()
-                        if duong_dan == "/huong-dan"
+                        trang_chinh()
+                        if duong_dan == "/"
                         else (
-                            trang_danh_muc()
-                            if duong_dan == "/danh-muc"
+                            trang_huong_dan()
+                            if duong_dan == "/huong-dan"
                             else (
-                                trang_sap_ra_mat("tai_moi=1" in self.path)
-                                if duong_dan == "/sap-ra-mat"
-                                else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                trang_danh_muc()
+                                if duong_dan == "/danh-muc"
+                                else (
+                                    trang_sap_ra_mat("tai_moi=1" in self.path)
+                                    if duong_dan == "/sap-ra-mat"
+                                    else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                )
                             )
                         )
                     )

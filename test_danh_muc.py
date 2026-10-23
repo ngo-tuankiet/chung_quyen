@@ -568,6 +568,34 @@ def test_bao_cao_ngay():
     assert all(len(t) <= 500 for t in tin) and "\n".join(tin).replace("\n", "") == (bc * 5).replace("\n", "")
 
 
+def test_bao_cao_co_top_luot():
+    df = pd.DataFrame(
+        {
+            "Mã CW": ["CA", "CB", "CC"],
+            "Mã CS": ["VPB", "HPG", "FPT"],
+            "Đánh giá": ["THEO DÕI"] * 3,
+            "Giá mua": [1_200, 800, 500],
+            "Nguồn giá mua": ["ask", "ask", "ask"],
+            "Giá chờ mua": [1_190, 790, 480],
+            "Spread %": [0.8, 1.3, 4.1],
+            "Bên mua 3 bước (triệu)": [80.0, 50.0, 5.0],  # CC: bên mua 5 triệu < 20 triệu -> loại
+            "Ngày GD cuối": ["2027-01-15"] * 3,
+            "Ngày còn lại": [90] * 3,
+            "Lướt: CS cần tăng %": [1.25, 0.9, 0.5],
+            "Lướt: lãi kịch bản %": [30.0, 38.5, 60.0],
+            "Đòn bẩy": [8.0, 9.5, 14.0],
+        }
+    )
+    bc = D.bao_cao_ngay(df, HOM_NAY, [], [], 0, datetime(2026, 10, 19, 14, 0))
+    muc = bc[bc.index("⚡ **Top 2 CW lướt 5 phiên**") :]
+    hang = [d.split() for d in muc.splitlines() if d[:2] in ("CA", "CB", "CC")]
+    assert hang == [["CB", "HPG", "800", "+0,9%", "+38,5%", "9,5x"], ["CA", "VPB", "1.200", "+1,2%", "+30,0%", "8,0x"]]
+    assert "bên mua < 20 triệu" in muc and muc.count("```") % 2 == 0
+    assert "⚡" not in D.bao_cao_ngay(
+        df.drop(columns=["Lướt: CS cần tăng %"]), HOM_NAY, [], [], 0, datetime(2026, 10, 19, 14, 0)
+    )
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

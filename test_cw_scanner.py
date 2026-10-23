@@ -112,6 +112,77 @@ def test_dinh_gia_cvpb2615():
     assert math.isnan(kq["IV %"]) and kq["Ghi chú IV"].startswith("giá mua dưới mức tối thiểu")
     assert kq["Đánh giá"] == "NÊN XEM XÉT"  # dưới mức tối thiểu được tính là đạt tiêu chí 2
     assert kq["Ngày GD cuối"] == "2027-02-15"
+    # sổ lệnh mẫu không có người chờ mua -> không bán ra được ngay: không tính lướt
+    assert math.isnan(kq["Giá chờ mua"]) and math.isnan(kq["Lướt: CS cần tăng %"]) and kq["Bên mua 3 bước (triệu)"] == 0
+
+
+def test_gia_cho_mua_va_gia_tri_ben():
+    so_lenh = {
+        "bidPrices": [{"price": 990, "volume": 10_000}, {"price": "ATC", "volume": 500}, {"price": 980, "volume": None}]
+    }
+    assert cw_scanner.gia_cho_mua(so_lenh) == 990 and cw_scanner.gia_cho_mua({}) is None
+    assert cw_scanner.gia_tri_ben(so_lenh, "bidPrices") == 9_900_000  # 990 × 10.000; mức chữ / không khối lượng bỏ qua
+
+
+def test_so_ngay_lich():
+    assert cw_scanner.so_ngay_lich(date(2026, 10, 23), 5) == 7  # thứ Sáu + 5 phiên = thứ Sáu tuần sau
+    assert cw_scanner.so_ngay_lich(date(2026, 10, 21), 2) == 2  # thứ Tư -> thứ Sáu
+
+
+def test_luot_ngan_han_tinh_tay():
+    # CW sâu trong tiền, biến động rất thấp (r = 0): giá 1 CW ≈ (S − K) / tỷ lệ. S 30.000, K 20.000, tỷ lệ 2:
+    # chờ mua 5.000,5 (≈ nội tại 5.000), chào bán 5.100
+    f = lambda **k: cw_scanner.luot_ngan_han(5_100, 5_000.5, 30_000, 20_000, 2, 60, 0.0, 0, **k)
+    # không phí: CW phải lên 5.100 -> S = 20.000 + 2 × 5.100 = 30.200 -> CS +0,667%
+    assert abs(f(phi=0, thue=0)[0] - 200 / 30_000) < 5e-5
+    # có phí 0,15% hai chiều + thuế 0,1%: CW phải bán được 5.100 × 1,0015 / 0,9975 = 5.120,45 -> S = 30.240,9 -> +0,803%
+    hoa_von, lai = f()
+    assert abs(hoa_von - 240.9 / 30_000) < 5e-5
+    # CS +5% = 31.500 -> CW ≈ 5.750: 5.750 × 0,9975 / (5.100 × 1,0015) − 1 = 5.735,63 / 5.107,65 − 1 = +12,29%
+    assert abs(lai - 0.12295) < 1e-3
+    # CW quanh giá thực hiện: giữ càng lâu càng mất giá theo thời gian -> CS phải tăng nhiều hơn để hòa vốn
+    atm = lambda ngay_giu: cw_scanner.luot_ngan_han(1_050, 1_000, 20_000, 20_000, 2, 60, 0.04, ngay_giu)[0]
+    assert 0 < atm(0) < atm(7) < atm(14)
+    # giá chờ mua dưới mức tối thiểu (S − K) / tỷ lệ = 5.000: không giải được IV -> không tính
+    assert math.isnan(cw_scanner.luot_ngan_han(5_100, 4_900, 30_000, 20_000, 2, 60, 0.0, 7)[0])
+
+
+def test_chon_luot():
+    hang = lambda ma, **k: {
+        "Mã CW": ma,
+        "Nguồn giá mua": "ask",
+        "Giá chờ mua": 1_000,
+        "Bên mua 3 bước (triệu)": 50.0,
+        "Spread %": 2.0,
+        "Ngày GD cuối": "2026-12-30",
+        "Ngày còn lại": 70,
+        "Lướt: CS cần tăng %": 1.5,
+        "Lướt: lãi kịch bản %": 20.0,
+        **k,
+    }
+    df = pd.DataFrame(
+        [
+            hang("A", **{"Lướt: CS cần tăng %": 1.2}),
+            hang("B", **{"Spread %": 6.0}),
+            hang("C", **{"Bên mua 3 bước (triệu)": 10.0}),
+            hang("D", **{"Nguồn giá mua": "khớp"}),
+            hang("E", **{"Ngày GD cuối": "2026-11-05"}),  # 23/10 -> 05/11 = 13 ngày
+            hang("F", **{"Lướt: CS cần tăng %": math.nan}),
+            hang("G"),
+            hang("H", **{"Giá chờ mua": math.nan}),
+        ]
+    )
+    dat, loai = cw_scanner.chon_luot(df, date(2026, 10, 23))
+    assert list(dat["Mã CW"]) == ["A", "G"]  # CS cần tăng ít nhất trước
+    ly_do = dict(zip(loai["Mã CW"], loai["Lý do loại lướt"]))
+    assert ly_do == {
+        "B": "spread 6,0%",
+        "C": "bên mua chỉ 10,0 triệu",
+        "D": "không có người chào bán",
+        "E": "còn 13 ngày tới GD cuối",
+        "F": "không tính được hòa vốn (giá chờ mua dưới mức tối thiểu)",
+        "H": "không có người chờ mua",
+    }
 
 
 def test_so_iv_cung_ma():

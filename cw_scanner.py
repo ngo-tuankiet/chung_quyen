@@ -25,6 +25,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from vnstock import Listing, Quote, login
 
@@ -50,6 +51,14 @@ THUE_BAN = 0.001
 MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 15% là hòa vốn lúc đáo hạn
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
+
+# Lướt sóng 2–5 phiên (trang "⚡ Lướt CW", báo cáo 14:00): chọn CW hiệu quả nhất khi BẠN đã chọn hướng cổ phiếu cơ sở.
+# Không đoán hướng CS. Mua phiên T thì theo thanh toán T+2, sớm nhất chiều T+2 mới bán được.
+SO_PHIEN_GIU = 5  # giả định giữ 5 phiên rồi bán
+KICH_BAN_TANG = 0.05  # kịch bản CS tăng 5% trong thời gian giữ
+MAX_SPREAD_LUOT = 0.05  # (giá chào bán − giá chờ mua) / giá giữa ≤ 5%
+MIN_BEN_MUA_LUOT = 20_000_000  # tổng giá trị chờ mua ở 3 bước giá ≥ 20 triệu: đủ chỗ bán ra 1 lệnh
+MIN_NGAY_GD_CUOI_LUOT = 20  # còn ≥ 20 ngày lịch tới ngày GD cuối (5 phiên cuối giá thanh toán là trung bình 5 phiên)
 
 THU_MUC = Path(
     __file__
@@ -188,6 +197,53 @@ def tai_json(url, headers, cho=20, so_lan=2):
         except Exception:
             if lan == so_lan - 1:
                 raise
+
+
+def gia_cho_mua(so_lenh):
+    """Giá chờ mua cao nhất (giá bán ra được ngay); không có người chờ mua -> None. Mức giá dạng chữ (ATO/ATC) bị bỏ qua."""
+    gia = [m.get("price") for m in so_lenh.get("bidPrices") or []]
+    gia = [g for g in gia if isinstance(g, (int, float)) and g > 0]
+    return max(gia) if gia else None
+
+
+def gia_tri_ben(so_lenh, ben):
+    """Tổng giá trị (đồng) ở 3 mức giá tốt nhất của một bên sổ lệnh ('bidPrices' / 'askPrices')."""
+    return sum(
+        m["price"] * (m.get("volume") or 0)
+        for m in so_lenh.get(ben) or []
+        if isinstance(m.get("price"), (int, float)) and m["price"] > 0
+    )
+
+
+def so_ngay_lich(hom_nay, so_phien):
+    """Số ngày lịch của so_phien phiên giao dịch kể từ hom_nay (bỏ thứ Bảy, Chủ nhật; chưa trừ ngày lễ)."""
+    return int(
+        (np.busday_offset(np.datetime64(hom_nay), so_phien, roll="forward") - np.datetime64(hom_nay)).astype(int)
+    )
+
+
+def luot_ngan_han(gia_ban, gia_cho, S, K, ty_le, ngay_con_lai, r, ngay_giu, kich_ban=None, phi=None, thue=None):
+    """Lệnh lướt: mua 1 CW ở giá chào bán gia_ban (+ phí), giữ ngay_giu ngày lịch, bán ở mức giá chờ mua (− phí, thuế).
+    Giá bán ra sau ngay_giu ngày = giá Black-Scholes với IV giải ngược từ giá chờ mua HÔM NAY (giả định IV giữ nguyên),
+    nên đã gồm: spread, mất giá theo thời gian, phí, thuế, đòn bẩy.
+    Trả về (CS cần tăng bao nhiêu để hòa vốn, lãi nếu CS tăng kich_ban) dạng tỷ lệ. Không giải được IV từ giá chờ mua
+    (giá chờ mua dưới mức tối thiểu) -> (NaN, NaN)."""
+    kich_ban = KICH_BAN_TANG if kich_ban is None else kich_ban
+    phi = PHI_GIAO_DICH if phi is None else phi
+    thue = THUE_BAN if thue is None else thue
+    iv_ban = bien_dong_ngam_dinh(gia_cho, S, K, ngay_con_lai / 365, r, ty_le)
+    if iv_ban is None:
+        return math.nan, math.nan
+    T2 = (ngay_con_lai - ngay_giu) / 365
+    von = gia_ban * (1 + phi)
+    thu = lambda S2: black_scholes_call(S2, K, T2, r, iv_ban)[0] / ty_le * (1 - phi - thue)
+    thap, cao = S * 0.01, S * 3
+    if thu(cao) < von:  # CS tăng gấp 3 vẫn chưa hòa vốn: coi như không tính được
+        return math.nan, thu(S * (1 + kich_ban)) / von - 1
+    for _ in range(60):  # chia đôi: giá quyền chọn luôn tăng khi giá CS tăng
+        giua = (thap + cao) / 2
+        thap, cao = (giua, cao) if thu(giua) < von else (thap, giua)
+    return (thap + cao) / 2 / S - 1, thu(S * (1 + kich_ban)) / von - 1
 
 
 def tong_kl(so_lenh, ben):
@@ -340,6 +396,19 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     )
     # làm tròn 0,1 điểm như cột CSV để kết luận khớp số hiển thị; không giải được IV: dưới mức tối thiểu = rẻ hơn mọi mức biến động
     iv_tru_hv = round(iv - sigma, 3) if iv is not None else (-math.inf if duoi_toi_thieu else math.inf)
+    # lướt 2–5 phiên: chỉ tính khi có cả người chào bán lẫn người chờ mua (mua được và bán ra được ngay)
+    P_cho = gia_cho_mua(so_lenh)
+    co_hai_ben = nguon_gia == "ask" and P_cho is not None
+    hoa_von, lai_kb = (
+        luot_ngan_han(P_mua, P_cho, S, K, ty_le, ngay_con_lai, r, so_ngay_lich(hom_nay, SO_PHIEN_GIU))
+        if co_hai_ben
+        else (math.nan, math.nan)
+    )
+    mat_gia_ngay = (
+        black_scholes_call(S, K, (ngay_con_lai - 1) / 365, r, iv)[0] / black_scholes_call(S, K, T, r, iv)[0] - 1
+        if iv is not None and ngay_con_lai > 1
+        else math.nan
+    )  # CS và IV đứng yên, chỉ trôi 1 ngày
     ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
     gd_cuoi = ny.get("lastTradingDate") or ""  # dạng YYYYMMDD
     return {
@@ -371,10 +440,45 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
         or 0,  # tổng số CW được phép bán (nguồn miễn phí không có số nhà đầu tư đang nắm)
         "KL chào bán": tong_kl(so_lenh, "askPrices"),  # lượng có thể mua ngay ở 3 giá bán thấp nhất
         "KL chờ mua": tong_kl(so_lenh, "bidPrices"),  # lượng có thể bán ra ngay ở 3 giá mua cao nhất
+        "Giá chờ mua": P_cho if P_cho is not None else math.nan,
+        "Spread %": round((P_mua - P_cho) / ((P_mua + P_cho) / 2) * 100, 1) if co_hai_ben else math.nan,
+        "Bên mua 3 bước (triệu)": round(gia_tri_ben(so_lenh, "bidPrices") / 1e6, 1),
+        "Mất giá/ngày %": round(mat_gia_ngay * 100, 2),
+        "Lướt: CS cần tăng %": round(hoa_von * 100, 2),  # trong SO_PHIEN_GIU phiên để hòa vốn
+        "Lướt: lãi kịch bản %": round(lai_kb * 100, 1),  # nếu CS tăng KICH_BAN_TANG trong SO_PHIEN_GIU phiên
         "Đánh giá": ket_luan,
         "Lý do": ly_do,
         "r %": round(r * 100, 2),  # để tự tính lại từng dòng trong Excel
     }
+
+
+def chon_luot(df, ngay_quet):
+    """(CW lướt được xếp theo "CS cần tăng" tăng dần, CW bị loại kèm cột "Lý do loại lướt").
+    Thứ tự ưu tiên: 1) loại CW khó thoát lệnh (không chào bán / không chờ mua / bên mua < MIN_BEN_MUA_LUOT / spread >
+    MAX_SPREAD_LUOT / còn < MIN_NGAY_GD_CUOI_LUOT ngày tới GD cuối) -> 2) CS cần tăng ít nhất để hòa vốn -> (trang hiện thêm)
+    3) lãi kịch bản, 4) IV so với HV và CW cùng mã, 5) khối lượng chào bán."""
+
+    def ly_do(h):
+        loai = []
+        if h["Nguồn giá mua"] != "ask":
+            loai.append("không có người chào bán")
+        if not h["Giá chờ mua"] > 0:
+            loai.append("không có người chờ mua")
+        elif h["Bên mua 3 bước (triệu)"] * 1e6 < MIN_BEN_MUA_LUOT:
+            loai.append(f"bên mua chỉ {h['Bên mua 3 bước (triệu)']:.1f} triệu".replace(".", ","))
+        if h["Spread %"] > MAX_SPREAD_LUOT * 100:
+            loai.append(f"spread {h['Spread %']:.1f}%".replace(".", ","))
+        gd_cuoi = h.get("Ngày GD cuối", "")  # file quét bản cũ có thể chưa có cột này
+        con = (date.fromisoformat(gd_cuoi) - ngay_quet).days if gd_cuoi else h["Ngày còn lại"]
+        if con < MIN_NGAY_GD_CUOI_LUOT:
+            loai.append(f"còn {con} ngày tới GD cuối")
+        if not loai and not math.isfinite(h["Lướt: CS cần tăng %"]):
+            loai.append("không tính được hòa vốn (giá chờ mua dưới mức tối thiểu)")
+        return "; ".join(loai)
+
+    df = df.assign(**{"Lý do loại lướt": [ly_do(h) for _, h in df.iterrows()]})
+    dat = df[df["Lý do loại lướt"] == ""].sort_values(["Lướt: CS cần tăng %", "Lướt: lãi kịch bản %"], ascending=[1, 0])
+    return dat, df[df["Lý do loại lướt"] != ""]
 
 
 def so_iv_cung_ma(df, ma, cs, iv):
@@ -505,6 +609,14 @@ def main():
             "MIN_KHOI_LUONG": MIN_KHOI_LUONG,
         },
         "chi_phi": {"PHI_GIAO_DICH": PHI_GIAO_DICH, "THUE_BAN": THUE_BAN},
+        "luot_song": {
+            "SO_PHIEN_GIU": SO_PHIEN_GIU,
+            "KICH_BAN_TANG": KICH_BAN_TANG,
+            "MAX_SPREAD_LUOT": MAX_SPREAD_LUOT,
+            "MIN_BEN_MUA_LUOT": MIN_BEN_MUA_LUOT,
+            "MIN_NGAY_GD_CUOI_LUOT": MIN_NGAY_GD_CUOI_LUOT,
+            "cach_tinh": "mua giá chào bán + phí; bán sau SO_PHIEN_GIU phiên theo Black-Scholes với IV của giá chờ mua hôm nay",
+        },
         "canh_bao_iv_cung_ma": {"MIN_IV_SO_VOI_CUNG_MA": MIN_IV_SO_VOI_CUNG_MA, "MIN_SO_CW_CUNG_MA": MIN_SO_CW_CUNG_MA},
         "nguon": {
             "danh_sach_cw": "vnstock Listing(KBS)",
