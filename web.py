@@ -4,7 +4,7 @@ web.py - Giao diện web cho cw_scanner (chỉ dùng thư viện có sẵn của
 Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 - Trang chính: bấm "Quét ngay" để chạy cw_scanner.main(); luôn hiển thị kết quả mới nhất trong ket_qua/.
 - Bấm vào một mã CW: trang phân tích chi tiết (biểu đồ, kịch bản lãi/lỗ, so sánh các CW cùng mã cơ sở).
-- Trang "Hướng dẫn sử dụng" (/huong-dan): giải thích cho người mới, có đường dẫn ở đầu mọi trang.
+- Trang "Hướng dẫn sử dụng" (/huong-dan): giải thích cho người mới, có trên thanh menu (đầu trang; điện thoại: dưới cùng).
 """
 
 import contextlib
@@ -199,6 +199,23 @@ tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%
 .thanh-tren { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
 .thanh-tren a { text-decoration: none; }
 .thanh-tren a[aria-current] { color: var(--chu); border-bottom: 2px solid var(--nut); }
+.thanh-tren .bt { margin-right: 4px; }
+/* Điện thoại: menu thành thanh cố định dưới cùng (biểu tượng trên chữ), bảng gọn hơn, cột mã đứng yên khi vuốt ngang */
+@media (max-width: 640px) {
+  main { padding: 16px 12px calc(84px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 22px; }
+  .the { padding: 14px; }
+  .thanh-tren { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; margin: 0; gap: 0; flex-wrap: nowrap;
+    background: var(--be-mat); border-top: 1px solid var(--vien); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .thanh-tren a { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0;
+    font-size: 11px; color: var(--chu-phu); }
+  .thanh-tren .bt { font-size: 22px; line-height: 1; margin: 0; }
+  .thanh-tren a[aria-current] { color: var(--nut); border-bottom: 0; }
+  table { font-size: 13px; }
+  th, td { padding: 6px 8px; }
+  .cuon th:first-child, .cuon td:first-child { position: sticky; left: 0; z-index: 1; background: var(--be-mat); }
+  .cuon th:first-child { z-index: 2; }
+}
 .huong-dan p, .huong-dan li { max-width: 860px; }
 .huong-dan h2 { margin-bottom: 8px; }
 .huong-dan li { margin: 6px 0; }
@@ -294,26 +311,29 @@ def o_so(nhan, gia_tri, goi_y=""):
     return f'<div class="o-so"><div class="nhan">{nhan}</div><div class="gia-tri">{gia_tri}</div><div class="goi-y">{goi_y}</div></div>'
 
 
+# thanh menu: trên đầu trang ở máy tính, dưới cùng màn hình ở điện thoại (như app). Trang "Sắp ra mắt" (/sap-ra-mat) vẫn còn
+# nhưng bỏ khỏi menu theo yêu cầu người dùng 24/10/2026
+MENU = (
+    ("/", "📈", "Chứng quyền"),
+    ("/danh-muc", "💼", "Danh mục"),
+    ("/luot-cw", "⚡", "Lướt CW"),
+    ("/etf", "📊", "ETF"),
+    ("/huong-dan", "❓", "Hướng dẫn"),
+)
+
+
 def trang(tieu_de, than, duong_dan=""):
     """Khung chung của mọi trang: thanh điều hướng trên cùng + nội dung + lưu ý cuối trang."""
     menu = "".join(
-        f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}>{ten}</a>'
-        for dd, ten in (
-            ("/", "Chứng quyền"),
-            ("/danh-muc", "💼 Danh mục"),
-            ("/luot-cw", "⚡ Lướt CW"),
-            ("/etf", "📊 ETF"),
-            ("/sap-ra-mat", "🆕 Sắp ra mắt"),
-            ("/huong-dan", "❓ Hướng dẫn"),
-        )
+        f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}><span class="bt" aria-hidden="true">{bt}</span>'
+        f"<span>{ten}</span></a>"
+        for dd, bt, ten in MENU
     )
-    # biểu tượng trên tab trình duyệt: emoji của mục menu (trang chính, chi tiết CW: 📈), vẽ bằng SVG nên không cần file ảnh
-    bieu_tuong = {"/danh-muc": "💼", "/luot-cw": "⚡", "/etf": "📊", "/sap-ra-mat": "🆕", "/huong-dan": "❓"}.get(
-        duong_dan, "📈"
-    )
+    # biểu tượng trên tab trình duyệt: emoji của mục menu (trang khác, vd chi tiết CW: 📈), vẽ bằng SVG nên không cần file ảnh
+    bieu_tuong = {dd: bt for dd, bt, _ in MENU}.get(duong_dan, "📈")
     svg = f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>{bieu_tuong}</text></svg>"
     return (
-        f'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
         f'<title>{ESC(tieu_de)}</title><link rel="icon" href="data:image/svg+xml,{quote(svg)}"><style>{CSS}</style></head><body><main>'
         f'<nav class="thanh-tren" aria-label="Điều hướng">{menu}</nav>{than}'
         f"<footer>Công cụ sàng lọc theo mô hình Black-Scholes, không phải khuyến nghị đầu tư. Luôn kiểm tra điều khoản CW trên website "
@@ -445,9 +465,7 @@ def trang_chinh():
     phan.append(
         '<div class="luoi-o">'
         + "".join(o_so(huy_hieu(k), so(dem.get(k, 0))) for k in KET_LUAN)
-        + o_so(
-            "CW mới phát hành", so(len(moi)), 'so với lần quét trước · <a href="/sap-ra-mat">xem CW sắp ra mắt →</a>'
-        )
+        + o_so("CW mới phát hành", so(len(moi)), "so với lần quét trước")
         + "</div>"
     )
     phan.append(
@@ -1347,13 +1365,6 @@ def trang_huong_dan():
             "CW chưa có ở lần quét trước, tức là mới niêm yết. Lần quét đầu tiên chưa đánh dấu mã nào.",
         ),
         (
-            "Xem các chứng quyền sắp ra mắt ở đâu?",
-            (
-                'Bấm "🆕 Sắp ra mắt" ở đầu trang. Đó là các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch, '
-                "kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. Danh sách tải trực tiếp từ HOSE; nếu HOSE chậm thì dùng danh sách lưu ở lần quét gần nhất."
-            ),
-        ),
-        (
             "Xem số CW đã bán ra và còn lại ở đâu?",
             (
                 "Các nguồn dữ liệu miễn phí chỉ công bố tổng khối lượng phát hành, không công bố nhà đầu tư đang nắm bao nhiêu. "
@@ -1989,7 +2000,8 @@ def trang_luot():
         "<li><b>IV:</b> IV − HV cao hoặc IV cao hơn các CW cùng mã = đắt, IV giảm về thì CW mất giá dù CS tăng.</li>"
         "<li><b>Tổ chức phát hành:</b> khối lượng chào bán còn rất nhiều hoặc vừa phát hành thêm thì giá khó lên.</li></ol>"
         f'<p class="phu">Giả định IV giữ nguyên {C.SO_PHIEN_GIU} phiên; mua phiên T thì sớm nhất chiều T+2 mới bán được. '
-        f'Đòn bẩy cao cũng là lỗ nhanh.</p><p class="phu">{he_so}</p></details>'
+        f"Đòn bẩy cao cũng là lỗ nhanh.</p><details><summary>Hệ số IV theo TCPH (cột Hiệu chỉnh TCPH)</summary>"
+        f'<p class="phu">{he_so}</p></details></details>'
     )
     if dat["Lướt: CS cần tăng %"].isna().all() and loai["Lướt: CS cần tăng %"].isna().all():
         phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở trang chính.</p>')

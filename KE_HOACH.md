@@ -179,10 +179,12 @@ Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
 - Nút **Quét ngay** (chờ 1–3 phút).
 - Mục **Nhật ký lần quét gần nhất**: mọi thông báo của chương trình; tự mở ra khi có cảnh báo `[!]` (ví dụ key bị từ chối).
 - Bảng **CW mới phát hành**, bảng **Nên xem xét**, và bảng **Tất cả** có ô tìm kiếm (gõ VPB, SSI…).
-- Đường dẫn **❓ Hướng dẫn** ở đầu mọi trang: giải thích cho người mới (chứng quyền là gì, cách dùng 5 bước,
+- Đường dẫn **❓ Hướng dẫn** trên thanh menu: giải thích cho người mới (chứng quyền là gì, cách dùng 5 bước,
   ý nghĩa từng cột, cách đọc trang phân tích, 5 câu tự hỏi trước khi mua, câu hỏi thường gặp). Rê chuột lên tiêu đề cột để xem giải thích ngắn.
-- Trang **🆕 CW sắp ra mắt**: các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch (lấy từ hsx.vn, lưu lại mỗi lần quét),
-  kèm giá hợp lý dự kiến để so sánh khi CW lên sàn.
+- Trang **CW sắp ra mắt** (`/sap-ra-mat`): các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch (lấy từ hsx.vn, lưu lại mỗi lần quét),
+  kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. **Bỏ khỏi menu 24/10/2026** (người dùng thấy không cần); trang và dữ liệu vẫn còn.
+- **Điện thoại (màn hình ≤ 640px):** menu thành thanh cố định dưới cùng như app (📈 Chứng quyền, 💼 Danh mục, ⚡ Lướt CW, 📊 ETF, ❓ Hướng dẫn);
+  bảng chữ nhỏ hơn, cột mã đứng yên khi vuốt ngang.
 - **Bấm vào một mã CW** để mở trang phân tích: tóm tắt dễ hiểu, 4 tiêu chí đạt/không đạt, giá trị nội tại / thời gian,
   biểu đồ giá cổ phiếu cơ sở 1 năm kèm đường giá thực hiện và hòa vốn (rê chuột xem giá từng ngày), bảng **lãi/lỗ khi đáo hạn**
   theo từng kịch bản (kèm ví dụ 10 triệu đồng), biến động ngầm định so với lịch sử, và so sánh các CW khác cùng mã cơ sở.
