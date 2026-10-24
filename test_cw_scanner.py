@@ -147,6 +147,40 @@ def test_luot_ngan_han_tinh_tay():
     assert math.isnan(cw_scanner.luot_ngan_han(5_100, 4_900, 30_000, 20_000, 2, 60, 0.0, 7)[0])
 
 
+def test_luot_ngan_han_hieu_chinh_iv():
+    # CW sâu trong tiền như trên, IV kịch bản ≤ 0 (d_iv = −1): Black-Scholes chỉ còn nội tại (r = 0). CS +5% = 31.500 -> bán đúng
+    # (31.500 − 20.000) / 2 = 5.750: 5.750 × 0,9975 / (5.100 × 1,0015) − 1 = 5.735,625 / 5.107,65 − 1 = +12,2948%
+    f = lambda d_iv: cw_scanner.luot_ngan_han(5_100, 5_000.5, 30_000, 20_000, 2, 60, 0.0, 0, d_iv=d_iv)
+    assert math.isclose(f(-1.0)[1], 5_735.625 / 5_107.65 - 1, rel_tol=1e-12)
+    assert abs(f(-1.0)[1] - 0.122948) < 1e-6
+    assert f(-1.0)[0] == f(0.0)[0]  # hòa vốn không đổi: d_iv chỉ áp vào kịch bản
+    # CW quanh giá: IV kịch bản thấp hơn thì lãi kịch bản thấp hơn
+    atm = lambda d_iv: cw_scanner.luot_ngan_han(1_050, 1_000, 20_000, 20_000, 2, 60, 0.04, 7, d_iv=d_iv)[1]
+    assert atm(-0.05) < atm(0.0) < atm(0.05)
+
+
+def test_lai_kb_hieu_chinh_va_doc_he_so_iv():
+    h = {"Giá mua": 1_050, "Giá chờ mua": 1_000, "Giá CS": 20_000, "Giá thực hiện": 20_000, "Tỷ lệ CĐ": 2.0}
+    h |= {"Ngày còn lại": 60, "r %": 4.0}
+    df = pd.DataFrame([h | {"TCPH": t} for t in ("A", "B", "C")])
+    # quét thứ Sáu 23/10/2026 + 5 phiên = 7 ngày lịch; β −0,64 điểm IV / 1% CS × kịch bản +5% = IV −3,2 điểm
+    lai = lambda d_iv: round(
+        cw_scanner.luot_ngan_han(1_050, 1_000, 20_000, 20_000, 2, 60, 0.04, 7, d_iv=d_iv)[1] * 100, 1
+    )
+    kq = cw_scanner.lai_kb_hieu_chinh(df, date(2026, 10, 23), {"A": 0.0, "B": -0.64})
+    assert (
+        kq[:2] == [lai(0.0), lai(-0.032)] and kq[1] < kq[0] and math.isnan(kq[2])
+    )  # β = 0: đúng cột gốc; C: không có β
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
+        assert cw_scanner.doc_he_so_iv() == (None, {})
+        b = pd.DataFrame({"TCPH": ["ACBS", "ACBS", "KAFI"], "Chiều CS": ["tăng", "giảm", "tăng"]})
+        b = b.assign(**{"Cửa sổ β": [245, 225, 49], "β": [-0.64, -0.68, -0.02]})
+        b.to_csv(Path(tmp) / "he_so_iv_tcph_2026-10-23.csv", index=False, encoding="utf-8-sig")
+        b.assign(β=0.0).to_csv(Path(tmp) / "he_so_iv_tcph_2026-10-01.csv", index=False, encoding="utf-8-sig")
+        # file mới nhất; chiều "tăng" (KICH_BAN_TANG > 0); KAFI 49 cửa sổ < MIN_MAU_HE_SO_IV = 50: không hiệu chỉnh
+        assert cw_scanner.doc_he_so_iv() == ("he_so_iv_tcph_2026-10-23.csv", {"ACBS": -0.64})
+
+
 def test_chon_luot():
     hang = lambda ma, **k: {
         "Mã CW": ma,

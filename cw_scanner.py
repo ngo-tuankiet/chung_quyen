@@ -59,6 +59,9 @@ KICH_BAN_TANG = 0.05  # kịch bản CS tăng 5% trong thời gian giữ
 MAX_SPREAD_LUOT = 0.05  # (giá chào bán − giá chờ mua) / giá giữa ≤ 5%
 MIN_BEN_MUA_LUOT = 20_000_000  # tổng giá trị chờ mua ở 3 bước giá ≥ 20 triệu: đủ chỗ bán ra 1 lệnh
 MIN_NGAY_GD_CUOI_LUOT = 20  # còn ≥ 20 ngày lịch tới ngày GD cuối (5 phiên cuối giá thanh toán là trung bình 5 phiên)
+# Cột "lãi kịch bản hiệu chỉnh TCPH" (chỉ hiển thị, không xếp hạng): IV bán ra = IV chờ mua + β × KICH_BAN_TANG, β của TCPH đo
+# bằng kiem_chung_truyen_dan.py (file ket_qua/he_so_iv_tcph_*.csv mới nhất). TCPH có ít cửa sổ đo hơn ngưỡng này: không hiệu chỉnh
+MIN_MAU_HE_SO_IV = 50  # người dùng chốt 24/10/2026 (Vietcap có 51–56 cửa sổ mỗi chiều, ngưỡng 100 sẽ loại)
 
 THU_MUC = Path(
     __file__
@@ -222,10 +225,14 @@ def so_ngay_lich(hom_nay, so_phien):
     )
 
 
-def luot_ngan_han(gia_ban, gia_cho, S, K, ty_le, ngay_con_lai, r, ngay_giu, kich_ban=None, phi=None, thue=None):
+def luot_ngan_han(
+    gia_ban, gia_cho, S, K, ty_le, ngay_con_lai, r, ngay_giu, kich_ban=None, phi=None, thue=None, d_iv=0.0
+):
     """Lệnh lướt: mua 1 CW ở giá chào bán gia_ban (+ phí), giữ ngay_giu ngày lịch, bán ở mức giá chờ mua (− phí, thuế).
     Giá bán ra sau ngay_giu ngày = giá Black-Scholes với IV giải ngược từ giá chờ mua HÔM NAY (giả định IV giữ nguyên),
     nên đã gồm: spread, mất giá theo thời gian, phí, thuế, đòn bẩy.
+    d_iv: IV đổi thêm (tỷ lệ, vd −0,032) khi CS đi đúng kịch bản, chỉ áp vào lãi kịch bản (hiệu chỉnh theo TCPH); IV ≤ 0 thì
+    Black-Scholes chỉ còn giá trị nội tại.
     Trả về (CS cần tăng bao nhiêu để hòa vốn, lãi nếu CS tăng kich_ban) dạng tỷ lệ. Không giải được IV từ giá chờ mua
     (giá chờ mua dưới mức tối thiểu) -> (NaN, NaN)."""
     kich_ban = KICH_BAN_TANG if kich_ban is None else kich_ban
@@ -236,14 +243,15 @@ def luot_ngan_han(gia_ban, gia_cho, S, K, ty_le, ngay_con_lai, r, ngay_giu, kich
         return math.nan, math.nan
     T2 = (ngay_con_lai - ngay_giu) / 365
     von = gia_ban * (1 + phi)
-    thu = lambda S2: black_scholes_call(S2, K, T2, r, iv_ban)[0] / ty_le * (1 - phi - thue)
+    thu = lambda S2, iv=iv_ban: black_scholes_call(S2, K, T2, r, iv)[0] / ty_le * (1 - phi - thue)
+    lai_kb = thu(S * (1 + kich_ban), iv_ban + d_iv) / von - 1
     thap, cao = S * 0.01, S * 3
     if thu(cao) < von:  # CS tăng gấp 3 vẫn chưa hòa vốn: coi như không tính được
-        return math.nan, thu(S * (1 + kich_ban)) / von - 1
+        return math.nan, lai_kb
     for _ in range(60):  # chia đôi: giá quyền chọn luôn tăng khi giá CS tăng
         giua = (thap + cao) / 2
         thap, cao = (giua, cao) if thu(giua) < von else (thap, giua)
-    return (thap + cao) / 2 / S - 1, thu(S * (1 + kich_ban)) / von - 1
+    return (thap + cao) / 2 / S - 1, lai_kb
 
 
 def tong_kl(so_lenh, ben):
@@ -479,6 +487,45 @@ def chon_luot(df, ngay_quet):
     df = df.assign(**{"Lý do loại lướt": [ly_do(h) for _, h in df.iterrows()]})
     dat = df[df["Lý do loại lướt"] == ""].sort_values(["Lướt: CS cần tăng %", "Lướt: lãi kịch bản %"], ascending=[1, 0])
     return dat, df[df["Lý do loại lướt"] != ""]
+
+
+def doc_he_so_iv():
+    """(tên file, {TCPH: β}) từ ket_qua/he_so_iv_tcph_*.csv mới nhất (kiem_chung_truyen_dan.py): β = điểm IV đổi khi CS đổi 1%,
+    lấy chiều CS của KICH_BAN_TANG, chỉ TCPH có ≥ MIN_MAU_HE_SO_IV cửa sổ đo. Chưa có file: (None, {})."""
+    tep = max(THU_MUC_KET_QUA.glob("he_so_iv_tcph_*.csv"), default=None)
+    if tep is None:
+        return None, {}
+    b = pd.read_csv(tep, encoding="utf-8-sig")
+    b = b[(b["Chiều CS"] == ("tăng" if KICH_BAN_TANG > 0 else "giảm")) & (b["Cửa sổ β"] >= MIN_MAU_HE_SO_IV)]
+    return tep.name, dict(zip(b["TCPH"], b["β"]))
+
+
+def lai_kb_hieu_chinh(df, ngay_quet, beta):
+    """Cột "Lướt: lãi kịch bản %" tính lại từ file quét ngày ngay_quet với IV bán ra = IV chờ mua + β × KICH_BAN_TANG
+    (β theo TCPH, dict của doc_he_so_iv). TCPH không có trong beta: NaN (không hiệu chỉnh)."""
+    ngay_giu = so_ngay_lich(ngay_quet, SO_PHIEN_GIU)
+    return [
+        (
+            round(
+                luot_ngan_han(
+                    h["Giá mua"],
+                    h["Giá chờ mua"],
+                    h["Giá CS"],
+                    h["Giá thực hiện"],
+                    h["Tỷ lệ CĐ"],
+                    h["Ngày còn lại"],
+                    h["r %"] / 100,
+                    ngay_giu,
+                    d_iv=beta[h["TCPH"]] * KICH_BAN_TANG,
+                )[1]
+                * 100,
+                1,
+            )
+            if h["TCPH"] in beta
+            else math.nan
+        )
+        for _, h in df.iterrows()
+    ]
 
 
 def so_iv_cung_ma(df, ma, cs, iv):
