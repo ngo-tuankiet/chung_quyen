@@ -315,9 +315,9 @@ def o_so(nhan, gia_tri, goi_y=""):
 # nhưng bỏ khỏi menu theo yêu cầu người dùng 24/10/2026
 MENU = (
     ("/", "📈", "Chứng quyền"),
-    ("/danh-muc", "💼", "Danh mục"),
     ("/luot-cw", "⚡", "Lướt CW"),
     ("/etf", "📊", "ETF"),
+    ("/danh-muc", "💼", "Danh mục"),
     ("/huong-dan", "❓", "Hướng dẫn"),
 )
 
@@ -1215,6 +1215,7 @@ def trang_huong_dan():
         ("trang-phan-tich", "Đọc trang phân tích một mã"),
         ("gia-hop-ly", "Giá hợp lý được tính thế nào?"),
         ("truoc-khi-mua", "5 câu tự hỏi trước khi mua"),
+        ("etf", "Trang 📊 ETF: mua quỹ dưới NAV"),
         ("hoi-dap", "Câu hỏi thường gặp"),
     ]
     phan = [
@@ -1402,7 +1403,18 @@ def trang_huong_dan():
         ),
     ]
     phan.append(
-        '<section class="the" id="hoi-dap"><h2>9. Câu hỏi thường gặp</h2>'
+        '<section class="the" id="etf"><h2>9. Trang 📊 ETF: mua quỹ dưới NAV</h2><ul>'
+        "<li><b>ETF</b> là quỹ mua cả rổ cổ phiếu theo một chỉ số (vd VN30), giao dịch trên sàn như cổ phiếu. <b>NAV</b> là giá trị "
+        "thật của rổ cổ phiếu chia cho mỗi chứng chỉ quỹ.</li>"
+        "<li>Giá quỹ trên sàn có lúc thấp hơn NAV (<b>chiết khấu</b>). Mua lúc chiết khấu rồi bán khi giá về sát NAV thì có lời, "
+        "dù chỉ số đứng yên.</li>"
+        f"<li>Bảng <b>Chiết khấu so với NAV</b>: 🟢 = lãi ròng nếu mua ở giá chào bán rồi bán đúng NAV ≥ "
+        f"{chiet_khau.NGUONG_LAI_RONG:.0%} (sau phí, thuế) và mua được ≥ {so(chiet_khau.MIN_GIA_TRI_CHAO_BAN / 1e6)} triệu.</li>"
+        "<li>Xem cột <b>Thường lệch</b>: quỹ ít giao dịch có thể chiết khấu rất lâu, giá không chắc quay về NAV. Đó không phải món hời.</li>"
+        "<li>Dữ liệu tự cập nhật 9:40 thứ Hai–Sáu. Bấm vào một quỹ để xem biểu đồ giá và chênh lệch so với NAV.</li></ul></section>"
+    )
+    phan.append(
+        '<section class="the" id="hoi-dap"><h2>10. Câu hỏi thường gặp</h2>'
         + "".join(
             f'<details style="margin-top:10px"><summary>{ESC(q)}</summary><p>{ESC(a)}</p></details>' for q, a in hoi_dap
         )
