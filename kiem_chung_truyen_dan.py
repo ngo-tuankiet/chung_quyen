@@ -242,15 +242,18 @@ def chay():
         [cua_so(dk, gia, kl, gia_cs[dk["cs"]] / dk.get("f", 1.0), lich) for dk, gia, kl in cw + bo_sung],
         ignore_index=True,
     )
-    bang = bang_he_so(w)
+    tu = lich[-1] - pd.DateOffset(months=C.SO_THANG_HE_SO_IV)
+    gan = w[w["Ngày"] >= tu]  # bảng hệ số cho trang ⚡: chỉ SO_THANG_HE_SO_IV tháng gần nhất
+    bang = bang_he_so(gan)
     bang.round({"β": 4, "t β": 2, "Truyền dẫn": 4}).to_csv(
         C.THU_MUC_KET_QUA / f"he_so_iv_tcph_{ngay}.csv", index=False, encoding="utf-8-sig"
     )
     ds = sorted(bang.loc[bang["Cửa sổ β"] >= C.MIN_MAU_HE_SO_IV, "TCPH"].unique())
-    # ngoài mẫu: hệ số từ nửa đầu các ngày đầu cửa sổ, kiểm trên nửa sau
+    # ngoài mẫu: hệ số từ SO_THANG_HE_SO_IV tháng trước mốc (giữa các ngày đầu cửa sổ), kiểm trên phần sau mốc
     ngay_dau = sorted(w["Ngày"].unique())
     moc = ngay_dau[len(ngay_dau) // 2]
-    dau, sau = w[w["Ngày"] < moc], w[w["Ngày"] >= moc].copy()
+    dau = w[(w["Ngày"] < moc) & (w["Ngày"] >= moc - pd.DateOffset(months=C.SO_THANG_HE_SO_IV))]
+    sau = w[w["Ngày"] >= moc].copy()
     bang_dau = bang_he_so(dau)
     nua_nam = w.assign(
         c=chieu(w["CS %"]), ky=w["Ngày"].dt.year.astype(str) + "-H" + ((w["Ngày"].dt.month > 6) + 1).astype(str)
@@ -269,24 +272,24 @@ def chay():
             f"Giá ngày {lich[0]:%d/%m/%Y} – {ngay:%d/%m/%Y}, {len(cw)} CW từ `{tep.name}` + {len(bo_sung)} CW hết hạn có sự kiện"
             f" quyền sau ngày GD cuối (thang giá CS hiệu chỉnh bằng giá thô HOSE). {len(w)} cửa sổ {SO_PHIEN} phiên của"
             f" {w['Mã CW'].nunique()} CW, {w['Ngày'].nunique()} ngày đầu cửa sổ. Bảng hệ số: `he_so_iv_tcph_{ngay}.csv`"
-            " (trang ⚡ đọc file mới nhất)."
+            f" (trang ⚡ đọc file mới nhất) chỉ dùng {len(gan)} cửa sổ bắt đầu từ {tu:%d/%m/%Y} ({C.SO_THANG_HE_SO_IV} tháng gần nhất)."
         ),
         f"""**Cách đo và giới hạn (đọc trước khi tin số)**
 - **Giá đóng cửa ≠ giá yết của TCPH.** Không có lịch sử sổ lệnh: IV giải từ giá đóng cửa (≈ giá giữa), lệch ± nửa spread ở cả 2 đầu;
   cột hiệu chỉnh của trang ⚡ áp cùng β vào giá chờ mua (giả định spread tương đối không đổi).
-- **Mẫu theo thời kỳ.** Hệ số là hành vi của TCPH trong {lich[0]:%m/%Y}–{ngay:%m/%Y}; TCPH đổi cách yết thì hệ số cũ sai (xem bảng theo nửa năm
-  và kiểm ngoài mẫu). Chạy lại định kỳ.
+- **Mẫu theo thời kỳ.** Hệ số là hành vi của TCPH trong {C.SO_THANG_HE_SO_IV} tháng tới {ngay:%d/%m/%Y}; TCPH đổi cách yết thì hệ số cũ sai
+  (xem bảng theo nửa năm và kiểm ngoài mẫu). Chạy lại định kỳ.
 - Cửa sổ: CW có khớp ở cả 2 đầu, còn ≥ {C.MIN_NGAY_GD_CUOI_LUOT} ngày tới GD cuối, delta {DELTA_DO[0]:g}–{DELTA_DO[1]:g} (theo IV phiên đầu).
   β chỉ đo trên cửa sổ |CS| ≥ {NGUONG_CS_BETA:.0%}, truyền dẫn trên cửa sổ |mô hình| ≥ {NGUONG_MO_HINH:.0%}. r = {L._p(C.LAI_SUAT_PHI_RUI_RO, 0)}.
 - CW cùng ngày tương quan mạnh: số quan sát độc lập ≈ số ngày; t β = t của trung bình ΔIV / CS đổi từng ngày.
 - β là trung vị, không phải hồi quy: không tách phần IV trôi theo thời gian (ΔIV khi CS đứng yên) khỏi phần theo CS.""",
-        "## 1. Bảng hệ số\nβ = trung vị (ΔIV / CS đổi): CS +1% thì IV TCPH yết đổi β điểm. Truyền dẫn = trung vị (CW thực đổi / CW mô hình"
+        f"## 1. Bảng hệ số ({C.SO_THANG_HE_SO_IV} tháng từ {tu:%d/%m/%Y})\nβ = trung vị (ΔIV / CS đổi): CS +1% thì IV TCPH yết đổi β điểm. Truyền dẫn = trung vị (CW thực đổi / CW mô hình"
         " đổi khi IV giữ nguyên): 1 = đúng mô hình, < 1 = CW chạy ít hơn mô hình.\n" + bang_he_so_md(bang),
-        f"## 2. Kiểm hiệu chỉnh trong mẫu (TCPH ≥ {C.MIN_MAU_HE_SO_IV} cửa sổ)\nMỗi ô nhóm tiền: truyền dẫn TV gốc → sau hiệu chỉnh"
+        f"## 2. Kiểm hiệu chỉnh trong mẫu ({C.SO_THANG_HE_SO_IV} tháng, TCPH ≥ {C.MIN_MAU_HE_SO_IV} cửa sổ)\nMỗi ô nhóm tiền: truyền dẫn TV gốc → sau hiệu chỉnh"
         " (IV b = IV a + β × CS đổi), (số cửa sổ). Hiệu chỉnh đúng thì sau ≈ 1 ở mọi nhóm tiền.\n"
-        + bang_kiem_md(w, mo_hinh_hieu_chinh(w, bang), ds),
-        f"## 3. Ngoài mẫu: hệ số đo trước {moc:%d/%m/%Y}, kiểm từ {moc:%d/%m/%Y}\nTCPH có < {C.MIN_MAU_HE_SO_IV} cửa sổ ở"
-        " nửa đầu thì không được hiệu chỉnh (trước = sau).\n"
+        + bang_kiem_md(gan, mo_hinh_hieu_chinh(gan, bang), ds),
+        f"## 3. Ngoài mẫu: hệ số đo {C.SO_THANG_HE_SO_IV} tháng trước {moc:%d/%m/%Y}, kiểm từ {moc:%d/%m/%Y}\nTCPH có < {C.MIN_MAU_HE_SO_IV} cửa sổ trong"
+        " các tháng đo thì không được hiệu chỉnh (trước = sau).\n"
         + bang_kiem_md(sau, mo_hinh_hieu_chinh(sau, bang_dau), ds),
         "## 4. β theo nửa năm (trung vị, số cửa sổ)\n" + L.bang_md(["TCPH", "Chiều CS", *ky], dong_ky),
     ]

@@ -443,42 +443,51 @@ Báo cáo: `ket_qua/kiem_chung_truyen_dan_2026-10-23.md`; bảng hệ số: `ket
   lúc hết hạn bằng f = giá CS đã điều chỉnh / giá đóng cửa thô HOSE ngày GD cuối (đã kiểm f = 1 trên CW không có sự kiện). Bỏ 64 CW vì HOSE
   không có giá thô đúng ngày GD cuối. 15.345 cửa sổ 5 phiên của 899 CW, 109 ngày đầu cửa sổ (cách nhau 5 phiên, cùng lưới với backtest);
   CW có khớp ở cả 2 đầu, còn ≥ 20 ngày tới GD cuối, delta 0,15–0,85.
+- **Bảng hệ số chỉ dùng 12 tháng gần nhất** (`SO_THANG_HE_SO_IV = 12`, người dùng chốt 24/10/2026; trước đó dùng toàn mẫu 08/2024–10/2026):
+  10.029 cửa sổ bắt đầu từ 23/10/2025. Lý do: TCPH đổi cách yết theo thời gian, vd β của ACBS khi CS tăng theo nửa năm −0,20 (2025-H1),
+  −0,31 (2025-H2), −0,76 (2026-H1), −0,88 (2026-H2); toàn mẫu cho −0,57, 12 tháng cho −0,86.
 - **β** = trung vị (ΔIV / CS đổi) trên cửa sổ |CS| ≥ 2%: CS +1% thì IV TCPH yết đổi β điểm. **Truyền dẫn** = trung vị (CW thực đổi / CW mô hình
   đổi khi IV giữ nguyên) trên cửa sổ mô hình đổi ≥ 5%: 1 = đúng mô hình.
 
-| TCPH | β khi CS tăng (t) | β khi CS giảm (t) | Truyền dẫn CS tăng / giảm | Cửa sổ β tăng / giảm |
+| TCPH (12 tháng tới 23/10/2026) | β khi CS tăng (t) | β khi CS giảm (t) | Truyền dẫn CS tăng / giảm | Cửa sổ β tăng / giảm |
 |---|---|---|---|---|
 | Vietcap | −1,05 (−3,5) | −0,94 (−0,3) | 0,37 / 0,73 | 80 / 76 |
-| ACBS | −0,57 (−7,4) | −0,61 (−5,5) | 0,73 / 0,75 | 397 / 361 |
-| SSV | −0,48 (−3,4) | −0,08 (+1,1) | 0,76 / 0,95 | 138 / 137 |
-| VPBS | −0,43 (−4,5) | −0,25 (−1,2) | 0,84 / 0,93 | 180 / 193 |
-| TCBS | −0,36 (−2,4) | −0,35 (−0,5) | 0,85 / 0,86 | 155 / 176 |
+| ACBS | −0,86 (−7,4) | −0,60 (−4,0) | 0,52 / 0,75 | 169 / 202 |
+| MBS | −0,73 (−3,5) | −0,35 (−1,9) | 0,68 / 0,81 | 91 / 92 |
+| VPBS | −0,59 (−4,4) | −0,24 (−1,5) | 0,78 / 0,94 | 117 / 154 |
+| KIS | −0,53 (−3,5) | −0,45 (−4,4) | 0,74 / 0,89 | 434 / 529 |
+| SSV | −0,50 (−2,9) | −0,06 (+0,7) | 0,72 / 0,95 | 116 / 128 |
+| TCBS | −0,38 (−2,4) | −0,30 (+0,0) | 0,80 / 0,87 | 121 / 147 |
+| LPBS | −0,36 (−2,9) | −0,09 (−2,0) | 0,81 / 0,96 | 111 / 151 |
 | MSVN | −0,35 (−2,7) | −0,02 (−0,2) | 0,75 / 0,96 | 109 / 134 |
-| KIS | −0,28 (−3,7) | −0,41 (−3,6) | 0,88 / 0,91 | 999 / 895 |
+| SSI | −0,28 (−3,5) | −0,08 (−1,0) | 0,89 / 0,98 | 277 / 305 |
 | VNDS | −0,26 (−4,4) | +0,01 (−0,2) | 0,86 / 1,03 | 311 / 304 |
-| SSI | −0,06 (−3,5) | −0,01 (−1,4) | 0,97 / 1,00 | 818 / 643 |
-| HSC | −0,05 (−2,9) | −0,19 (−2,0) | 0,98 / 0,95 | 246 / 189 |
+| HSC | −0,18 (−2,7) | −0,19 (−1,6) | 0,91 / 0,95 | 133 / 141 |
+| PHS | −0,15 (−2,7) | −0,20 (−1,2) | 0,93 / 0,93 | 158 / 169 |
 | KAFI | −0,07 (−1,7) | −0,06 (−1,6) | 0,96 / 0,98 | 274 / 293 |
 
-  (LPBS −0,36, MBS −0,36, PHS −0,12, BSC −0,12 khi CS tăng; ASC, VCS, KBSV, Pinetree dưới 50 cửa sổ: xem báo cáo.)
+  (BSC, KBSV, Pinetree dưới 50 cửa sổ; ASC, VCS không có cửa sổ nào trong 12 tháng: không hiệu chỉnh.)
 - **Vì sao hiệu chỉnh bằng β mà không nhân hệ số truyền dẫn** (người dùng chọn 24/10/2026): truyền dẫn phụ thuộc độ sâu tiền vì IV tác động lên giá
-  qua vega. ACBS khi CS tăng: ngoài tiền 0,60, quanh giá 0,59, trong tiền 0,95; nhân 0,73 cho mọi CW ACBS sẽ sai ở cả 2 đầu. Đưa β vào
-  Black-Scholes (IV b = IV a + β × CS đổi) thì truyền dẫn ACBS thành 1,07 / 0,93 / 1,08, Vietcap 1,06 / 0,77 / 1,10; |thực − mô hình| trung vị
-  ACBS 4,7% → 4,0%, Vietcap 12,0% → 9,5% (khi CS tăng). TCPH khác: truyền dẫn về gần 1 nhưng sai số từng lệnh không giảm (nhiễu lớn hơn phần IV).
+  qua vega. ACBS khi CS tăng (12 tháng): ngoài tiền 0,43, quanh giá 0,45, trong tiền 0,74; nhân một hệ số chung cho mọi CW ACBS sẽ sai ở cả 2 đầu.
+  Đưa β vào Black-Scholes (IV b = IV a + β × CS đổi) thì truyền dẫn ACBS thành 1,51 / 1,12 / 0,90 (CW ngoài tiền bị **chỉnh quá tay**), Vietcap
+  1,06 / 0,77 / 1,10; |thực − mô hình| trung vị khi CS tăng ACBS 5,9% → 3,9%, Vietcap 12,0% → 9,5%. TCPH khác: truyền dẫn về gần 1 nhưng sai số
+  từng lệnh không giảm (nhiễu lớn hơn phần IV).
 - **Trên trang ⚡:** cột *Hiệu chỉnh TCPH* (lãi nếu CS +5%) = `luot_ngan_han` với IV bán ra = IV chờ mua + β × 5% (`d_iv`, chỉ áp vào lãi kịch
   bản, không vào "CS cần tăng"), β chiều CS tăng của file `he_so_iv_tcph_*.csv` mới nhất, chỉ TCPH có ≥ 50 cửa sổ (`MIN_MAU_HE_SO_IV`, người dùng
   chốt 24/10/2026), còn lại "—". Tính lúc mở trang từ các cột của file quét. **Không đổi thứ tự xếp hạng** (chưa duyệt). Tính tay (test):
   CW sâu trong tiền, r = 0, IV hiệu chỉnh ≤ 0 → bán đúng nội tại (31.500 − 20.000) / 2 = 5.750 đ → lãi 5.735,625 / 5.107,65 − 1 = +12,29%.
-  File quét 23/10: CVPB2615 +48,2% → +46,0% (IV đã thấp 17%, CW trong tiền nên vega nhỏ), CTCB2611 +42,1% → +33,9%, CVRE2610 +26,4% → +19,0%.
+  File quét 23/10: CVPB2615 +48,2% → +45,3% (IV đã thấp 17%, CW trong tiền nên vega nhỏ), CTCB2611 +42,1% → +29,9%, CVRE2610 +26,4% → +15,3%.
 - **Giới hạn:**
   - **Giá đóng cửa ≠ giá yết của TCPH.** IV giải từ giá đóng cửa (≈ giá giữa), lệch ± nửa spread ở cả 2 đầu; trang áp cùng β vào giá chờ mua.
-  - **Hệ số đổi theo thời kỳ.** β của ACBS khi CS tăng theo nửa năm: −0,20 (2025-H1), −0,31 (2025-H2), −0,76 (2026-H1), −0,88 (2026-H2): hệ số
-    toàn mẫu −0,57 có thể vẫn **lạc quan** với ACBS lúc này. Kiểm ngoài mẫu (hệ số đo trước 16/09/2025, kiểm sau): truyền dẫn ACBS khi CS tăng
-    chỉ từ 0,45 lên 0,51 (quanh giá). Người dùng chốt 24/10/2026: vẫn dùng β toàn mẫu, không đổi sang 12 tháng gần nhất. Chạy lại định kỳ: `python kiem_chung_luot.py` (tải dữ liệu mới) rồi `python kiem_chung_truyen_dan.py`.
+  - **Hệ số đổi theo thời kỳ, 12 tháng vẫn là quá khứ.** Kiểm ngoài mẫu (hệ số 12 tháng trước 16/09/2025, kiểm sau): truyền dẫn ACBS khi CS tăng
+    chỉ từ 0,45 lên 0,51 (quanh giá), vì ACBS hạ IV mạnh dần. Chạy lại định kỳ: `python kiem_chung_luot.py` (tải dữ liệu mới) rồi
+    `python kiem_chung_truyen_dan.py`.
+  - 12 tháng ít mẫu hơn: Vietcap chỉ 76–80 cửa sổ trong 18 ngày. β khi CS tăng (chiều trang ⚡ dùng) có |t| ≥ 2 ở mọi TCPH trừ KAFI (−1,7);
+    chiều CS giảm thì nhiều TCPH |t| < 2 (Vietcap −0,3).
   - β là trung vị, không phải hồi quy: không tách phần IV trôi theo thời gian khỏi phần theo CS. CW cùng ngày tương quan: số quan sát độc lập ≈
     số ngày (t β tính theo ngày).
-  - Lần đo nhanh 23/10 (ACBS truyền dẫn 0,60 / 0,69, Vietcap 0,39 / 0,64) dùng cửa sổ theo phiên CW có khớp và lọc delta theo HV; script lặp lại được
-    dùng lưới ngày chung, delta theo IV và loại CW còn < 20 ngày tới GD cuối nên số khác.
+  - Lần đo nhanh 23/10 (ACBS truyền dẫn 0,60 / 0,69, Vietcap 0,39 / 0,64, toàn mẫu) dùng cửa sổ theo phiên CW có khớp và lọc delta theo HV;
+    script lặp lại được dùng lưới ngày chung, delta theo IV và loại CW còn < 20 ngày tới GD cuối nên số khác.
 
 ---
 

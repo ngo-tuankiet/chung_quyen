@@ -62,6 +62,9 @@ MIN_NGAY_GD_CUOI_LUOT = 20  # còn ≥ 20 ngày lịch tới ngày GD cuối (5 
 # Cột "lãi kịch bản hiệu chỉnh TCPH" (chỉ hiển thị, không xếp hạng): IV bán ra = IV chờ mua + β × KICH_BAN_TANG, β của TCPH đo
 # bằng kiem_chung_truyen_dan.py (file ket_qua/he_so_iv_tcph_*.csv mới nhất). TCPH có ít cửa sổ đo hơn ngưỡng này: không hiệu chỉnh
 MIN_MAU_HE_SO_IV = 50  # người dùng chốt 24/10/2026 (Vietcap có 51–56 cửa sổ mỗi chiều, ngưỡng 100 sẽ loại)
+# β đo trên các cửa sổ 12 tháng gần nhất của dữ liệu, không phải toàn mẫu: TCPH đổi cách yết theo thời gian (ACBS khi CS tăng:
+# β −0,20 nửa đầu 2025, −0,88 nửa sau 2026). Người dùng chốt 24/10/2026
+SO_THANG_HE_SO_IV = 12
 
 THU_MUC = Path(
     __file__
