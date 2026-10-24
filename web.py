@@ -1905,6 +1905,17 @@ COT_LUOT = [
         ),
     ),
     (
+        "Lướt: lãi kịch bản hiệu chỉnh %",
+        f"Lãi nếu CS +{cw_scanner.KICH_BAN_TANG:.0%} (hiệu chỉnh TCPH)",
+        1,
+        True,
+        "%",
+        (
+            f"Như cột trước nhưng IV bán ra = IV chờ mua + β × {cw_scanner.KICH_BAN_TANG:.0%}: β = số điểm IV TCPH này đã đổi khi "
+            "CS tăng 1% (đo lịch sử, ACBS và Vietcap hạ IV khi CS tăng). — = TCPH ít mẫu, không hiệu chỉnh. Không dùng để xếp hạng"
+        ),
+    ),
+    (
         "Đòn bẩy",
         "Đòn bẩy",
         1,
@@ -1949,6 +1960,16 @@ def trang_luot():
         return trang("Lướt CW", "".join(phan), "/luot-cw")
     dat, loai = cw_scanner.chon_luot(df, ngay)
     C = cw_scanner
+    tep_he_so, beta = C.doc_he_so_iv()
+    dat = dat.assign(**{"Lướt: lãi kịch bản hiệu chỉnh %": C.lai_kb_hieu_chinh(dat, ngay, beta)})
+    he_so = (
+        f"Cột <b>(hiệu chỉnh TCPH)</b> chỉ để tham khảo, không đổi thứ tự: IV bán ra = IV chờ mua + β × {C.KICH_BAN_TANG:.0%}, "
+        f"β theo <code>{ESC(tep_he_so)}</code> (kiem_chung_truyen_dan.py, TCPH có ≥ {C.MIN_MAU_HE_SO_IV} cửa sổ đo): "
+        + ", ".join(f"{ESC(t)} {so(b, 2, True)}" for t, b in sorted(beta.items(), key=lambda x: x[1]))
+        + " điểm IV khi CS +1%. Đo bằng giá đóng cửa, không phải giá yết của TCPH; hệ số đổi theo thời kỳ."
+        if tep_he_so
+        else "Chưa có bảng hệ số IV theo TCPH (chạy <code>python kiem_chung_truyen_dan.py</code>): cột hiệu chỉnh để trống."
+    )
     phan.append(
         f'<p class="phu">Số liệu lần quét {ngay:%d/%m/%Y} (sổ lệnh lúc quét; bấm vào mã để định giá lại theo giá trực tiếp). '
         f"Python <b>không đoán hướng cổ phiếu</b>: bạn chọn mã CS mình nhận định sẽ tăng, trang này chỉ ra CW nào rẻ và hiệu quả "
@@ -1962,7 +1983,7 @@ def trang_luot():
         "<li><b>IV:</b> IV − HV cao hoặc IV cao hơn các CW cùng mã = đắt, IV giảm về thì CW mất giá dù CS tăng.</li>"
         "<li><b>Tổ chức phát hành:</b> khối lượng chào bán còn rất nhiều hoặc vừa phát hành thêm thì giá khó lên.</li></ol>"
         f'<p class="phu">Giả định IV giữ nguyên {C.SO_PHIEN_GIU} phiên; mua phiên T thì sớm nhất chiều T+2 mới bán được. '
-        "Đòn bẩy cao cũng là lỗ nhanh.</p></details>"
+        f'Đòn bẩy cao cũng là lỗ nhanh.</p><p class="phu">{he_so}</p></details>'
     )
     if dat["Lướt: CS cần tăng %"].isna().all() and loai["Lướt: CS cần tăng %"].isna().all():
         phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở trang chính.</p>')
