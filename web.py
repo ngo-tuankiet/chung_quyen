@@ -16,7 +16,7 @@ import re
 import webbrowser
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import pandas as pd
 
@@ -307,9 +307,14 @@ def trang(tieu_de, than, duong_dan=""):
             ("/huong-dan", "❓ Hướng dẫn"),
         )
     )
+    # biểu tượng trên tab trình duyệt: emoji của mục menu (trang chính, chi tiết CW: 📈), vẽ bằng SVG nên không cần file ảnh
+    bieu_tuong = {"/danh-muc": "💼", "/luot-cw": "⚡", "/etf": "📊", "/sap-ra-mat": "🆕", "/huong-dan": "❓"}.get(
+        duong_dan, "📈"
+    )
+    svg = f"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>{bieu_tuong}</text></svg>"
     return (
         f'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        f'<title>{ESC(tieu_de)}</title><link rel="icon" href="data:,"><style>{CSS}</style></head><body><main>'
+        f'<title>{ESC(tieu_de)}</title><link rel="icon" href="data:image/svg+xml,{quote(svg)}"><style>{CSS}</style></head><body><main>'
         f'<nav class="thanh-tren" aria-label="Điều hướng">{menu}</nav>{than}'
         f"<footer>Công cụ sàng lọc theo mô hình Black-Scholes, không phải khuyến nghị đầu tư. Luôn kiểm tra điều khoản CW trên website "
         f"tổ chức phát hành / HOSE trước khi mua. 4 tiêu chí chấm điểm chưa tính phí giao dịch và thuế.</footer></main><script>{JS}</script></body></html>"
