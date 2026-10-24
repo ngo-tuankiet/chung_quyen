@@ -474,7 +474,7 @@ Báo cáo: `ket_qua/kiem_chung_truyen_dan_2026-10-23.md`; bảng hệ số: `ket
   - **Giá đóng cửa ≠ giá yết của TCPH.** IV giải từ giá đóng cửa (≈ giá giữa), lệch ± nửa spread ở cả 2 đầu; trang áp cùng β vào giá chờ mua.
   - **Hệ số đổi theo thời kỳ.** β của ACBS khi CS tăng theo nửa năm: −0,20 (2025-H1), −0,31 (2025-H2), −0,76 (2026-H1), −0,88 (2026-H2): hệ số
     toàn mẫu −0,57 có thể vẫn **lạc quan** với ACBS lúc này. Kiểm ngoài mẫu (hệ số đo trước 16/09/2025, kiểm sau): truyền dẫn ACBS khi CS tăng
-    chỉ từ 0,45 lên 0,51 (quanh giá). Chạy lại định kỳ: `python kiem_chung_luot.py` (tải dữ liệu mới) rồi `python kiem_chung_truyen_dan.py`.
+    chỉ từ 0,45 lên 0,51 (quanh giá). Người dùng chốt 24/10/2026: vẫn dùng β toàn mẫu, không đổi sang 12 tháng gần nhất. Chạy lại định kỳ: `python kiem_chung_luot.py` (tải dữ liệu mới) rồi `python kiem_chung_truyen_dan.py`.
   - β là trung vị, không phải hồi quy: không tách phần IV trôi theo thời gian khỏi phần theo CS. CW cùng ngày tương quan: số quan sát độc lập ≈
     số ngày (t β tính theo ngày).
   - Lần đo nhanh 23/10 (ACBS truyền dẫn 0,60 / 0,69, Vietcap 0,39 / 0,64) dùng cửa sổ theo phiên CW có khớp và lọc delta theo HV; script lặp lại được
