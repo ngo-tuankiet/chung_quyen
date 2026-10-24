@@ -182,6 +182,22 @@ def chuoi(df, he_so):
     return pd.Series(df["close"].to_numpy(float) * he_so, idx), pd.Series(df["volume"].to_numpy(float), idx)
 
 
+def dieu_khoan(ma, ny):
+    """Điều khoản 1 CW từ bảng giá Vietcap: {"ma", "cs", "tcph", "K", "ty_le", "dao_han", "gd_cuoi"} (ngày: date)."""
+    ngay = lambda s: date(int(s[:4]), int(s[4:6]), int(s[6:]))
+    dk = {
+        "ma": ma,
+        "cs": ny.get("underlyingSymbol"),
+        "tcph": ny.get("issuerName") or "",
+        "K": float(ny["exercisePrice"]),
+    }
+    return dk | {
+        "ty_le": C.doc_ty_le(ny["exerciseRatio"]),
+        "dao_han": ngay(ny["maturityDate"]),
+        "gd_cuoi": ngay(ny["lastTradingDate"]),
+    }
+
+
 def lay_du_lieu(hom_nay, ds_cs):
     """(lịch phiên, {mã CS: giá}, [(dk, giá CW, KL CW)], {mã CS: [ngày GDKHQ]}, [cảnh báo]) cho mẫu A."""
     C.dang_nhap()
@@ -197,15 +213,13 @@ def lay_du_lieu(hom_nay, ds_cs):
         he_so = 10 ** round(math.log10(C.gia_hien_tai(*bang_cs[cs]) / float(df["close"].iloc[-1])))
         gia_cs[cs], su_kien[cs] = chuoi(df, he_so)[0], ngay_su_kien(cs)
     lich = pd.DatetimeIndex(sorted(set().union(*(s.index for s in gia_cs.values()))))
-    ngay = lambda s: date(int(s[:4]), int(s[4:6]), int(s[6:]))
     cw, he_so_cw, dem = [], set(), {"hết hạn trước dữ liệu": 0, "sự kiện sau GD cuối": 0}
     for ma, (ny, kl, _) in sorted(bang.items()):
         cs = ny.get("underlyingSymbol")
         if cs not in gia_cs or not ny.get("lastTradingDate") or not ny.get("exercisePrice"):
             continue
-        dk = {"ma": ma, "cs": cs, "tcph": ny.get("issuerName") or "", "K": float(ny["exercisePrice"])}
-        dk |= {"ty_le": C.doc_ty_le(ny["exerciseRatio"]), "dao_han": ngay(ny["maturityDate"])}
-        dk["gd_cuoi"], con_song = ngay(ny["lastTradingDate"]), ngay(ny["lastTradingDate"]) >= hom_nay
+        dk = dieu_khoan(ma, ny)
+        con_song = dk["gd_cuoi"] >= hom_nay
         if dk["gd_cuoi"] <= lich[0].date():
             dem["hết hạn trước dữ liệu"] += 1
             continue
