@@ -387,7 +387,7 @@ Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bư�
 Quét thật 23/10/2026 10:31: 333 CW, 229 lướt được, 104 bị loại (68 spread > 5%, 58 bên mua < 20 triệu, 18 sắp hết hạn, 11 không có người chờ mua);
 đứng đầu CVPB2615 (CS cần +0,37%, CS +5% thì lãi +44%), cuối bảng là CW IV rất cao (CSHB2609 IV − HV +159 điểm: CS +5% vẫn lỗ 8,7%).
 
-**Giới hạn**: IV có thể đổi trong 5 phiên (tổ chức phát hành yết lại; ACBS, Vietcap hạ IV khi CS tăng: xem cột *hiệu chỉnh TCPH* và mục "Tổ chức phát hành đổi IV theo hướng CS" bên dưới); sổ lệnh lúc quét khác lúc đặt lệnh (trang chi tiết CW định giá lại
+**Giới hạn**: IV có thể đổi trong 5 phiên (tổ chức phát hành yết lại; ACBS, Vietcap hạ IV khi CS tăng: xem cột *Hiệu chỉnh TCPH* và mục "Tổ chức phát hành đổi IV theo hướng CS" bên dưới); sổ lệnh lúc quét khác lúc đặt lệnh (trang chi tiết CW định giá lại
 theo giá trực tiếp); mua phiên T thì sớm nhất chiều T+2 mới bán được; đòn bẩy cao cũng là lỗ nhanh.
 
 ### Backtest thứ tự xếp hạng (23/10/2026, `python kiem_chung_luot.py`)
@@ -465,7 +465,7 @@ Báo cáo: `ket_qua/kiem_chung_truyen_dan_2026-10-23.md`; bảng hệ số: `ket
   qua vega. ACBS khi CS tăng: ngoài tiền 0,60, quanh giá 0,59, trong tiền 0,95; nhân 0,73 cho mọi CW ACBS sẽ sai ở cả 2 đầu. Đưa β vào
   Black-Scholes (IV b = IV a + β × CS đổi) thì truyền dẫn ACBS thành 1,07 / 0,93 / 1,08, Vietcap 1,06 / 0,77 / 1,10; |thực − mô hình| trung vị
   ACBS 4,7% → 4,0%, Vietcap 12,0% → 9,5% (khi CS tăng). TCPH khác: truyền dẫn về gần 1 nhưng sai số từng lệnh không giảm (nhiễu lớn hơn phần IV).
-- **Trên trang ⚡:** cột *Lãi nếu CS +5% (hiệu chỉnh TCPH)* = `luot_ngan_han` với IV bán ra = IV chờ mua + β × 5% (`d_iv`, chỉ áp vào lãi kịch
+- **Trên trang ⚡:** cột *Hiệu chỉnh TCPH* (lãi nếu CS +5%) = `luot_ngan_han` với IV bán ra = IV chờ mua + β × 5% (`d_iv`, chỉ áp vào lãi kịch
   bản, không vào "CS cần tăng"), β chiều CS tăng của file `he_so_iv_tcph_*.csv` mới nhất, chỉ TCPH có ≥ 50 cửa sổ (`MIN_MAU_HE_SO_IV`, người dùng
   chốt 24/10/2026), còn lại "—". Tính lúc mở trang từ các cột của file quét. **Không đổi thứ tự xếp hạng** (chưa duyệt). Tính tay (test):
   CW sâu trong tiền, r = 0, IV hiệu chỉnh ≤ 0 → bán đúng nội tại (31.500 − 20.000) / 2 = 5.750 đ → lãi 5.735,625 / 5.107,65 − 1 = +12,29%.

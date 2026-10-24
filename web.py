@@ -1906,7 +1906,7 @@ COT_LUOT = [
     ),
     (
         "Lướt: lãi kịch bản hiệu chỉnh %",
-        f"Lãi nếu CS +{cw_scanner.KICH_BAN_TANG:.0%} (hiệu chỉnh TCPH)",
+        "Hiệu chỉnh TCPH",
         1,
         True,
         "%",
@@ -1963,7 +1963,7 @@ def trang_luot():
     tep_he_so, beta = C.doc_he_so_iv()
     dat = dat.assign(**{"Lướt: lãi kịch bản hiệu chỉnh %": C.lai_kb_hieu_chinh(dat, ngay, beta)})
     he_so = (
-        f"Cột <b>(hiệu chỉnh TCPH)</b> chỉ để tham khảo, không đổi thứ tự: IV bán ra = IV chờ mua + β × {C.KICH_BAN_TANG:.0%}, "
+        f"Cột <b>Hiệu chỉnh TCPH</b> (lãi nếu CS +{C.KICH_BAN_TANG:.0%}) chỉ để tham khảo, không đổi thứ tự: IV bán ra = IV chờ mua + β × {C.KICH_BAN_TANG:.0%}, "
         f"β theo <code>{ESC(tep_he_so)}</code> (kiem_chung_truyen_dan.py, TCPH có ≥ {C.MIN_MAU_HE_SO_IV} cửa sổ đo): "
         + ", ".join(f"{ESC(t)} {so(b, 2, True)}" for t, b in sorted(beta.items(), key=lambda x: x[1]))
         + " điểm IV khi CS +1%. Đo bằng giá đóng cửa, không phải giá yết của TCPH; hệ số đổi theo thời kỳ."
