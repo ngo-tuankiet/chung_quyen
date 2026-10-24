@@ -196,7 +196,7 @@ dl.dieu-khoan { display: grid; grid-template-columns: repeat(auto-fit, minmax(19
 dl.dieu-khoan dt { color: var(--chu-phu); font-size: 13px; }
 dl.dieu-khoan dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%, transparent); }
-.thanh-tren { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 16px; font-size: 14px; font-weight: 600; }
+.thanh-tren { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
 .thanh-tren a { text-decoration: none; }
 .thanh-tren a[aria-current] { color: var(--chu); border-bottom: 2px solid var(--nut); }
 .huong-dan p, .huong-dan li { max-width: 860px; }
@@ -299,12 +299,12 @@ def trang(tieu_de, than, duong_dan=""):
     menu = "".join(
         f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}>{ten}</a>'
         for dd, ten in (
-            ("/", "Danh sách chứng quyền"),
+            ("/", "Chứng quyền"),
             ("/danh-muc", "💼 Danh mục"),
             ("/luot-cw", "⚡ Lướt CW"),
             ("/etf", "📊 ETF"),
-            ("/sap-ra-mat", "🆕 CW sắp ra mắt"),
-            ("/huong-dan", "❓ Hướng dẫn sử dụng"),
+            ("/sap-ra-mat", "🆕 Sắp ra mắt"),
+            ("/huong-dan", "❓ Hướng dẫn"),
         )
     )
     return (
@@ -1344,7 +1344,7 @@ def trang_huong_dan():
         (
             "Xem các chứng quyền sắp ra mắt ở đâu?",
             (
-                'Bấm "🆕 CW sắp ra mắt" ở đầu trang. Đó là các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch, '
+                'Bấm "🆕 Sắp ra mắt" ở đầu trang. Đó là các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch, '
                 "kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. Danh sách tải trực tiếp từ HOSE; nếu HOSE chậm thì dùng danh sách lưu ở lần quét gần nhất."
             ),
         ),
