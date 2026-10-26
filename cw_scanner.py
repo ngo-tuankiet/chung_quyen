@@ -349,6 +349,9 @@ def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=SO_PHIEN
     return moc, hang
 
 
+# Giá lịch sử CW lấy từ VCI: KBS thiếu phiên CW thật (31/07/2026 thiếu ở 110 CW, 26/09/2025 ở 34 CW; 15/15 mẫu mỗi ngày VCI có
+# khớp), còn ở ngày cả hai có thì giá đóng cửa trùng 1.124/1.124 (20 CW, 120 ngày, đo 26/10/2026). Giá CS vẫn từ KBS.
+NGUON_GIA_CW = "VCI"
 SO_NGAY_LECH = 45  # ngày lịch đủ chứa 20 phiên + phiên mốc để tính "Lệch 20 phiên" lúc quét
 
 
@@ -356,7 +359,7 @@ def lech_hien_tai(ma, P, gia_cs, K, ty_le, dao_han, r):
     """Lệch so với CS của 1 CW (tỷ lệ) và ngày mốc, đúng như mục "có theo kịp" ở trang chi tiết (lech_20_phien).
     P: giá CW hiện tại (đồng) để đổi đơn vị lịch sử vnstock; gia_cs: {ngày 'YYYY-MM-DD': giá CS đồng}.
     Không có phiên đủ thanh khoản -> (NaN, "")."""
-    df = lay_gia_dong_cua(ma, SO_NGAY_LECH)
+    df = lay_gia_dong_cua(ma, SO_NGAY_LECH, NGUON_GIA_CW)
     he_so = 10 ** round(math.log10(P / float(df["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
     gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"])}
     kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"])}
@@ -725,7 +728,7 @@ def main():
             "moc": "phiên đầu tiên trong cửa sổ khớp ≥ MIN_KHOI_LUONG",
             "cach_tinh": "IV giải từ giá CW và CS ở mốc; giá lẽ ra = Black-Scholes với IV đó và giá CS hôm nay;"
             " IV mốc không giải được thì tính cả 2 đầu với r = 0",
-            "nguon_gia_cw": "vnstock Quote(KBS), 1D",
+            "nguon_gia_cw": f"vnstock Quote({NGUON_GIA_CW}), 1D",
         },
         "he_so_iv_tcph": {"MIN_MAU_HE_SO_IV": MIN_MAU_HE_SO_IV, "SO_THANG_HE_SO_IV": SO_THANG_HE_SO_IV},
         "nguon": {

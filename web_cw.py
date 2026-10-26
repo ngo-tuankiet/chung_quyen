@@ -459,7 +459,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     bo_nho, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
     if bo_nho is None and lich_su:
         try:
-            df_cw = C.lay_gia_dong_cua(ma)
+            df_cw = C.lay_gia_dong_cua(ma, 365, C.NGUON_GIA_CW)
             he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
             gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
             kl_cw = {str(t)[:10]: float(v) for t, v in zip(df_cw["time"], df_cw["volume"])}

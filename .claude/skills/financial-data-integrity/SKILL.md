@@ -28,6 +28,9 @@ Nguyên tắc chung khi làm sạch: **bỏ dòng nghi ngờ, không đoán số
   nên đừng dùng giá mở cửa hay râu nến làm tín hiệu.
 - Giá **cổ phiếu cơ sở** vẫn lấy từ KBS (`cw_scanner.lay_gia_dong_cua`, mặc định): với CS, KBS và VCI cho cùng số, còn API lịch sử VCI từng lỗi liên tục
   hơn 20 phút. Đổi nguồn cho loại tài sản nào thì phải kiểm lại lịch phiên của loại đó.
+- **Giá CW cũng thiếu phiên trên KBS** (đo 26/10/2026): 31/07/2026 thiếu ở 110 CW, 26/09/2025 ở 34 CW; VCI có khớp ở cả 15/15 mẫu mỗi ngày,
+  và ở ngày cả hai cùng có thì giá đóng cửa trùng 1.124/1.124. Vì vậy giá lịch sử CW lấy từ VCI (`cw_scanner.NGUON_GIA_CW`) ở cột Lệch 20 phiên,
+  trang chi tiết CW và các script kiểm chứng. Bộ dữ liệu `ket_qua/kiem_chung_luot_du_lieu_2026-10-23.pkl` cũ vẫn là KBS: chạy lại thì đổi theo.
 
 ## 3. Đơn vị giá: nghìn đồng hay đồng
 - **Triệu chứng:** vnstock trả giá CS, CW, ETF theo nghìn đồng (CW `0.87` = 870 đ); bảng giá Vietcap và HOSE trả theo đồng.

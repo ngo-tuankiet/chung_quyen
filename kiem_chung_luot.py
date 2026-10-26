@@ -227,7 +227,7 @@ def lay_du_lieu(hom_nay, ds_cs):
             dem["sự kiện sau GD cuối"] += 1
             continue
         try:
-            df = C.lay_gia_dong_cua(ma, SO_NGAY_LICH_SU)
+            df = C.lay_gia_dong_cua(ma, SO_NGAY_LICH_SU, C.NGUON_GIA_CW)
             df["close"].iloc[-1]  # vnstock trả bảng rỗng (không lỗi) cho mã không có giá trong kỳ
         # ranh giới gọi vnstock: mã không có giá thì bỏ mã đó và ghi vào cảnh báo, không dừng cả lần chạy
         except Exception as e:  # noqa: BLE001

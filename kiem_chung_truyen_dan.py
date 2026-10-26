@@ -64,7 +64,7 @@ def lay_bo_sung(lich, gia_cs, cw, su_kien):
             )
     # đơn vị giá CW vnstock: so 1 CW còn sống (dữ liệu kiem_chung_luot đã đổi ra đồng) với giá vnstock chưa đổi
     dk, gia, _ = next(x for x in cw if x[0]["gd_cuoi"] >= lich[-1].date())
-    tho = L.chuoi(C.lay_gia_dong_cua(dk["ma"], L.SO_NGAY_LICH_SU), 1.0)[0]
+    tho = L.chuoi(C.lay_gia_dong_cua(dk["ma"], L.SO_NGAY_LICH_SU, C.NGUON_GIA_CW), 1.0)[0]
     d = gia.index.intersection(tho.index)[-1]
     he_so = 10 ** round(math.log10(gia[d] / tho[d]))
     ung_vien = [f"C{cs}{nam}{so:02d}" for cs in gia_cs for nam in L.NAM_DO_MA for so in L.SO_DO_MA]
@@ -85,7 +85,7 @@ def lay_bo_sung(lich, gia_cs, cw, su_kien):
             continue
         dk["f"] = gia_luc(gia_cs[cs], dk["gd_cuoi"]) / tho
         try:
-            df = C.lay_gia_dong_cua(ma, L.SO_NGAY_LICH_SU)
+            df = C.lay_gia_dong_cua(ma, L.SO_NGAY_LICH_SU, C.NGUON_GIA_CW)
             df["close"].iloc[-1]  # vnstock trả bảng rỗng (không lỗi) cho mã không có giá trong kỳ
         # ranh giới gọi vnstock: mã không có giá thì bỏ mã đó và ghi vào cảnh báo, không dừng cả lần chạy
         except Exception as e:  # noqa: BLE001
