@@ -9,6 +9,8 @@ Nguồn:  danh sách ETF, giá ngày của quỹ và chỉ số (vnstock, VCI); 
         iNAV, NAV T-1, sổ lệnh (SSI iBoard); lịch sử NAV (Vietcap IQ).
 """
 
+import importlib.metadata
+import json
 import math
 import os
 import sys
@@ -465,6 +467,45 @@ def lay_nav(ds_quy, ls_cs):
     return ssi, ls_nav, loi_nguon
 
 
+def gia_dinh_etf(luc):
+    """Giả định của lần chạy (luật vàng 5: truy vết): đổi ngưỡng về sau vẫn biết bảng ngày đó lọc theo gì."""
+    return {
+        "thoi_diem_chay": luc.astimezone().isoformat(timespec="seconds"),
+        "chiet_khau": {
+            "NGUONG_LAI_RONG": CK.NGUONG_LAI_RONG,
+            "MIN_GIA_TRI_CHAO_BAN": CK.MIN_GIA_TRI_CHAO_BAN,
+            "GIA_TRI_LENH": CK.GIA_TRI_LENH,
+            "SAI_LECH_NAV_TOI_DA": CK.SAI_LECH_NAV_TOI_DA,
+            "SO_PHIEN_SO_GAI": CK.SO_PHIEN_SO_GAI,
+        },
+        "xep_hang": {
+            "SO_QUY_XEP_HANG": SO_QUY_XEP_HANG,
+            "NAV_CS_TOI_THIEU": NAV_CS_TOI_THIEU,
+            "SO_PHIEN_CHUA_KHOP_TOI_DA": SO_PHIEN_CHUA_KHOP_TOI_DA,
+            "SO_PHIEN_NAV_TRE_TOI_DA": SO_PHIEN_NAV_TRE_TOI_DA,
+            "MIN_PHIEN_KHOP": MIN_PHIEN_KHOP,
+        },
+        "ky_thuat": {
+            "KY_LOI_NHUAN": KY_LOI_NHUAN,
+            "MA_NGAN": MA_NGAN,
+            "MA_DAI": MA_DAI,
+            "SO_PHIEN_RSI": SO_PHIEN_RSI,
+            "SO_PHIEN_GTGD": SO_PHIEN_GTGD,
+            "SO_NGAY_LICH_SU": SO_NGAY_LICH_SU,
+        },
+        "chi_phi": {"PHI_GIAO_DICH": C.PHI_GIAO_DICH, "THUE_BAN": C.THUE_BAN},
+        "QUY_THEO_CHI_SO": QUY_THEO_CHI_SO,
+        "PHI_QUAN_LY": PHI_QUAN_LY,
+        "nguon": {
+            "inav_so_lenh": CK.URL_SSI_ETF,
+            "nav_lich_su": CK.URL_IQ_NAV,
+            "gia_quy_chi_so": f"vnstock Quote(VCI), chỉ số floating=6 × {HE_SO_CHI_SO}",
+            "bang_gia": C.URL_BANG_GIA,
+        },
+        "vnstock": importlib.metadata.version("vnstock"),
+    }
+
+
 def chay(gui=True, luc=None):
     luc = luc or datetime.now()
     C.dang_nhap()
@@ -477,6 +518,9 @@ def chay(gui=True, luc=None):
     C.THU_MUC_KET_QUA.mkdir(exist_ok=True)
     tep = C.THU_MUC_KET_QUA / f"etf_{luc.date()}.csv"
     df.to_csv(tep, index=False, encoding="utf-8-sig")  # chạy lại trong ngày: ghi đè đúng file của ngày đó
+    (C.THU_MUC_KET_QUA / f"gia_dinh_etf_{luc.date()}.json").write_text(
+        json.dumps(gia_dinh_etf(luc), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     nav_dai = [(ma, str(n.date()), v) for ma, s in ls_nav.items() if not isinstance(s, str) for n, v in s.items()]
     if nav_dai:  # Vietcap IQ lỗi cả nguồn: không ghi file rỗng đè lên file tốt của lần chạy trước trong ngày
         pd.DataFrame(nav_dai, columns=["Mã", "Ngày", "NAV"]).to_csv(  # lịch sử NAV đã làm sạch: biểu đồ trên web

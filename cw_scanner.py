@@ -331,7 +331,10 @@ def lech_theo_cs(P0, S0, ngay0, P, S, ngay, K, ty_le, dao_han, r):
     return math.nan, None
 
 
-def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=20):
+SO_PHIEN_LECH = 20  # cột "Lệch 20 phiên" và mục "có theo kịp" ở trang chi tiết
+
+
+def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=SO_PHIEN_LECH):
     """Độ lệch so với CS qua `so_phien` phiên gần nhất. gia_cw, kl_cw, gia_cs: {ngày 'YYYY-MM-DD': giá VND / khối lượng}.
     Mốc = phiên đầu tiên khớp ≥ MIN_KHOI_LUONG (bỏ phiên mới lên sàn khớp rất ít, vd CHPG2638 29-30/09/2026).
     Trả về (mốc, [(ngày, CS %, CW thực tế %, CW lẽ ra %, lệch)]); mốc None nếu không có phiên đủ thanh khoản."""
@@ -716,10 +719,20 @@ def main():
             "cach_tinh": "mua giá chào bán + phí; bán sau SO_PHIEN_GIU phiên theo Black-Scholes với IV của giá chờ mua hôm nay",
         },
         "canh_bao_iv_cung_ma": {"MIN_IV_SO_VOI_CUNG_MA": MIN_IV_SO_VOI_CUNG_MA, "MIN_SO_CW_CUNG_MA": MIN_SO_CW_CUNG_MA},
+        "lech_20_phien": {
+            "SO_PHIEN_LECH": SO_PHIEN_LECH,
+            "SO_NGAY_LECH": SO_NGAY_LECH,
+            "moc": "phiên đầu tiên trong cửa sổ khớp ≥ MIN_KHOI_LUONG",
+            "cach_tinh": "IV giải từ giá CW và CS ở mốc; giá lẽ ra = Black-Scholes với IV đó và giá CS hôm nay;"
+            " IV mốc không giải được thì tính cả 2 đầu với r = 0",
+            "nguon_gia_cw": "vnstock Quote(KBS), 1D",
+        },
+        "he_so_iv_tcph": {"MIN_MAU_HE_SO_IV": MIN_MAU_HE_SO_IV, "SO_THANG_HE_SO_IV": SO_THANG_HE_SO_IV},
         "nguon": {
             "danh_sach_cw": "vnstock Listing(KBS)",
             "bang_gia": URL_BANG_GIA,
             "lich_su_gia": "vnstock Quote(KBS), 1D",
+            "cw_sap_ra_mat": URL_HOSE_CW_MOI,
         },
         "vnstock": importlib.metadata.version("vnstock"),
     }

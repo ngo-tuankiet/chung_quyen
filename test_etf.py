@@ -316,6 +316,14 @@ def test_web_bang_chiet_khau_va_bieu_do_nav():
         assert "Không đọc được lịch sử NAV" in ct and "Giá E1VFVN30" in ct  # biểu đồ giá vẫn còn
 
 
+def test_gia_dinh_etf_ghi_du_nguong():
+    import json
+
+    gd = E.gia_dinh_etf(datetime(2026, 10, 26, 9, 40))
+    assert json.loads(json.dumps(gd, ensure_ascii=False))["chiet_khau"]["NGUONG_LAI_RONG"] == E.CK.NGUONG_LAI_RONG
+    assert gd["xep_hang"]["NAV_CS_TOI_THIEU"] == E.NAV_CS_TOI_THIEU and gd["PHI_QUAN_LY"] == E.PHI_QUAN_LY
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):
