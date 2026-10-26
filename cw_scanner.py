@@ -337,6 +337,21 @@ def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=20):
     return moc, hang
 
 
+SO_NGAY_LECH = 45  # ngày lịch đủ chứa 20 phiên + phiên mốc để tính "Lệch 20 phiên" lúc quét
+
+
+def lech_hien_tai(ma, P, gia_cs, K, ty_le, dao_han, r):
+    """Lệch so với CS của 1 CW (tỷ lệ) và ngày mốc, đúng như mục "có theo kịp" ở trang chi tiết (lech_20_phien).
+    P: giá CW hiện tại (đồng) để đổi đơn vị lịch sử vnstock; gia_cs: {ngày 'YYYY-MM-DD': giá CS đồng}.
+    Không có phiên đủ thanh khoản -> (NaN, "")."""
+    df = lay_gia_dong_cua(ma, SO_NGAY_LECH)
+    he_so = 10 ** round(math.log10(P / float(df["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
+    gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"])}
+    kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"])}
+    moc, hang = lech_20_phien(gia, kl, gia_cs, K, ty_le, dao_han, r)
+    return (hang[-1][4], moc) if hang else (math.nan, "")
+
+
 def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
     """IV (%) từng ngày từ {ngày 'YYYY-MM-DD': giá VND} của CW và cổ phiếu cơ sở. Trả về [[ngày, IV %], ...].
     Giá CS phải là giá đã điều chỉnh quyền: khi đó dùng điều khoản HIỆN TẠI (K, tỷ lệ đã điều chỉnh) cho cả các ngày trước sự kiện
@@ -633,6 +648,30 @@ def main():
     so_sanh = [so_iv_cung_ma(df, ma, cs, iv) for ma, cs, iv in zip(df["Mã CW"], df["Mã CS"], df["IV %"])]
     df["IV cùng mã %"] = [round(tv, 1) for tv, _ in so_sanh]  # trung vị IV các CW khác cùng mã CS
     df["Cảnh báo"] = [cb for _, cb in so_sanh]
+    # Bước 5b: lệch so với CS 20 phiên (như trang chi tiết) cho mọi CW: 1 lượt vnstock / CW; lỗi 1 mã thì để trống
+    lech, loi_lech = [], 0
+    for _, h in df.iterrows():
+        try:
+            dao_han = hom_nay + timedelta(days=int(h["Ngày còn lại"]))
+            lech.append(
+                lech_hien_tai(
+                    h["Mã CW"],
+                    h["Giá CW"],
+                    dict(lich_su[h["Mã CS"]]),
+                    h["Giá thực hiện"],
+                    h["Tỷ lệ CĐ"],
+                    dao_han,
+                    LAI_SUAT_PHI_RUI_RO,
+                )
+            )
+        # ranh giới gọi vnstock: mã lỗi để trống cột và đếm vào nhật ký, không dừng cả lần quét
+        except Exception:  # noqa: BLE001
+            loi_lech += 1
+            lech.append((math.nan, ""))
+    df["Lệch 20 phiên %"] = [round(x * 100, 1) if math.isfinite(x) else math.nan for x, _ in lech]
+    df["Mốc lệch"] = [m for _, m in lech]
+    if loi_lech:
+        print(f"  [!] Không tính được Lệch 20 phiên cho {loi_lech} CW (lỗi lấy lịch sử giá CW): để trống")
     df["Đánh giá"] = pd.Categorical(df["Đánh giá"], KET_LUAN, ordered=True)  # để sắp xếp theo thứ tự tốt -> xấu
     # trong mỗi nhóm: IV − HV thấp nhất trước (so sánh được giữa CW gần và xa giá thực hiện); không giải được IV xếp cuối
     df = df.sort_values(["Đánh giá", "IV − HV"], na_position="last")

@@ -377,6 +377,47 @@ def test_lech_20_phien():
     assert lech_20_phien(gia_cw, {}, gia_cs, K, n, dh, r) == (None, [])  # không phiên nào đủ thanh khoản
 
 
+def test_lech_hien_tai_doi_don_vi_va_lay_phien_cuoi():
+    # Lịch sử vnstock theo nghìn đồng; CW 16/10 cao hơn mức lẽ ra theo CS 10% -> lệch hiện tại +10%, mốc 14/10 (13/10 khớp ít)
+    K, n, dh, r = 22605, 1.5863, date(2027, 2, 17), 0.04
+    gia_cs = {"2026-10-13": 24000.0, "2026-10-14": 24400.0, "2026-10-15": 24300.0, "2026-10-16": 24500.0}
+    gia = {
+        d: black_scholes_call(S, K, (dh - date.fromisoformat(d)).days / 365, r, 0.30)[0] / n for d, S in gia_cs.items()
+    }
+    gia["2026-10-16"] *= 1.10
+    df = pd.DataFrame(
+        {"time": list(gia), "close": [g / 1000 for g in gia.values()], "volume": [500, 50_000, 40_000, 30_000]}
+    )
+    with mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df):
+        lech, moc = cw_scanner.lech_hien_tai("CVPB2615", gia["2026-10-16"], gia_cs, K, n, dh, r)
+    assert moc == "2026-10-14" and abs(lech - 0.10) < 1e-6
+
+
+def test_cot_lech_tren_web():
+    import web
+
+    df = pd.DataFrame([{c: math.nan for c in web.COT_SO_LUOT} for _ in range(3)])
+    goc = {
+        "Mã CW": "CA",
+        "Mã CS": "VPB",
+        "TCPH": "X",
+        "Mới": "",
+        "Cảnh báo": "",
+        "Ghi chú IV": "",
+        "Nguồn giá mua": "ask",
+    }
+    goc |= {"Ngày còn lại": 90, "Giá mua": 1000, "Giá hợp lý": 1100, "Đắt/rẻ %": -9.1, "IV %": 30.0, "IV − HV": -2.0}
+    goc |= {"CS tăng % để hòa vốn": 5.0, "Đòn bẩy": 6.0, "Delta": 0.5, "KL khớp": 10_000, "KL chào bán": 5_000}
+    goc |= {"Đánh giá": "THEO DÕI", "Lý do": "", "Mốc lệch": "2026-10-01"}
+    for c, v in goc.items():
+        df[c] = v
+    df["Lệch 20 phiên %"] = [-18.2, 4.5, math.nan]
+    html = web.bang(df)
+    # vượt ±15% thì in đậm; trống thì "—"; mốc nằm trong title của ô
+    assert "<b>-18,2%</b>" in html and ">+4,5%</td>" in html and 'title="mốc 2026-10-01"' in html
+    assert html.count("</th>") == len(web.COT)  # tiêu đề và ô khớp số cột
+
+
 def test_lich_su_iv():
     # Giá CW tạo từ Black-Scholes với sigma 30% -> giải ngược ra đúng 30% mỗi ngày; ngày thiếu giá CS thì bỏ;
     # ngày giá CW dưới mức tối thiểu S − K·e^(−rT) thì ghi 0 (không có mức biến động nào khớp)

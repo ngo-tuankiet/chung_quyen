@@ -39,6 +39,7 @@ KET_LUAN = {
     "BỎ QUA": ("bo-qua", "✕", "Bỏ qua"),
 }
 # Các cột của bảng danh sách: (tiêu đề, căn lề, giải thích cho người mới - hiện khi rê chuột lên tiêu đề và ở trang Hướng dẫn)
+GIAI_THICH_LECH = "Giá CW thực tế so với giá “lẽ ra” nếu CW giữ nguyên mức IV của ngày mốc và chỉ chạy theo giá cổ phiếu cơ sở (đã gồm đòn bẩy và mất giá theo thời gian), qua 20 phiên gần nhất. Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. Trong khoảng ±15% là bình thường. Chi tiết và biểu đồ ở trang của từng CW."
 COT = [
     (
         "Mã CW",
@@ -79,6 +80,7 @@ COT = [
             "“—” = không giải được (rê chuột lên ô để xem lý do)."
         ),
     ),
+    ("Lệch 20 phiên", "so", GIAI_THICH_LECH),
     (
         "CS cần tăng để hòa vốn",
         "so",
@@ -355,6 +357,7 @@ COT_SO_LUOT = (  # cột số của phần lướt sóng (cw_scanner.dinh_gia); 
     "Mất giá/ngày %",
     "Lướt: CS cần tăng %",
     "Lướt: lãi kịch bản %",
+    "Lệch 20 phiên %",
 )
 
 
@@ -410,12 +413,20 @@ def bang(df, ma_dang_xem="", id_bang=""):
             if math.isfinite(iv_hv)
             else f'<td class="so" data-v="{v(iv_hv)}" title="{ESC(h["Ghi chú IV"])}">—</td>'
         )
+        lech = h["Lệch 20 phiên %"]
+        o_lech = (
+            f'<td class="so" data-v="{lech}" title="mốc {ESC(str(h.get("Mốc lệch", "")))}">'
+            + (f"<b>{so(lech, 1, True)}%</b>" if abs(lech) >= danh_muc.CANH_BAO_LECH * 100 else f"{so(lech, 1, True)}%")
+            + "</td>"
+            if math.isfinite(lech)
+            else f'<td class="so" data-v="{v(lech)}">—</td>'
+        )  # đậm khi vượt ngưỡng cảnh báo ±15% của danh mục
         dong.append(
             f'<tr data-href="/cw/{ma}"{" class=dang-xem" if h["Mã CW"] == ma_dang_xem else ""}>'
             f'<td><a href="/cw/{ma}">{ma}</a>{moi}</td><td>{ESC(h["Mã CS"])}</td><td>{ESC(h["TCPH"])}</td>'
             f'<td class="so" data-v="{h["Ngày còn lại"]}">{so(h["Ngày còn lại"])}</td>'
             f'<td class="so" data-v="{h["Giá mua"]}">{so(h["Giá mua"])}{nguon}</td><td class="so" data-v="{h["Giá hợp lý"]}">{so(h["Giá hợp lý"])}</td>'
-            f'<td class="so {lop}" data-v="{v(h["Đắt/rẻ %"])}">{chu_dat_re}</td>{o_iv}{o_iv_hv}'
+            f'<td class="so {lop}" data-v="{v(h["Đắt/rẻ %"])}">{chu_dat_re}</td>{o_iv}{o_iv_hv}{o_lech}'
             f'<td class="so" data-v="{h["CS tăng % để hòa vốn"]}">{so(h["CS tăng % để hòa vốn"], 1, True)}%</td>'
             f'<td class="so" data-v="{h["Đòn bẩy"]}">{so(h["Đòn bẩy"], 1)}x</td>'
             f'<td class="so" data-v="{h["Delta"] if math.isfinite(h["Delta"]) else -1}">{so(h["Delta"], 2)}</td>'
@@ -1951,6 +1962,7 @@ COT_LUOT = [
         "x",
         "CS +1% thì CW tăng khoảng bấy nhiêu % (theo giá mua); lỗ cũng nhanh như vậy",
     ),
+    ("Lệch 20 phiên %", "Lệch 20p", 1, True, "%", GIAI_THICH_LECH),
     ("Mất giá/ngày %", "Mất giá/ngày", 2, True, "%", "CW mất bao nhiêu mỗi ngày nếu CS và IV đứng yên"),
     (
         "IV − HV",

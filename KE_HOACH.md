@@ -386,6 +386,10 @@ Thứ tự quan trọng: (1) đòn bẩy/delta, (2) mất giá theo thời gian,
 5. Khối lượng chào bán của tổ chức phát hành còn nhiều thì giá khó lên nhanh.
 
 Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bước (triệu), Mất giá/ngày %, Lướt: CS cần tăng %, Lướt: lãi kịch bản %.
+**Lệch 20 phiên %** và **Mốc lệch** (từ 26/10/2026): lúc quét tính cho mọi CW đúng như mục "<mã> có theo kịp <CS> không?" ở trang chi tiết
+(`cw_scanner.lech_hien_tai` → `lech_20_phien`, 1 lượt vnstock/CW, thêm ~40 giây mỗi lần quét); hiện ở cột "Lệch 20 phiên" của danh sách
+chứng quyền và "Lệch 20p" của trang ⚡ (bấm tiêu đề để sắp xếp; vượt ±15% in đậm ở danh sách). Quét 26/10 13:07: 317/333 CW có số,
+81 CW ≤ −15%, 52 CW ≥ +15% — tức lệch quá ±15% không hiếm.
 Quét thật 23/10/2026 10:31: 333 CW, 229 lướt được, 104 bị loại (68 spread > 5%, 58 bên mua < 20 triệu, 18 sắp hết hạn, 11 không có người chờ mua);
 đứng đầu CVPB2615 (CS cần +0,37%, CS +5% thì lãi +44%), cuối bảng là CW IV rất cao (CSHB2609 IV − HV +159 điểm: CS +5% vẫn lỗ 8,7%).
 
