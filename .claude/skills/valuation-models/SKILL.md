@@ -8,6 +8,7 @@ description: Mô hình định giá nào dùng cho tài sản nào trong cw_scan
 Luật vàng 1–2 của AGENTS.md: không bịa công thức, không dùng sai mô hình cho sai loại tài sản. File này chỉ ghi những gì đã có trong repo,
 kèm nguồn chuẩn khi có. Những gì **không** có ở đây thì làm theo mục "Khi nào dừng và hỏi" ở cuối.
 Chi tiết và ví dụ số: `KE_HOACH.md` Phần 1, 6, 7b, 8.
+Luật chung cho cổ phiếu (WACC/COE, ROE bền vững, NOT_RATED, hiệu chuẩn…): skill toàn máy `vn-valuation-rules`.
 
 ## Bảng chọn mô hình
 

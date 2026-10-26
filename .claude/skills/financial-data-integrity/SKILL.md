@@ -8,6 +8,7 @@ description: Các bẫy dữ liệu ĐÃ GẶP THẬT trong cw_scanner (vnstock 
 Mỗi mục dưới đây là lỗi đã gặp trên dữ liệu thật, không phải lý thuyết. Gặp triệu chứng giống thì dùng lại cách xử lý đã có,
 đừng viết cách mới. Gặp lỗi mới thì **dừng và báo người dùng** (AGENTS.md mục 8), rồi thêm vào đây sau khi đã xử lý.
 Số liệu chi tiết: `KE_HOACH.md` Phần 6, 7b, 8 và các báo cáo `ket_qua/*.md` được nhắc ở từng mục.
+Bẫy chung cho mọi dự án tài chính Việt Nam (BCTC, ghi DB, đồng thuận CTCK…): skill toàn máy `vn-finance-data`.
 
 Nguyên tắc chung khi làm sạch: **bỏ dòng nghi ngờ, không đoán số thay thế**, và ghi lại đã bỏ bao nhiêu dòng (vào cảnh báo/báo cáo).
 Ở ranh giới gọi API, lỗi của một mã thì bỏ mã đó và ghi cảnh báo, không nuốt lỗi cả lần chạy.
