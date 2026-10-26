@@ -36,6 +36,12 @@ SO_PHIEN_DO_BIEN_DONG = 250  # số phiên dùng để đo biến động (~1 n�
 # Gói Khách của vnstock giới hạn 365 ngày: khi đó số phiên thật vẫn ghi ở cột "Số phiên σ".
 SO_NGAY_LICH_SU_HV = 400
 SO_PHIEN_MOT_NAM = 250  # hệ số năm hóa biến động: ~250 phiên giao dịch/năm ở Việt Nam
+NGAY_MOT_NAM = 365  # T = số ngày lịch / 365 (quy ước ACT/365 cho r và σ năm hóa); cũng là độ dài 1 năm giá lịch sử
+# Khoảng tìm khi giải ngược bằng chia đôi: IV 0,1%–500%/năm; giá CS 1%–300% giá hiện tại. 60 vòng: sai số ≈ khoảng / 2^60
+IV_THAP_NHAT, IV_CAO_NHAT = 0.001, 5.0
+CS_THAP_NHAT, CS_CAO_NHAT = 0.01, 3.0
+SO_VONG_CHIA_DOI = 60
+CHO_HET_PHUT = 61  # giây chờ khi vnstock báo hết lượt gọi trong phút (thêm 1 giây cho chắc qua phút mới)
 
 # 4 tiêu chí "có thể đầu tư"
 MIN_NGAY_CON_LAI = 60  # CW mất giá trị thời gian rất nhanh khi gần đáo hạn
@@ -107,10 +113,10 @@ def black_scholes_call(S: float, K: float, T: float, r: float, sigma: float) -> 
 
 def bien_dong_ngam_dinh(gia_cw: float, S: float, K: float, T: float, r: float, ty_le: float) -> float | None:
     """Mức biến động mà giá CW trên thị trường đang 'ngầm định' (giải ngược Black-Scholes). None nếu không giải được."""
-    muc_tieu, thap, cao = gia_cw * ty_le, 0.001, 5.0
+    muc_tieu, thap, cao = gia_cw * ty_le, IV_THAP_NHAT, IV_CAO_NHAT
     if not black_scholes_call(S, K, T, r, thap)[0] <= muc_tieu <= black_scholes_call(S, K, T, r, cao)[0]:
         return None  # giá CW thấp hơn giá trị nội tại hoặc cao vô lý
-    for _ in range(60):  # chia đôi khoảng: giá quyền chọn luôn tăng khi sigma tăng
+    for _ in range(SO_VONG_CHIA_DOI):  # chia đôi khoảng: giá quyền chọn luôn tăng khi sigma tăng
         giua = (thap + cao) / 2
         thap, cao = (giua, cao) if black_scholes_call(S, K, T, r, giua)[0] < muc_tieu else (thap, giua)
     return (thap + cao) / 2
@@ -253,17 +259,17 @@ def luot_ngan_han(
     kich_ban = KICH_BAN_TANG if kich_ban is None else kich_ban
     phi = PHI_GIAO_DICH if phi is None else phi
     thue = THUE_BAN if thue is None else thue
-    iv_ban = bien_dong_ngam_dinh(gia_cho, S, K, ngay_con_lai / 365, r, ty_le)
+    iv_ban = bien_dong_ngam_dinh(gia_cho, S, K, ngay_con_lai / NGAY_MOT_NAM, r, ty_le)
     if iv_ban is None:
         return math.nan, math.nan
-    T2 = (ngay_con_lai - ngay_giu) / 365
+    T2 = (ngay_con_lai - ngay_giu) / NGAY_MOT_NAM
     von = gia_ban * (1 + phi)
     thu = lambda S2, iv=iv_ban: black_scholes_call(S2, K, T2, r, iv)[0] / ty_le * (1 - phi - thue)
     lai_kb = thu(S * (1 + kich_ban), iv_ban + d_iv) / von - 1
-    thap, cao = S * 0.01, S * 3
+    thap, cao = S * CS_THAP_NHAT, S * CS_CAO_NHAT
     if thu(cao) < von:  # CS tăng gấp 3 vẫn chưa hòa vốn: coi như không tính được
         return math.nan, lai_kb
-    for _ in range(60):  # chia đôi: giá quyền chọn luôn tăng khi giá CS tăng
+    for _ in range(SO_VONG_CHIA_DOI):  # chia đôi: giá quyền chọn luôn tăng khi giá CS tăng
         giua = (thap + cao) / 2
         thap, cao = (giua, cao) if thu(giua) < von else (thap, giua)
     return (thap + cao) / 2 / S - 1, lai_kb
@@ -300,7 +306,7 @@ def gia_mua(niem_yet, khop_lenh, so_lenh):
     return niem_yet["refPrice"], "tham chiếu"
 
 
-def lay_gia_dong_cua(ma, so_ngay=365, nguon="KBS", **them):
+def lay_gia_dong_cua(ma, so_ngay=NGAY_MOT_NAM, nguon="KBS", **them):
     """DataFrame (time, open, high, low, close, volume) giá ngày `so_ngay` ngày qua của một mã từ vnstock.
     Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng.
     Chỉ số (VN30...) chỉ có ở nguồn VCI, giá chia 1.000: cần floating=6 (mặc định làm tròn 2 số lẻ -> mất độ chính xác).
@@ -315,8 +321,8 @@ def lay_gia_dong_cua(ma, so_ngay=365, nguon="KBS", **them):
     except Exception as e:
         if getattr(e, "code", "") != "VNSTOCK_AUTH_MINUTE_LIMIT":
             raise
-        print("  Hết lượt gọi vnstock trong phút này, chờ 60 giây rồi chạy tiếp...")
-        time.sleep(61)
+        print(f"  Hết lượt gọi vnstock trong phút này, chờ {CHO_HET_PHUT - 1} giây rồi chạy tiếp...")
+        time.sleep(CHO_HET_PHUT)
         return lay()
 
 
@@ -325,7 +331,7 @@ def lech_theo_cs(P0, S0, ngay0, P, S, ngay, K, ty_le, dao_han, r):
     với giá CS và thời gian hôm nay; lệch = P / giá lẽ ra − 1 (âm: CW không theo kịp CS). Đã gồm đòn bẩy và mất giá theo thời gian.
     Giá mốc dưới mức tối thiểu (không giải được IV) thì tính bằng r = 0 cho cả hai đầu. Trả về (lệch, r đã dùng); không tính được -> (NaN, None).
     """
-    T0, T = (dao_han - ngay0).days / 365, (dao_han - ngay).days / 365
+    T0, T = (dao_han - ngay0).days / NGAY_MOT_NAM, (dao_han - ngay).days / NGAY_MOT_NAM
     for r_dung in (r, 0.0):
         iv0 = bien_dong_ngam_dinh(P0, S0, K, T0, r_dung, ty_le)
         if iv0 is not None:
@@ -378,7 +384,7 @@ def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
     kq = []
     for ngay in sorted(gia_cw.keys() & gia_cs.keys()):
         S, P = gia_cs[ngay], gia_cw[ngay]
-        T = (dao_han - date.fromisoformat(ngay)).days / 365
+        T = (dao_han - date.fromisoformat(ngay)).days / NGAY_MOT_NAM
         iv = bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
         if iv is not None:
             kq.append([ngay, round(iv * 100, 1)])
@@ -425,7 +431,7 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     P_mua, nguon_gia = gia_mua(ny, kl, so_lenh)  # giá phải trả nếu mua ngay: dùng cho mọi chỉ số định giá bên dưới
     ty_le = doc_ty_le(ny["exerciseRatio"])
     ngay_con_lai = (datetime.strptime(ny["maturityDate"], "%Y%m%d").date() - hom_nay).days
-    T = ngay_con_lai / 365
+    T = ngay_con_lai / NGAY_MOT_NAM
 
     gia_quyen_chon, delta = black_scholes_call(S, K, T, r, sigma)
     gia_hop_ly = gia_quyen_chon / ty_le  # 1 CW chỉ bằng 1/tỷ lệ của 1 quyền chọn trên 1 cổ phiếu
@@ -449,7 +455,8 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
         else (math.nan, math.nan)
     )
     mat_gia_ngay = (
-        black_scholes_call(S, K, (ngay_con_lai - 1) / 365, r, iv)[0] / black_scholes_call(S, K, T, r, iv)[0] - 1
+        black_scholes_call(S, K, (ngay_con_lai - 1) / NGAY_MOT_NAM, r, iv)[0] / black_scholes_call(S, K, T, r, iv)[0]
+        - 1
         if iv is not None and ngay_con_lai > 1
         else math.nan
     )  # CS và IV đứng yên, chỉ trôi 1 ngày
@@ -708,7 +715,12 @@ def main():
         "so_phien_do_bien_dong": SO_PHIEN_DO_BIEN_DONG,
         "so_ngay_lich_su_hv": SO_NGAY_LICH_SU_HV,
         "so_phien_mot_nam": SO_PHIEN_MOT_NAM,
-        "thoi_gian_T": "số ngày lịch còn lại / 365",
+        "thoi_gian_T": f"số ngày lịch còn lại / {NGAY_MOT_NAM}",
+        "giai_nguoc": {
+            "iv": [IV_THAP_NHAT, IV_CAO_NHAT],
+            "cs_x_S": [CS_THAP_NHAT, CS_CAO_NHAT],
+            "so_vong": SO_VONG_CHIA_DOI,
+        },
         "gia_mua": "giá chào bán thấp nhất trong sổ lệnh; sổ lệnh trống thì giá khớp; chưa khớp thì giá tham chiếu",
         "tieu_chi": {
             "MIN_NGAY_CON_LAI": MIN_NGAY_CON_LAI,

@@ -92,10 +92,10 @@ def mo_phong(dk, gia, kl, gia_cs, lich, ngay_vao, so_phien, spread, r=C.LAI_SUAT
         if cho <= 0:
             continue
         con, giu = (dk["dao_han"] - v.date()).days, (b - v).days
-        iv_cho = C.bien_dong_ngam_dinh(cho, S, K, con / 365, r, ty_le)
-        du_bao = C.black_scholes_call(S2, K, (con - giu) / 365, r, iv_cho)[0] / ty_le if iv_cho else math.nan
-        iv0 = C.bien_dong_ngam_dinh(giua, S, K, con / 365, r, ty_le)
-        iv1 = C.bien_dong_ngam_dinh(gia[b], S2, K, (con - giu) / 365, r, ty_le)
+        iv_cho = C.bien_dong_ngam_dinh(cho, S, K, con / C.NGAY_MOT_NAM, r, ty_le)
+        du_bao = C.black_scholes_call(S2, K, (con - giu) / C.NGAY_MOT_NAM, r, iv_cho)[0] / ty_le if iv_cho else math.nan
+        iv0 = C.bien_dong_ngam_dinh(giua, S, K, con / C.NGAY_MOT_NAM, r, ty_le)
+        iv1 = C.bien_dong_ngam_dinh(gia[b], S2, K, (con - giu) / C.NGAY_MOT_NAM, r, ty_le)
         dong.append(
             {
                 "Ngày vào": t,
@@ -108,7 +108,11 @@ def mo_phong(dk, gia, kl, gia_cs, lich, ngay_vao, so_phien, spread, r=C.LAI_SUAT
                 "Ngày còn lại": con,
                 "Giá giữa": giua,
                 "Hòa vốn": hoa_von,  # = "Lướt: CS cần tăng %" / 100 ở ngày T
-                "Đòn bẩy": (C.black_scholes_call(S, K, con / 365, r, iv0)[1] * S / (giua * ty_le) if iv0 else math.nan),
+                "Đòn bẩy": (
+                    C.black_scholes_call(S, K, con / C.NGAY_MOT_NAM, r, iv0)[1] * S / (giua * ty_le)
+                    if iv0
+                    else math.nan
+                ),
                 "CS %": S2 / S - 1,
                 "Lãi": lai_lenh(mua, max(gia[b] - spread / 2, 0.0)),
                 "Lãi mô hình": lai_lenh(mua, du_bao),
@@ -266,7 +270,9 @@ def kiem_tra_gdkhq(cw, gia_cs, su_kien, lich, r=C.LAI_SUAT_PHI_RUI_RO):
             if lich.get_loc(b) - lich.get_loc(a) != 1 or a not in s.index or b not in s.index:
                 continue
             iv = [
-                C.bien_dong_ngam_dinh(g[d], s[d], dk["K"], (dk["dao_han"] - d.date()).days / 365, r, dk["ty_le"])
+                C.bien_dong_ngam_dinh(
+                    g[d], s[d], dk["K"], (dk["dao_han"] - d.date()).days / C.NGAY_MOT_NAM, r, dk["ty_le"]
+                )
                 for d in (a, b)
             ]
             if iv[0] and iv[1]:

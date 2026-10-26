@@ -59,6 +59,7 @@ GIU_MAY_THUC = (time(9, 0), time(14, 45))
 GIU_THUC_GIAY = 360
 FILE_DA_BAO = C.THU_MUC / "canh_bao_chiet_khau.json"
 SO_QUY_TUT = 5  # báo cáo: số quỹ tụt sâu nhất so với chỉ số liệt kê
+SO_QUY_LAI_RONG = 5  # báo cáo: số quỹ có lãi ròng nếu về NAV cao nhất
 
 
 # ============ CÔNG THỨC ============
@@ -238,7 +239,11 @@ def muc_bao_cao(df):
         + _chua_khop(h, ngay_khop=False)
         for _, h in dat.iterrows()
     ]
-    top = quy.dropna(subset=["Lãi ròng nếu về NAV %"]).sort_values("Lãi ròng nếu về NAV %", ascending=False).head(5)
+    top = (
+        quy.dropna(subset=["Lãi ròng nếu về NAV %"])
+        .sort_values("Lãi ròng nếu về NAV %", ascending=False)
+        .head(SO_QUY_LAI_RONG)
+    )
     bang = D.bang(
         ["Mã", "Chào bán", "iNAV", "CK", "Ròng", "TV 1N"],
         [

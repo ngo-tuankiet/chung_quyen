@@ -272,8 +272,10 @@ def san_ly_thuyet(S, K, ty_le, r, hom_nay, dao_han):
     """Giá trị tối thiểu (đ/CW) nếu giữ tới đáo hạn: [0,999·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / tỷ lệ, tᵢ là 5 phiên tính giá
     thanh toán (bỏ cuối tuần), 0,1% là thuế trên giá thanh toán. Cận dưới call châu Âu (Hull ch. 11) cho giá bình quân.
     """
-    chiet_khau = sum(math.exp(-r * (dao_han - p).days / 365) for p in phien_thanh_toan(dao_han)) / SO_PHIEN_THANH_TOAN
-    return C.can_duoi((1 - C.THUE_BAN) * S * chiet_khau, K, (dao_han - hom_nay).days / 365, r) / ty_le
+    chiet_khau = (
+        sum(math.exp(-r * (dao_han - p).days / C.NGAY_MOT_NAM) for p in phien_thanh_toan(dao_han)) / SO_PHIEN_THANH_TOAN
+    )
+    return C.can_duoi((1 - C.THUE_BAN) * S * chiet_khau, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r) / ty_le
 
 
 def trang_thai_vi_the(loai, tu_dat_chot, tu_dat_cat, mat_gia_ngay):
@@ -306,7 +308,7 @@ def canh_bao_cw_dat(so_luong, gia_bid, S, K, ty_le, dao_han, hom_nay, r, sigma, 
     Có ghi số tiền (người dùng yêu cầu): tiền thu về, vốn mua cổ phiếu đủ số và theo delta (lô 100)."""
     if not gia_bid or not dao_han or math.isnan(sigma):
         return ""
-    T = (dao_han - hom_nay).days / 365
+    T = (dao_han - hom_nay).days / C.NGAY_MOT_NAM
     g = giu_hay_ban(S, K, ty_le, T, r, sigma, gia_bid)
     iv = C.bien_dong_ngam_dinh(gia_bid, S, K, T, r, ty_le)
     if iv is None or round(g["ban_ngay"], 9) < round(g["giu_mh"] * (1 + NGUONG_CW_DAT), 9):
@@ -416,7 +418,13 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 # còn ≤ CANH_BAO_NGAY_GD_CUOI ngày tới ngày GD cuối: so giữ đến đáo hạn với bán ngay (mục ⏳ của báo cáo)
                 "giu_hay_ban": (
                     giu_hay_ban(
-                        S, K, C.doc_ty_le(ny["exerciseRatio"]), (dao_han - hom_nay).days / 365, r_dg, sigma, gia_ban
+                        S,
+                        K,
+                        C.doc_ty_le(ny["exerciseRatio"]),
+                        (dao_han - hom_nay).days / C.NGAY_MOT_NAM,
+                        r_dg,
+                        sigma,
+                        gia_ban,
                     )
                     if con_ngay is not None and con_ngay <= CANH_BAO_NGAY_GD_CUOI and dao_han
                     else None
@@ -507,7 +515,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
             # lãi do TCPH nâng IV chỉ là lý do Cân nhắc bán khi CW không còn rẻ: bán ngay ≥ giá trị theo HV, hoặc IV (giá chào bán)
             # ≥ trung vị IV cùng mã. Còn rẻ thì chỉ là thông tin (người dùng chốt 23/10/2026)
             g = giu_hay_ban(
-                S, K, C.doc_ty_le(ny["exerciseRatio"]), (dao_han - hom_nay).days / 365, r_dg, sigma, gia_ban
+                S, K, C.doc_ty_le(ny["exerciseRatio"]), (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r_dg, sigma, gia_ban
             )
             tv = C.so_iv_cung_ma(df, ma, cs, iv)[0] if len(quet) else math.nan
             if g["ban_ngay"] < g["giu_mh"] and not iv >= tv:  # NaN: không đủ CW cùng mã thì chỉ xét theo HV

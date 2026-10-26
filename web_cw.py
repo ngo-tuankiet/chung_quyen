@@ -99,7 +99,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     # P = giá mua (chào bán thấp nhất): giá người mua phải trả, dùng cho mọi chỉ số bên dưới
     S, K, ty_le, P = float(h["Giá CS"]), float(h["Giá thực hiện"]), float(h["Tỷ lệ CĐ"]), float(h["Giá mua"])
     P_khop, nguon_gia, ngay_con_lai = float(h["Giá CW"]), h["Nguồn giá mua"], int(h["Ngày còn lại"])
-    T, hoa_von, tang = ngay_con_lai / 365, K + P * ty_le, float(h["CS tăng % để hòa vốn"])
+    T, hoa_von, tang = ngay_con_lai / C.NGAY_MOT_NAM, K + P * ty_le, float(h["CS tăng % để hòa vốn"])
     ngay_dao_han = ngay_tinh + timedelta(days=ngay_con_lai)
     iv = cw_scanner.bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
     toi_thieu = cw_scanner.can_duoi(S, K, T, r)  # giá tối thiểu của quyền trên 1 cổ phiếu theo mô hình
@@ -118,7 +118,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     if iv:  # mất giá theo thời gian tính theo mức biến động thị trường đang dùng
         mat_gia = (
             cw_scanner.black_scholes_call(S, K, T, r, iv)[0]
-            - cw_scanner.black_scholes_call(S, K, T - 1 / 365, r, iv)[0]
+            - cw_scanner.black_scholes_call(S, K, T - 1 / C.NGAY_MOT_NAM, r, iv)[0]
         ) / ty_le
     else:  # không giải được: chia đều phần giá trị thời gian còn lại cho số ngày
         mat_gia = max(gia_tri_tg, 0) / max(ngay_con_lai, 1)
@@ -459,7 +459,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     bo_nho, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
     if bo_nho is None and lich_su:
         try:
-            df_cw = C.lay_gia_dong_cua(ma, 365, C.NGUON_GIA_CW)
+            df_cw = C.lay_gia_dong_cua(ma, C.NGAY_MOT_NAM, C.NGUON_GIA_CW)
             he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
             gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
             kl_cw = {str(t)[:10]: float(v) for t, v in zip(df_cw["time"], df_cw["volume"])}
@@ -652,9 +652,9 @@ def trang_sap_ra_mat(tai_moi=False):
         ngay_ct = f'{x["ngay_chap_thuan"]:%d/%m/%Y}' if x["ngay_chap_thuan"] else "—"
         S = cs["Giá CS"] if cs else math.nan
         try:  # giá hợp lý dự kiến nếu CW lên sàn hôm nay, dùng giá & mức dao động của cổ phiếu cơ sở ở lần quét gần nhất
-            gia_hl = C.black_scholes_call(S, K, con / 365, C.LAI_SUAT_PHI_RUI_RO, cs["Biến động %/năm"] / 100)[
-                0
-            ] / C.doc_ty_le(x["ty_le"])
+            gia_hl = C.black_scholes_call(
+                S, K, con / C.NGAY_MOT_NAM, C.LAI_SUAT_PHI_RUI_RO, cs["Biến động %/năm"] / 100
+            )[0] / C.doc_ty_le(x["ty_le"])
         except (TypeError, ValueError, ZeroDivisionError):  # thiếu giá CS / giá thực hiện / tỷ lệ từ HOSE -> hiện "—"
             gia_hl = math.nan
         lech = (K / S - 1) * 100 if K and not math.isnan(S) else math.nan

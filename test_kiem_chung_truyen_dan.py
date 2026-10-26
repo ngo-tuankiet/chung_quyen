@@ -3,8 +3,10 @@ python test_kiem_chung_truyen_dan.py"""
 
 import math
 from datetime import date
+from unittest import mock
 
 import pandas as pd
+import pytest
 
 import cw_scanner as C
 import kiem_chung_truyen_dan as T
@@ -89,3 +91,15 @@ if __name__ == "__main__":
         if ten.startswith("test_"):
             f()
     print("OK")
+
+
+def test_kiem_f_khong_kiem_duoc_ca_nao_thi_dung():
+    # HOSE không trả giá thô cho CW nào -> chưa kiểm được đơn vị f, không được chạy tiếp như đã kiểm
+    dk = {"ma": "CVPB2501", "cs": "VPB", "gd_cuoi": date(2025, 6, 2)}
+    lich = pd.to_datetime(["2025-06-02", "2026-10-26"])
+    with (
+        mock.patch.object(T.C, "dang_nhap"),
+        mock.patch.object(T, "gia_tho_hose", return_value=None),
+        pytest.raises(ValueError, match="không kiểm được"),
+    ):
+        T.lay_bo_sung(lich, {"VPB": pd.Series([20000.0], index=lich[:1])}, [(dk, None, None)], {})

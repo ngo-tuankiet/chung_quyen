@@ -56,12 +56,18 @@ def gia_luc(s, ngay):
 def lay_bo_sung(lich, gia_cs, cw, su_kien):
     """([(dk + "f", giá CW đồng, KL CW)], [cảnh báo]): CW hết hạn mà CS có sự kiện quyền sau ngày GD cuối."""
     C.dang_nhap()
+    da_kiem = 0
     for dk in [dk for dk, *_ in cw if dk["gd_cuoi"] < lich[-1].date()][:SO_CW_KIEM_F]:
         tho = gia_tho_hose(dk["cs"], dk["gd_cuoi"])
+        da_kiem += bool(tho)
         if tho and abs(gia_luc(gia_cs[dk["cs"]], dk["gd_cuoi"]) / tho - 1) > LECH_F_TOI_DA:
             raise ValueError(
                 f"{dk['ma']}: giá CS vnstock / giá thô HOSE ngày GD cuối ≠ 1 dù không có sự kiện quyền (đơn vị?)"
             )
+    if not da_kiem:
+        raise ValueError(
+            f"không kiểm được f: HOSE không trả giá thô cho CW nào trong {SO_CW_KIEM_F} CW đầu (mạng/API?)"
+        )
     # đơn vị giá CW vnstock: so 1 CW còn sống (dữ liệu kiem_chung_luot đã đổi ra đồng) với giá vnstock chưa đổi
     dk, gia, _ = next(x for x in cw if x[0]["gd_cuoi"] >= lich[-1].date())
     tho = L.chuoi(C.lay_gia_dong_cua(dk["ma"], L.SO_NGAY_LICH_SU, C.NGUON_GIA_CW), 1.0)[0]
@@ -114,7 +120,7 @@ def cua_so(dk, gia, kl, gia_cs, lich, r=C.LAI_SUAT_PHI_RUI_RO, so_phien=SO_PHIEN
         if (dk["gd_cuoi"] - a.date()).days < C.MIN_NGAY_GD_CUOI_LUOT or b.date() > dk["gd_cuoi"]:
             continue
         K, ty_le, Sa, Sb = dk["K"], dk["ty_le"], gia_cs[a], gia_cs[b]
-        Ta, Tb = ((dk["dao_han"] - d.date()).days / 365 for d in (a, b))
+        Ta, Tb = ((dk["dao_han"] - d.date()).days / C.NGAY_MOT_NAM for d in (a, b))
         iva = C.bien_dong_ngam_dinh(gia[a], Sa, K, Ta, r, ty_le)
         ivb = C.bien_dong_ngam_dinh(gia[b], Sb, K, Tb, r, ty_le)
         if not iva or not ivb:
