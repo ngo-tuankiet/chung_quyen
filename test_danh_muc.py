@@ -550,6 +550,41 @@ def test_chi_gui_discord_khi_bat_thuong():
     ]
 
 
+def _lech_moi(lenh_mua, S_nay, khop_nay, lich_su):
+    """Độ lệch so với CS của 1 vị thế, sổ lệnh hôm nay yết đúng giá mô hình (σ 30%) quanh giá CS S_nay."""
+    dh = date(2027, 2, 17)
+    m = round(cw_scanner.black_scholes_call(S_nay, 20000, (dh - HOM_NAY).days / 365, 0.04, 0.30)[0] / 2 / 10) * 10
+    ny = {"underlyingSymbol": "VPB", "exercisePrice": 20000, "exerciseRatio": "2:1", "maturityDate": "20270217"}
+    ny |= {
+        "lastTradingDate": "20270215",
+        "tradingDate": str(HOM_NAY),
+        "refPrice": khop_nay or 700,
+        "listedShare": 1,
+        "issuerName": "TEST",
+    }
+    so_lenh = {"bidPrices": [{"price": m - 10, "volume": 9000}], "askPrices": [{"price": m + 10, "volume": 9000}]}
+    bang = {"CVPB2615": (ny, {"matchPrice": khop_nay, "accumulatedVolume": 0}, so_lenh)}
+    bang["VPB"] = ({"refPrice": S_nay}, {"matchPrice": S_nay}, {})
+    vt = D.tinh_vi_the(lenh_mua)
+    return D.danh_gia_danh_muc(vt, bang, DF, HOM_NAY, {}, lich_su)[0][0]["lech"]
+
+
+def test_lech_khong_dung_gia_khop_cu_va_mot_lan_mua_le():
+    dh = date(2027, 2, 17)
+    bs = lambda S, ngay: cw_scanner.black_scholes_call(S, 20000, (dh - ngay).days / 365, 0.04, 0.30)[0] / 2
+    # 1) CW chưa khớp hôm nay (matchPrice 0 -> giá tham chiếu cũ 700) trong khi VPB đã lên 19.500 và sổ lệnh yết đúng mô hình:
+    #    trước đây lấy giá tham chiếu cũ nên báo "CW không theo kịp" giả; nay dùng giá giữa sổ lệnh -> gần 0
+    mua = [lenh(1, "2026-10-01", "MUA", 1000, round(bs(18500, date(2026, 10, 1))))]
+    assert abs(_lech_moi(mua, 19500, 0, {"VPB": [["2026-10-01", 18500]]})) < 0.03
+    # 2) Mua 2 lần ở VPB 18.000 và 19.000: giá vốn bình quân phải đi với giá CS bình quân theo số lượng (18.500),
+    #    không phải giá CS ngày mua gần nhất (19.000) -> trước đây ra lệch dương giả
+    mua = [
+        lenh(1, "2026-10-01", "MUA", 1000, round(bs(18000, date(2026, 10, 1)))),
+        lenh(2, "2026-10-10", "MUA", 1000, round(bs(19000, date(2026, 10, 10)))),
+    ]
+    assert abs(_lech_moi(mua, 19500, 0, {"VPB": [["2026-10-01", 18000], ["2026-10-10", 19000]]})) < 0.03
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

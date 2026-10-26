@@ -202,12 +202,21 @@ def tinh_vi_the(ds):
     for l in sorted(ds, key=lambda l: (l["ngay"], l["id"])):
         v = vt.setdefault(
             l["ma_cw"],
-            {"so_luong": 0, "von": 0.0, "lai_da_chot": 0.0, "chot_loi": None, "cat_lo": None, "ngay_mua": None},
+            {
+                "so_luong": 0,
+                "von": 0.0,
+                "lai_da_chot": 0.0,
+                "chot_loi": None,
+                "cat_lo": None,
+                "ngay_mua": None,
+                "mua": [],
+            },
         )
         if l["loai"] == "MUA":
             v["von"] += l["so_luong"] * l["gia"] * (1 + C.PHI_GIAO_DICH)
             v["so_luong"] += l["so_luong"]
-            v["ngay_mua"] = l["ngay"]  # mốc đo độ lệch so với CS: lệnh mua gần nhất
+            v["ngay_mua"] = l["ngay"]  # ngày mốc (thời gian còn lại) khi đo độ lệch so với CS
+            v["mua"].append((l["ngay"], l["so_luong"]))  # để lấy giá CS bình quân đi cùng giá vốn bình quân
             v["chot_loi"] = (
                 l["chot_loi"] if l["chot_loi"] is not None else v["chot_loi"]
             )  # ngưỡng của lệnh mua gần nhất có đặt
@@ -221,6 +230,8 @@ def tinh_vi_the(ds):
             v["lai_da_chot"] += l["so_luong"] * (l["gia"] * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) - gia_von)
             v["von"] -= l["so_luong"] * gia_von
             v["so_luong"] -= l["so_luong"]
+            if not v["so_luong"]:
+                v["mua"] = []  # đóng hết vị thế: lần mua sau là vị thế mới
     for v in vt.values():
         v["gia_von"] = v.pop("von") / v["so_luong"] if v["so_luong"] else 0.0
     return vt
@@ -346,15 +357,20 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
             mat_gia = dg["Mất giá/ngày %"] / 100  # tính ở IV giá chào bán, cùng số với trang ⚡ Lướt CW
             canh_bao_iv = C.so_iv_cung_ma(df, ma, cs, iv)[1]
         chot_loi, cat_lo = v["chot_loi"] or CHOT_LOI_MAC_DINH, v["cat_lo"] or CAT_LO_MAC_DINH
-        # Lệch so với CS từ lệnh mua gần nhất: mốc = giá vốn bình quân (bỏ phí) và giá CS đóng cửa ngày mua
+        # Lệch so với CS: mốc = giá vốn bình quân (bỏ phí) đi cùng giá CS bình quân theo số lượng các lần mua (cùng cách
+        # bình quân), ngày mốc = lần mua gần nhất. Giá CW hiện tại = giá giữa sổ lệnh: CW chưa khớp trong phiên thì giá khớp /
+        # tham chiếu là giá cũ, so với giá CS trực tiếp sẽ ra lệch giả. Sổ lệnh thiếu 1 bên thì không đo.
         lech, r_lech = float("nan"), None
-        S0 = [g for d, g in (lich_su or {}).get(cs, []) if d <= (v["ngay_mua"] or "")]
-        if S0 and dao_han:
+        ls = (lich_su or {}).get(cs, [])
+        S_mua = [([g for d, g in ls if d <= ngay] or [None])[-1] for ngay, _ in v.get("mua", [])]
+        gia_chao, nguon_chao = C.gia_mua(ny, kl, so_lenh)
+        if S_mua and None not in S_mua and gia_bid and nguon_chao == "ask" and dao_han:
+            S0 = sum(g * q for g, (_, q) in zip(S_mua, v["mua"])) / sum(q for _, q in v["mua"])
             lech, r_lech = C.lech_theo_cs(
                 v["gia_von"] / (1 + C.PHI_GIAO_DICH),
-                S0[-1],
+                S0,
                 date.fromisoformat(v["ngay_mua"]),
-                C.gia_hien_tai(ny, kl),
+                (gia_bid + gia_chao) / 2,
                 S,
                 hom_nay,
                 K,
