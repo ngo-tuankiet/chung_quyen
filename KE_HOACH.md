@@ -10,6 +10,7 @@ cw_scanner/
 ├── .env                 ← nơi bạn dán API key vnstock (KHÔNG chia sẻ file này)
 ├── cw_scanner.py        ← chương trình chính (~200 dòng, chú thích tiếng Việt từng phần)
 ├── web.py               ← giao diện web: bấm nút để quét, xem bảng kết quả
+├── web_chung.py, web_cw.py, web_luot.py, web_etf.py, web_danh_muc.py, web_huong_dan.py ← từng trang của giao diện web (web.py chỉ còn bộ định tuyến)
 ├── test_cw_scanner.py   ← kiểm tra công thức có tính đúng không
 ├── requirements.txt     ← phiên bản vnstock được ghim (đổi số ở đây khi muốn nâng cấp)
 ├── requirements-dev.txt ← pytest, chỉ cần khi sửa code

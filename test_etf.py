@@ -269,34 +269,35 @@ def test_doc_file_cu_thieu_cot_moi():
 
 
 def test_luu_doc_lai_va_trang_web():
-    import web
+    import web_chung
+    import web_etf
 
     df, _ = E.lap_bang(*du_lieu_mau(), HOM_NAY)
     with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
-        assert E.doc_ket_qua() == (None, None) and "Chưa có kết quả" in web.trang_etf()
+        assert E.doc_ket_qua() == (None, None) and "Chưa có kết quả" in web_etf.trang_etf()
         df.to_csv(Path(tmp) / f"etf_{HOM_NAY}.csv", index=False, encoding="utf-8-sig")
         doc, ngay = E.doc_ket_qua()
         assert ngay == HOM_NAY and doc["Cảnh báo"].tolist() == df["Cảnh báo"].tolist()
         assert E.doc_ket_qua(truoc=HOM_NAY) == (None, None)  # chỉ có file hôm nay: không có phiên trước để so
-        trang = web.trang_etf()
+        trang = web_etf.trang_etf()
         # so CS của E1VFVN30 = 1N của quỹ (+30%) − 1N của đúng chỉ số nó mô phỏng (VN30), ghép theo tên chỉ số
         so_cs = 30.0 - df.set_index("Mã").loc["VN30", "1N %"]
-        assert f'data-v="{so_cs}">{web.so(so_cs, 1, True)}</td>' in trang and 'href="/etf/E1VFVN30"' in trang
+        assert f'data-v="{so_cs}">{web_chung.so(so_cs, 1, True)}</td>' in trang and 'href="/etf/E1VFVN30"' in trang
         assert "Cảnh báo dữ liệu (3)" in trang  # VNDIAMOND (chỉ số lỗi), FUEBFVND (lỗi dữ liệu), FUEVN50G (chưa ánh xạ)
-        assert web.trang_etf_chi_tiet("ZZZ") is None  # mã không có trong file kết quả: 404
+        assert web_etf.trang_etf_chi_tiet("ZZZ") is None  # mã không có trong file kết quả: 404
         assert 'data-href="/etf/E1VFVN30"' in trang
         with mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=RuntimeError("mất mạng")):
-            ct = web.trang_etf_chi_tiet("E1VFVN30")
+            ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
         assert "26.000 đ" in ct and "Không tải được lịch sử giá: mất mạng" in ct
 
 
 def test_web_bang_chiet_khau_va_bieu_do_nav():
-    import web
+    import web_etf
 
     df, _ = E.lap_bang(*du_lieu_chiet_khau())
     with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
         df.to_csv(Path(tmp) / f"etf_{HOM_NAY}.csv", index=False, encoding="utf-8-sig")
-        assert "<td>🟢</td>" in web.trang_etf()  # E1VFVN30 đạt ngưỡng
+        assert "<td>🟢</td>" in web_etf.trang_etf()  # E1VFVN30 đạt ngưỡng
         ngay = pd.bdate_range(end="2026-10-20", periods=30)
         pd.DataFrame({"Mã": "E1VFVN30", "Ngày": [str(d.date()) for d in ngay], "NAV": 21_000.0}).to_csv(
             Path(tmp) / "nav_etf_2026-10-21.csv.gz", index=False, compression="gzip"
@@ -306,12 +307,12 @@ def test_web_bang_chiet_khau_va_bieu_do_nav():
         )
         gia = mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df_vnstock([20.0] * 40))
         with gia:
-            ct = web.trang_etf_chi_tiet("E1VFVN30")
+            ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
         # file mới nhất rỗng -> lấy file hôm trước; 20.000 / 21.000 − 1 = −4,76% -> "-4,8"
         assert "Chênh lệch giá/NAV E1VFVN30" in ct and '<td class="so">-4,8</td>' in ct
         (Path(tmp) / "nav_etf_2026-10-23.csv.gz").write_bytes(b"\x1f\x8b hong")  # file ghi dở / hỏng
         with gia:
-            ct = web.trang_etf_chi_tiet("E1VFVN30")
+            ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
         assert "Không đọc được lịch sử NAV" in ct and "Giá E1VFVN30" in ct  # biểu đồ giá vẫn còn
 
 

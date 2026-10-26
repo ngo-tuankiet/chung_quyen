@@ -585,7 +585,7 @@ def bao_cao_ngay(dong, canh_bao, lai_da_chot, luc, quet_loi=None):
 def gui_bao_cao_ngay(luc=None, quet_loi=""):
     """Lập và gửi báo cáo ngày lên Discord (sau lần quét theo lịch)."""
     luc = luc or datetime.now()
-    from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import
+    from web_chung import doc_ket_qua  # nhập ở đây để tránh vòng lặp import
 
     df, ngay = doc_ket_qua()
     if df is None:
@@ -629,7 +629,7 @@ def kiem_tra(luon=False, luc=None):
     vt = {ma: v for ma, v in tinh_vi_the(doc_lenh()).items() if v["so_luong"] > 0}
     if not vt:
         return []
-    from web import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (web.py dùng danh_muc.py)
+    from web_chung import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (web_chung.py dùng danh_muc.py)
 
     df, ngay_quet = doc_ket_qua()
     df = (

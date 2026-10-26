@@ -311,12 +311,12 @@ def test_kiem_tra_ngoai_gio_khong_goi_mang():
 
 
 def test_kiem_tra_chi_gui_mot_lan():
-    import web
+    import web_chung
 
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),
-        mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF, HOM_NAY)),
         mock.patch.object(
             cw_scanner, "doc_env", return_value={"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/abc"}
         ),
@@ -340,7 +340,7 @@ def test_kiem_tra_chi_gui_mot_lan():
 
 def _chay_kiem_tra(tmp, cac_lan, ngay_phien=None):
     """Chạy kiem_tra() lần lượt với các giá chờ mua trong cac_lan [(thời điểm, giá)]; trả về số tin đã gửi."""
-    import web
+    import web_chung
 
     gia = [0]  # giá chờ mua của lần chạy hiện tại
 
@@ -352,7 +352,7 @@ def _chay_kiem_tra(tmp, cac_lan, ngay_phien=None):
 
     with (
         mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),
-        mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF, HOM_NAY)),
         mock.patch.object(
             cw_scanner, "doc_env", return_value={"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/a"}
         ),
@@ -446,11 +446,12 @@ def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
     from http.server import HTTPServer
 
     import web
+    import web_chung
 
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.object(D, "FILE_DANH_MUC", Path(tmp) / "dm.csv"),
-        mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF, HOM_NAY)),
     ):
         may_chu = HTTPServer(("127.0.0.1", 0), web.XuLy)
         threading.Thread(target=may_chu.serve_forever, daemon=True).start()
@@ -471,16 +472,19 @@ def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
             except urllib.error.HTTPError as e:
                 assert e.code == 303 and e.headers["Location"] == "/danh-muc"
         may_chu.shutdown()
-        assert [(d["ma_cw"], d["so_luong"]) for d in D.doc_lenh()] == [("CVPB2615", 1000)] and web.LOI_DANH_MUC == ""
+        assert [(d["ma_cw"], d["so_luong"]) for d in D.doc_lenh()] == [
+            ("CVPB2615", 1000)
+        ] and web_chung.LOI_DANH_MUC == ""
 
 
 def test_trang_danh_muc():
-    import web
+    import web_chung
+    import web_danh_muc
 
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),
-        mock.patch.object(web, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF, HOM_NAY)),
         mock.patch.object(
             cw_scanner,
             "lay_bang_gia",
@@ -489,9 +493,11 @@ def test_trang_danh_muc():
             },
         ),
     ):
-        assert "Thêm lệnh" in web.trang_danh_muc() and "Đang nắm" not in web.trang_danh_muc()  # chưa có lệnh
+        assert (
+            "Thêm lệnh" in web_danh_muc.trang_danh_muc() and "Đang nắm" not in web_danh_muc.trang_danh_muc()
+        )  # chưa có lệnh
         D.ghi_lenh([lenh(1, "2026-10-01", "MUA", 1000, 1000), lenh(2, "2026-10-02", "BAN", 0 + 100, 1200)])
-        trang = web.trang_danh_muc()
+        trang = web_danh_muc.trang_danh_muc()
         # còn 900 CW, giá vốn 1.001,5; bán được 700 -> lỗ (700 × 0,9975 − 1.001,5) × 900 = −303,25 × 900 = −272.925 đ (−30,3%)
         assert "Đang nắm (1 mã)" in trang and "-272.925" in trang and "lỗ nếu bán ngay" in trang
         # đã chốt: bán 100 @1.200 -> 100 × (1.200 × 0,9975 − 1.001,5) = +19.550 đ
@@ -499,7 +505,7 @@ def test_trang_danh_muc():
         # lỗ −30,3% chạm cắt lỗ mặc định 30% (không tự đặt) -> Cân nhắc; giá mẫu dưới giá trị nội tại (S 25.000, K 20.000, tỷ lệ 2)
         assert "🟡 Cân nhắc bán" in trang and "lỗ nếu bán ngay -30%" in trang and "🛑" in trang
         D.FILE_DANH_MUC.write_text("hỏng", encoding="utf-8")  # sai tiêu đề: phải báo lỗi, KHÔNG coi là rỗng
-        assert "File danh_muc.csv bị lỗi" in web.trang_danh_muc()
+        assert "File danh_muc.csv bị lỗi" in web_danh_muc.trang_danh_muc()
         form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["1000"]}
         try:
             D.them_lenh(form, {"CVPB2615"}, HOM_NAY)

@@ -252,7 +252,7 @@ def test_rui_ro_theo_tien_cvpb2615():
 
 def test_doc_von():
     # Tham số ?von= từ URL: chỉ nhận số nguyên 1..10.000 (triệu đồng), còn lại về mặc định 10
-    from web import doc_von
+    from web_chung import doc_von
 
     assert doc_von("/cw/CVPB2615?von=50") == 50 and doc_von("/cw/CVPB2615") == 10
     assert all(
@@ -263,7 +263,7 @@ def test_doc_von():
 def test_doc_ghi_file_luon_co_encoding():
     # Windows không mặc định UTF-8: đọc/ghi file thiếu encoding thì tiếng Việt trong JSON (danh sách HOSE) làm lỗi lưu/đọc
     # Duyệt cây cú pháp (không theo dòng): black có thể tách một lời gọi ra nhiều dòng
-    for ten in ("cw_scanner.py", "web.py", "danh_muc.py", "etf.py"):
+    for ten in ("cw_scanner.py", "danh_muc.py", "etf.py", *(p.name for p in Path(__file__).parent.glob("web*.py"))):
         cay = ast.parse((Path(__file__).parent / ten).read_text(encoding="utf-8"))
         for n in ast.walk(cay):
             if isinstance(n, ast.Call) and getattr(n.func, "attr", "") in ("read_text", "write_text"):
@@ -394,7 +394,7 @@ def test_lech_hien_tai_doi_don_vi_va_lay_phien_cuoi():
 
 
 def test_cot_lech_tren_web():
-    import web
+    import web_chung as web
 
     df = pd.DataFrame([{c: math.nan for c in web.COT_SO_LUOT} for _ in range(3)])
     goc = {
