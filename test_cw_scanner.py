@@ -240,8 +240,9 @@ def test_rui_ro_theo_tien_cvpb2615():
     rr = rui_ro_theo_tien(10_000_000, 1250, 24500, 22605, 1.5863, 122 / 365, 0.04, 0.318, 9.0)
     assert rr["so_cw"] == 7900 and abs(rr["tien_chi"] - 9_889_812.5) < 1
     assert abs(rr["tiep_xuc"] - 7900 / 1.5863 * 24500) < 1  # ≈ 122,0 triệu đ cổ phiếu VPB
-    # Hòa vốn có phí = 22.605 + 1,5863 × 1.250 × 1,0015 / 0,999 = 22.605 + 1.987,8 = 24.592,8
-    assert abs(rr["hoa_von_phi"] - 24592.8) < 0.5
+    # Hòa vốn có phí, thuế 0,1% trên giá trị danh nghĩa CS: (22.605 + 1,5863 × 1.250 × 1,0015) / 0,999
+    # = (22.605 + 1.985,85) / 0,999 = 24.615,5
+    assert abs(rr["hoa_von_phi"] - 24615.5) < 0.5
     assert abs(rr["giam_ve_0"] - (22605 / 24500 - 1)) < 1e-9  # -7,73%
     assert 0.2 < rr["xs_ve_0"] < 0.4  # N(−d2) với σ 31,8%, 122 ngày
     assert rr["mat_khi_giam_1pct"] == 7900 * 1250 * 9.0 / 100  # đòn bẩy 9x: CS −1% ≈ CW −9%
@@ -416,6 +417,13 @@ def test_cot_lech_tren_web():
     # vượt ±15% thì in đậm; trống thì "—"; mốc nằm trong title của ô
     assert "<b>-18,2%</b>" in html and ">+4,5%</td>" in html and 'title="mốc 2026-10-01"' in html
     assert html.count("</th>") == len(web.COT)  # tiêu đề và ô khớp số cột
+
+
+def test_tien_dao_han_thue_tren_gia_tri_danh_nghia():
+    # giá thanh toán 40.000, K 32.000, tỷ lệ 3: (40.000 − 32.000 − 0,001 × 40.000) / 3 = 7.960 / 3 = 2.653,33 đ/CW
+    assert abs(cw_scanner.tien_dao_han(40_000, 32_000, 3) - 2653.333) < 1e-3
+    assert cw_scanner.tien_dao_han(31_000, 32_000, 3) == 0  # không có lãi: không thực hiện, không thuế
+    assert cw_scanner.tien_dao_han(32_020, 32_000, 3) < 0  # lãi 20 đ < thuế 32 đ: thuế lớn hơn tiền nhận
 
 
 def test_lich_su_iv():

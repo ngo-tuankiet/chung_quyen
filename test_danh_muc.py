@@ -227,19 +227,23 @@ def test_lech_duong_chi_can_nhac_khi_cw_khong_con_re():
     assert tt["muc"] == D.MUC_CAN_NHAC and tt["ly_do"][0][0] == "lech_duong" and not tt["thong_tin"]
     # Mua ở IV 10% (TCPH yết rẻ): lệch +20% (102 đ) nhưng vẫn dưới giá trị theo HV 498 đ -> chỉ thông tin
     tt, gia = trang_thai(0.10)
-    re_hon = gia * 0.9975 / (bs(19000, HOM_NAY, 0.30) * 0.999) - 1
+    # giá trị theo HV có trừ thuế 0,1% trên giá trị danh nghĩa CS: (call − 0,001 × S × delta) / tỷ lệ
+    call, delta = cw_scanner.black_scholes_call(19000, 20000, (dh - HOM_NAY).days / 365, 0.04, 0.30)
+    re_hon = gia * 0.9975 / ((call - 0.001 * 19000 * delta) / 2) - 1
     assert "lech_duong" not in [l for l, _ in tt["ly_do"]] and re_hon < 0  # (chốt lời +114% vẫn bật riêng)
     assert f"vẫn rẻ hơn mô hình {D.pt(-re_hon, dau=False)}" in tt["thong_tin"][0]
 
 
 def test_giu_hay_ban_tinh_tay():
     # CVPB2608 ngày 19/10/2026: VPB 24.000, K 23.379, tỷ lệ 1,5586, giá chờ mua 830
-    # bán ngay = 830 × (1 − 0,0015 − 0,001) = 827,925; CS cần = 23.379 + 1,5586 × 827,925 / 0,999 = 24.670,7 (+2,79%)
+    # bán ngay = 830 × (1 − 0,0015 − 0,001) = 827,925; thuế khi đáo hạn 0,1% trên giá trị danh nghĩa CS nên
+    # CS cần = (23.379 + 1,5586 × 827,925) / 0,999 = 24.669,40 / 0,999 = 24.694,10 (+2,89%)
     g = D.giu_hay_ban(24000, 23379, 1.5586, 118 / 365, 0.04, 0.318, 830)
-    assert abs(g["ban_ngay"] - 827.925) < 1e-9 and abs(g["cs_can"] - 24670.7) < 0.1 and abs(g["cach"] - 0.02795) < 1e-4
+    assert abs(g["ban_ngay"] - 827.925) < 1e-9 and abs(g["cs_can"] - 24694.1) < 0.1 and abs(g["cach"] - 0.02892) < 1e-4
     assert abs(g["ve_0"] - (23379 / 24000 - 1)) < 1e-12
-    # giữ theo mô hình = Black-Scholes / tỷ lệ × (1 − thuế 0,1%)
-    gt = cw_scanner.black_scholes_call(24000, 23379, 118 / 365, 0.04, 0.318)[0] / 1.5586 * 0.999
+    # giữ theo mô hình = (giá call − 0,1% × S × delta) / tỷ lệ: thuế tính trên giá trị danh nghĩa CS khi có lãi
+    call, delta = cw_scanner.black_scholes_call(24000, 23379, 118 / 365, 0.04, 0.318)
+    gt = (call - 0.001 * 24000 * delta) / 1.5586
     assert abs(g["giu_mh"] - gt) < 1e-9 and math.isnan(
         D.giu_hay_ban(24000, 23379, 1.5586, 0.3, 0.04, math.nan, 830)["giu_mh"]
     )

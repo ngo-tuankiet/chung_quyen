@@ -232,10 +232,14 @@ def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
     cs_can = giá CS (bình quân 5 phiên trước đáo hạn) để tiền nhận về bằng bán ngay; cach = cs_can / S − 1; ve_0 = K / S − 1.
     """
     ban_ngay = gia_ban * (1 - C.PHI_GIAO_DICH - C.THUE_BAN)
-    giu_mh = (
-        C.black_scholes_call(S, K, T, r, sigma)[0] / ty_le * (1 - C.THUE_BAN) if not math.isnan(sigma) else float("nan")
-    )
-    cs_can = K + ty_le * ban_ngay / (1 - C.THUE_BAN)
+    # thuế 0,1% tính trên giá trị danh nghĩa CS khi có lãi (C.tien_dao_han): kỳ vọng rủi ro trung tính của S_T·1{S_T>K}
+    # chiết khấu về hôm nay là S·N(d1) = S·delta, nên giá trị giữ = (giá call − thuế·S·delta) / tỷ lệ
+    if math.isnan(sigma):
+        giu_mh = float("nan")
+    else:
+        call, delta = C.black_scholes_call(S, K, T, r, sigma)
+        giu_mh = (call - C.THUE_BAN * S * delta) / ty_le
+    cs_can = (K + ty_le * ban_ngay) / (1 - C.THUE_BAN)  # tien_dao_han(cs_can) = ban_ngay
     return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
 
 

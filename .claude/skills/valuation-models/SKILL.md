@@ -48,6 +48,9 @@ Giá quyền = S·N(d1) − K·e^(−rT)·N(d2);     Giá 1 CW = Giá quyền / 
 4. Giá thị trường **do TCPH chi phối**: TCPH là bên bán chính, không bắt buộc yết theo giá trị lý thuyết, và Việt Nam không cho bán khống. Vì vậy giá có thể
    nằm dưới giá hợp lý rất lâu (ACBS: IV CVPB2608/2615 từ khoảng 41% lúc lên sàn xuống 12–14% vào 10/2026). Phần "rẻ" chỉ chắc thu về nếu giữ tới đáo hạn.
 5. 4 tiêu chí của `danh_gia` chưa trừ phí/thuế. Phần lãi/lỗ thì có trừ (`PHI_GIAO_DICH`, `THUE_BAN`).
+   **Giữ tới đáo hạn:** thuế 0,1% tính trên giá trị danh nghĩa CS (giá thanh toán / tỷ lệ), không trên tiền nhận về, nên CW sát K có thể
+   bị thuế lớn hơn tiền nhận. Mọi chỗ dùng chung `cw_scanner.tien_dao_han`; theo mô hình thì giá trị giữ = (call − thuế·S·delta) / n.
+   Nguồn: bản cáo bạch HSC 2023 (mục rủi ro thuế); Luật Thuế TNCN 109/2025 giữ 0,1%/lần, nghị định cho thực hiện quyền chưa xác minh.
 6. Giá mua = giá **chào bán** thấp nhất (`gia_mua`); sổ lệnh trống thì rơi về giá khớp/tham chiếu, cột *Nguồn giá mua* ghi rõ. IV giải từ giá chào bán.
    Trong backtest, IV giải từ giá đóng cửa (≈ giá giữa).
 

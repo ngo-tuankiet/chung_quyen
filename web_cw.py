@@ -539,7 +539,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
         gia_cs = S * (1 + thay_doi / 100)
         nhan_ve = max(gia_cs - K, 0) / ty_le
-        lai = nhan_ve * (1 - C.THUE_BAN) - gia_von  # đã trừ thuế khi nhận tiền
+        lai = C.tien_dao_han(gia_cs, K, ty_le) - gia_von  # thuế 0,1% trên giá trị danh nghĩa CS
         lop = "duong" if lai > 0 else ("am" if lai < 0 else "")
         dong.append(
             f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'

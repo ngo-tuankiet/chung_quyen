@@ -149,6 +149,15 @@ def doc_env(file_env=THU_MUC / ".env"):
     return {k.strip(): v.strip().strip("\"'") for k, v in cap}
 
 
+def tien_dao_han(gia_tt, K, ty_le, thue=None):
+    """Tiền nhận về cho 1 CW nếu giữ tới đáo hạn, sau thuế (đồng). gia_tt: giá thanh toán (bình quân 5 phiên của CS).
+    Thuế TNCN 0,1% khi thực hiện quyền tính trên GIÁ TRỊ DANH NGHĨA của CS (giá thanh toán / tỷ lệ), không trên tiền nhận về
+    (bản cáo bạch HSC 2023, mục rủi ro thuế; Luật 109/2025 giữ 0,1%/lần, nghị định hướng dẫn cho thực hiện quyền chưa xác minh).
+    CW không có lãi thì không thực hiện, không thuế. Có thể âm khi giá thanh toán chỉ nhỉnh hơn K."""
+    thue = THUE_BAN if thue is None else thue
+    return (gia_tt - K - thue * gia_tt) / ty_le if gia_tt > K else 0.0
+
+
 def lay_bang_gia(danh_sach_ma, cho=30):
     """Giá + điều khoản + sổ lệnh của nhiều mã trong 1 lần gọi.
     Trả về {mã: (thông tin niêm yết, thông tin khớp lệnh, sổ lệnh 3 giá mua/bán tốt nhất)}."""
@@ -576,7 +585,7 @@ def rui_ro_theo_tien(von, P, S, K, ty_le, T, r, sigma, don_bay):
         "tien_chi": so_cw * P * (1 + PHI_GIAO_DICH),
         "so_cp": so_cw / ty_le,
         "tiep_xuc": so_cw / ty_le * S,
-        "hoa_von_phi": K + ty_le * P * (1 + PHI_GIAO_DICH) / (1 - THUE_BAN),
+        "hoa_von_phi": (K + ty_le * P * (1 + PHI_GIAO_DICH)) / (1 - THUE_BAN),  # tien_dao_han(S) = giá vốn
         "giam_ve_0": K / S - 1,
         "xs_ve_0": xs_ve_0,
         "mat_khi_giam_1pct": so_cw * P * don_bay / 100,
