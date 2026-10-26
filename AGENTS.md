@@ -1,72 +1,64 @@
-# AGENTS.md — Hệ thống định giá tự động VN100
+# AGENTS.md — cw_scanner: sàng lọc chứng quyền (CW) và ETF trên HOSE
 
-> File này là luật nền cho mọi agent làm việc trong repo. Đọc kỹ trước khi code.
-> Spec chi tiết của dự án: `@docs/spec.md`. Luôn coi spec là nguồn sự thật về kiến trúc.
+> Luật nền cho mọi agent làm việc trong repo. Tài liệu người dùng (cách chạy, công thức, kết quả kiểm chứng): `KE_HOACH.md`.
+> Bản đồ code (file nào làm gì, sửa X thì mở đâu): skill `code-map`.
 
-## 0. Ngôn ngữ & cách trao đổi
+## 0. Ngôn ngữ và cách trao đổi
 - Trả lời, comment, commit message: tiếng Việt (thuật ngữ kỹ thuật/tài chính giữ tiếng Anh).
-- **Luôn lập kế hoạch (plan artifact) trước khi code.** Với việc lớn hoặc mơ hồ, dùng `/grill-me` để hỏi lại tôi cho rõ trước khi triển khai. Không tự ý phình scope.
+- Người dùng là nhà đầu tư cá nhân, không phải lập trình viên: giải thích ngắn, dễ hiểu, có ví dụ số.
+- **Lập plan trước khi code** (việc sẽ làm, file sẽ đụng, rủi ro) và chờ duyệt với việc lớn. Không tự ý phình scope.
 
-## 1. Vai trò
-Bạn là kỹ sư phần mềm tài chính (quant/data engineer) xây hệ thống định giá cổ phiếu chuẩn quỹ đầu tư cho rổ VN100, thị trường Việt Nam. Bạn vừa giỏi Python/data pipeline vừa hiểu định giá doanh nghiệp. Bạn ưu tiên **đúng về tài chính** hơn là chạy được cho có.
+## 1. Dự án làm gì
+Công cụ sàng lọc cho 1 người dùng trên máy Mac của họ, **không phải khuyến nghị đầu tư**:
+- Định giá CW bằng Black-Scholes, IV/HV, xếp hạng lướt 2–5 phiên, hiệu chỉnh IV theo tổ chức phát hành (`cw_scanner.py`).
+- Danh mục CW đang nắm + cảnh báo Discord (`danh_muc.py`).
+- ETF: chiết khấu so với NAV/iNAV, báo cáo ngày, cảnh báo trong phiên (`etf.py`, `chiet_khau.py`).
+- Backtest/kiểm chứng chỉ đọc dữ liệu (`kiem_chung_*.py`); kết luận ghi trong `KE_HOACH.md`.
+- Giao diện web cục bộ (`web.py`, http://localhost:8000).
 
 ## 2. Tech stack (không tự đổi nếu chưa hỏi)
-- Python 3.11+, FastAPI (service tính toán), Pydantic (validate), SQLAlchemy.
-- PostgreSQL (kho dữ liệu — nguồn sự thật).
-- n8n (chỉ điều phối, KHÔNG tính toán nặng).
-- Nguồn dữ liệu: vnstock API (đã mua), filing HOSE/HNX/UBCK, macro GSO/SBV.
-- Đầu ra: Google Sheets (model 2 chiều) + Discord (cảnh báo) + Google Drive (báo cáo/log).
-- Test: pytest. Lint/format: ruff + black. Type: mypy.
+- Python 3.10+, `.venv` riêng của repo; dependency: `requirements.txt` (vnstock 5.1.0 ghim cứng, pandas), dev: `requirements-dev.txt`.
+- Web: `http.server` thư viện chuẩn, HTML/CSS/JS viết tay; không framework.
+- Dữ liệu: vnstock 5.x (thế hệ 5, xem `~/AGENTS.md`), API bảng giá Vietcap, SSI iBoard (iNAV), Vietcap IQ (NAV), HOSE. Đều là API không chính thức.
+- Lưu trữ: file trong `ket_qua/` (CSV, JSON, MD; gitignore), `danh_muc.csv`, `cw_da_biet.txt`. **Không có database.**
+- Tự động: launchd (`cai_lich_quet.sh` cài 4 lịch `vn.cw-scanner.*`), các script `.sh` gọi `.venv/bin/python`. Sao lưu `ket_qua/` sang `~/cw_scanner_sao_luu`.
+- Thông báo: Discord webhook (`DISCORD_WEBHOOK_URL` trong `.env`).
+- Kiểm tra: pytest, ruff, black (line-length 120). Hook `.githooks/pre-commit` chạy cả ba + quét secret.
 
 ## 3. Luật vàng (NON-NEGOTIABLE)
-1. **Không bịa số liệu, không bịa công thức tài chính.** Mọi công thức định giá phải khớp tài liệu chuẩn (CFA/Damodaran). Nếu không chắc → dừng, hỏi tôi. Tuyệt đối không "đoán" công thức cho có.
-2. **Không dùng sai model cho sai ngành** (xem skill `valuation-models`). Ví dụ cấm: EV/EBITDA cho ngân hàng, P/E cho công ty lỗ.
-3. **Dữ liệu tài chính phải toàn vẹn** (xem skill `financial-data-integrity`): đúng đơn vị VND, hợp nhất vs công ty mẹ, xử lý restatement, chống lookahead/survivorship bias.
-4. **Tính toán ở Python, không ở n8n** (xem skill `n8n-orchestration`).
-5. **Mọi con số đầu ra phải truy vết được** về (a) dữ liệu nguồn, (b) version giả định. Không có "magic number" trong code — đưa vào config.
-6. **Không phá dữ liệu lịch sử.** Mọi thao tác ghi DB phải idempotent; không UPDATE/DELETE hàng loạt không có backup + xác nhận của tôi.
-7. **Bảo mật mục 5 là tối thượng.** Không bao giờ commit secret.
+1. **Không bịa số liệu, không bịa công thức tài chính.** Công thức phải khớp tài liệu chuẩn (Hull, CFA, Damodaran) hoặc đã được người dùng chốt.
+   Không chắc → dừng, hỏi. Xem skill `valuation-models` (repo) và `vn-valuation-rules` (toàn máy).
+2. **Dữ liệu phải toàn vẹn:** đơn vị (nghìn đồng vs đồng, điểm chỉ số /1000), nhãn ngày NAV, giá đã điều chỉnh vs điều khoản CW, lookahead, survivorship.
+   Xem skill `financial-data-integrity` (repo) và `vn-finance-data` (toàn máy) TRƯỚC khi đụng dữ liệu.
+3. **Mọi con số đầu ra truy vết được:** giả định ghi vào `ket_qua/gia_dinh_*.json`; ngưỡng là hằng số ở đầu file, không có magic number rải trong code.
+4. **Không phá dữ liệu của người dùng:** `danh_muc.csv`, `cw_da_biet.txt`, `ket_qua/` không xóa/ghi đè hàng loạt khi chưa hỏi; ghi file kiểu tạm-rồi-đổi-tên.
+5. **Không đổi ngưỡng, tiêu chí, thứ tự xếp hạng đang chạy** khi chưa có kiểm chứng và người dùng duyệt.
+6. **Bảo mật mục 5 là tối thượng.**
 
-## 4. Cách làm việc theo từng bước (bắt buộc)
-1. **Plan trước:** mô tả việc sẽ làm, file sẽ đụng, rủi ro. Chờ tôi duyệt với việc lớn.
-2. **Làm nhỏ, làm dọc một lát cắt:** mỗi lần một module/endpoint hoàn chỉnh + test, không đổ 500 dòng một lúc.
-3. **Test ngay:** mỗi hàm tài chính phải có unit test với số liệu kiểm chứng được bằng tay (ít nhất 1 ca "tính tay ra đúng"). Không coi là xong nếu chưa có test pass.
-4. **Tự kiểm chứng:** chạy code, in kết quả mẫu, so với kỳ vọng. Với pipeline dữ liệu, in ra vài dòng sample để tôi review.
-5. **Commit nhỏ, message rõ:** mô tả *cái gì + tại sao*, không phải "fix stuff".
-6. **Khi sửa bug:** tìm **nguyên nhân gốc** rồi mới sửa. Không vá triệu chứng (không bọc try/except để nuốt lỗi, không hardcode để test pass). Viết test tái hiện bug TRƯỚC khi sửa.
-7. Khi đụng schema DB hoặc tích hợp ngoài (Google/Discord/n8n): **dừng và xin duyệt** trước khi chạy.
+## 4. Cách làm việc theo từng bước
+1. Plan trước, chờ duyệt với việc lớn hoặc mơ hồ.
+2. Làm nhỏ, một lát cắt hoàn chỉnh + test mỗi lần.
+3. Mỗi hàm tài chính có unit test với ít nhất 1 ca **tính tay ra đúng** (ví dụ CVPB2615 ở `KE_HOACH.md` Phần 1).
+4. Tự kiểm chứng: chạy thật, in vài dòng mẫu; sửa giao diện thì mở trang (`.claude/launch.json`: `cw-web`) và xem.
+5. Commit nhỏ, message nói *cái gì + tại sao*.
+6. Sửa bug: tìm nguyên nhân gốc, viết test tái hiện trước khi sửa; không bọc try/except để nuốt lỗi.
+7. Đụng tích hợp ngoài (Discord, launchd, nguồn dữ liệu mới, lệnh hệ thống): dừng và xin duyệt trước khi chạy.
 
-## 5. Bảo mật (CRITICAL)
-- **Không bao giờ** hardcode hay commit: vnstock API key, Google service account JSON, Discord webhook, DB password, n8n credential. Phát hiện secret trong code/log → coi là lỗi nghiêm trọng, dừng và báo.
-- Tất cả secret nằm trong **biến môi trường / `.env`** (đã có trong `.gitignore`) hoặc secret store của n8n. Cung cấp `.env.example` với key rỗng làm mẫu.
-- Trước mỗi commit, **quét secret** (vd `gitleaks`/grep các pattern key) — nếu nghi ngờ thì không commit.
-- **Least privilege:**
-  - MCP/connector tới Postgres: dùng tài khoản **read-only** cho mọi luồng phân tích; chỉ luồng ghi mới dùng account có quyền ghi, và giới hạn bảng.
-  - Google API: chỉ cấp scope Sheets/Drive cần thiết, dùng service account riêng cho dự án.
-  - Discord webhook chỉ để gửi, không nhúng token bot nếu không cần.
-- **Không log dữ liệu nhạy cảm** (key, token) ra Discord/Drive/console. Log có thể ra Drive thì phải sạch secret.
-- Không gọi domain/endpoint lạ. Mọi nguồn dữ liệu ngoài phải nằm trong danh sách cho phép ở config.
-- Input từ ngoài (mã do tôi nhập, payload webhook) phải validate (whitelist mã thuộc VN100 / regex mã hợp lệ) trước khi dùng — chống injection.
+## 5. Bảo mật
+- Không bao giờ hardcode hay commit `VNSTOCK_API_KEY`, `DISCORD_WEBHOOK_URL` hay bất kỳ token nào. Secret chỉ ở `.env` (gitignore); mẫu: `.env.example`.
+- Không in, `echo`, log giá trị secret ra console, Discord hay file kết quả.
+- Chỉ gọi các nguồn dữ liệu đã dùng trong repo (vnstock, Vietcap, SSI, HOSE). Domain mới → hỏi trước.
+- Input từ ngoài (mã do người dùng nhập trên web, payload API) phải validate bằng regex/whitelist trước khi dùng; web chỉ nghe localhost và kiểm `Origin`
+  (`nguon_hop_le`).
 
-## 6. Định nghĩa "Hoàn thành" (Definition of Done)
-Một việc chỉ XONG khi:
-- [ ] Có unit test, test pass, và có ít nhất 1 ca số liệu kiểm chứng bằng tay.
-- [ ] Type hint đầy đủ; mypy/ruff/black sạch.
-- [ ] Không có secret, không có magic number (đã đưa vào config).
-- [ ] Thao tác ghi DB idempotent, đã thử chạy lại 2 lần không nhân đôi dữ liệu.
-- [ ] Có log/sample output để tôi review.
-- [ ] Cập nhật `docs/` nếu thay đổi hành vi/kiến trúc.
+## 6. Định nghĩa "Hoàn thành"
+- [ ] Test pass, có ca tính tay với hàm tài chính; ruff + black sạch (hook đạt).
+- [ ] Không secret, không magic number.
+- [ ] Đã chạy thật hoặc mở trang để xem; có sample output cho người dùng.
+- [ ] Cập nhật `KE_HOACH.md` nếu đổi hành vi, ngưỡng hay cách đọc kết quả.
 
-## 7. TUYỆT ĐỐI KHÔNG
-- Không tự đổi tech stack, schema, hay model định giá mà chưa hỏi.
-- Không nuốt exception để "cho chạy". Lỗi dữ liệu phải nổi lên rõ ràng.
-- Không tính DCF/định giá bằng công thức trong Google Sheet với model phức tạp (xem skill `google-sheets-two-way`).
-- Không backfill/ghi đè dữ liệu lịch sử mà không có checkpoint + khả năng rollback.
-- Không tự động hóa 100% giả định định giá: base case do máy đặt CHỈ là điểm khởi đầu, người dùng phải chỉnh được.
-
-## 8. Khi nào DỪNG và hỏi tôi
-- Khi một công thức/giả định tài chính không chắc chắn.
-- Khi phải xóa/sửa dữ liệu hàng loạt hoặc đổi schema.
-- Khi cần thêm dependency lớn hoặc dịch vụ ngoài mới.
-- Khi kết quả định giá ra vô lý (vd upside 500%, giá âm) — báo, đừng giấu.
-- Khi gặp dữ liệu mâu thuẫn giữa các nguồn (vnstock vs filing).
+## 7. Khi nào DỪNG và hỏi
+- Công thức/giả định tài chính không chắc chắn; muốn đổi ngưỡng, tiêu chí, mô hình.
+- Kết quả vô lý (IV không giải được hàng loạt, "rẻ hơn" vài trăm %, giá âm) — báo, đừng giấu.
+- Dữ liệu mâu thuẫn giữa các nguồn, hoặc nguồn đổi định dạng.
+- Cần thêm dependency, dịch vụ ngoài, hoặc đổi lịch launchd.
