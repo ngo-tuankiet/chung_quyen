@@ -10,7 +10,7 @@ import kiem_chung_chiet_khau as K
 LICH = pd.bdate_range("2026-01-05", periods=8)  # T2 05/01 … T4 14/01
 # quỹ không khớp phiên 07/01 và 14/01
 GIA = pd.Series([9_700.0, 9_800, 9_900, 9_700, 10_000, 10_100], LICH[[0, 1, 3, 4, 5, 6]])
-NAV = pd.Series(10_000.0, LICH.drop(LICH[6]))  # chưa có NAV 13/01
+NAV = pd.Series(10_000.0, LICH.drop([LICH[6]]))  # chưa có NAV 13/01
 d = lambda s: pd.Timestamp(f"2026-01-{s}")
 
 

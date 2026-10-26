@@ -674,7 +674,7 @@ def kiem_tra(luon=False, luc=None):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     if "--bao-cao" in sys.argv:
         gui_bao_cao_ngay(quet_loi=os.environ.get("QUET_LOI", ""))  # chay_quet_tu_dong.sh truyền lý do khi quét lỗi
     else:

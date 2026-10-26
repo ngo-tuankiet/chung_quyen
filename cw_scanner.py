@@ -87,12 +87,12 @@ HEADERS_HOSE = {"Referer": "https://www.hsx.vn/", "Origin": "https://www.hsx.vn"
 
 
 # ============ PHẦN 1: CÔNG THỨC ============
-def phan_phoi_chuan(x):
+def phan_phoi_chuan(x: float) -> float:
     """N(x): xác suất một biến chuẩn tắc nhỏ hơn x."""
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
-def black_scholes_call(S, K, T, r, sigma):
+def black_scholes_call(S: float, K: float, T: float, r: float, sigma: float) -> tuple[float, float]:
     """Giá quyền chọn mua kiểu châu Âu cho 1 cổ phiếu. Trả về (giá, delta)."""
     if T <= 0 or sigma <= 0:  # hết hạn: chỉ còn giá trị nội tại
         return max(S - K, 0.0), float(S > K)
@@ -102,7 +102,7 @@ def black_scholes_call(S, K, T, r, sigma):
     return gia, phan_phoi_chuan(d1)
 
 
-def bien_dong_ngam_dinh(gia_cw, S, K, T, r, ty_le):
+def bien_dong_ngam_dinh(gia_cw: float, S: float, K: float, T: float, r: float, ty_le: float) -> float | None:
     """Mức biến động mà giá CW trên thị trường đang 'ngầm định' (giải ngược Black-Scholes). None nếu không giải được."""
     muc_tieu, thap, cao = gia_cw * ty_le, 0.001, 5.0
     if not black_scholes_call(S, K, T, r, thap)[0] <= muc_tieu <= black_scholes_call(S, K, T, r, cao)[0]:
@@ -113,7 +113,7 @@ def bien_dong_ngam_dinh(gia_cw, S, K, T, r, ty_le):
     return (thap + cao) / 2
 
 
-def can_duoi(S, K, T, r):
+def can_duoi(S: float, K: float, T: float, r: float) -> float:
     """Giá tối thiểu của quyền chọn mua châu Âu (không cổ tức) cho 1 cổ phiếu: max(S − K·e^(−rT), 0).
     Giá CW × tỷ lệ thấp hơn mức này thì không có mức biến động nào khớp -> không giải được biến động ngầm định."""
     return max(S - K * math.exp(-r * max(T, 0)), 0.0)
@@ -130,7 +130,7 @@ def mo_phong_gia(S, K, T, r, sigma, so_kich_ban=20000):
     return tong / so_kich_ban * math.exp(-r * T)
 
 
-def doc_ty_le(chuoi):
+def doc_ty_le(chuoi: str) -> float:
     """'1.7245:1' -> 1.7245 (cần 1.7245 CW để đổi lấy 1 cổ phiếu)."""
     so_cw, so_cp = chuoi.split(":")
     return float(so_cw) / float(so_cp)
@@ -149,7 +149,7 @@ def doc_env(file_env=THU_MUC / ".env"):
     return {k.strip(): v.strip().strip("\"'") for k, v in cap}
 
 
-def tien_dao_han(gia_tt, K, ty_le, thue=None):
+def tien_dao_han(gia_tt: float, K: float, ty_le: float, thue: float | None = None) -> float:
     """Tiền nhận về cho 1 CW nếu giữ tới đáo hạn, sau thuế (đồng). gia_tt: giá thanh toán (bình quân 5 phiên của CS).
     Thuế TNCN 0,1% khi thực hiện quyền tính trên GIÁ TRỊ DANH NGHĨA của CS (giá thanh toán / tỷ lệ), không trên tiền nhận về
     (bản cáo bạch HSC 2023, mục rủi ro thuế; Luật 109/2025 giữ 0,1%/lần, nghị định hướng dẫn cho thực hiện quyền chưa xác minh).
@@ -787,5 +787,5 @@ def main():
 
 if __name__ == "__main__":
     # chạy nền không có cửa sổ (Task Scheduler) Windows dùng bảng mã cũ -> in tiếng Việt bị lỗi và dừng chương trình
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     main()

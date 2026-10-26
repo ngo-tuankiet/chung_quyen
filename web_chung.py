@@ -13,7 +13,7 @@ import danh_muc
 
 CONG = 8000
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
-BO_NHO_IV = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
+BO_NHO_IV: dict[tuple, dict] = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
 NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
 LOI_DANH_MUC = ""  # lỗi của lần thêm/xóa lệnh gần nhất (hiện 1 lần ở trang Danh mục)

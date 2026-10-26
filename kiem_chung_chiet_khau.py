@@ -337,5 +337,5 @@ def bao_cao(tt, tg, sk, canh_bao, hom_nay, loai="tuyệt đối"):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     chay(tuong_doi="tuong_doi" in sys.argv[1:])

@@ -550,7 +550,7 @@ def gui_loi(ly_do, luc=None):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     if "--bao-loi" in sys.argv:
         gui_loi(os.environ.get("QUET_LOI", ""))
     else:

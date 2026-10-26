@@ -62,7 +62,7 @@ SO_QUY_TUT = 5  # báo cáo: số quỹ tụt sâu nhất so với chỉ số li
 
 
 # ============ CÔNG THỨC ============
-def lai_rong_neu_ve_nav(gia_mua, nav, phi=C.PHI_GIAO_DICH, thue=C.THUE_BAN):
+def lai_rong_neu_ve_nav(gia_mua: float, nav: float, phi: float = C.PHI_GIAO_DICH, thue: float = C.THUE_BAN) -> float:
     """Lãi nếu mua ở gia_mua (trả thêm phí) rồi bán đúng bằng NAV (trừ phí và thuế bán)."""
     return nav * (1 - phi - thue) / (gia_mua * (1 + phi)) - 1
 
@@ -367,7 +367,7 @@ def kiem_tra_trong_phien(luon=False, luc=None):
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     if "--trong-phien" in sys.argv:
         giu_may_thuc()
         kiem_tra_trong_phien(luon="--luon" in sys.argv)

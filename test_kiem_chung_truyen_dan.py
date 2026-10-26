@@ -16,7 +16,7 @@ DK |= {"dao_han": date(2026, 12, 31), "gd_cuoi": date(2026, 12, 29)}
 GIA_CS = pd.Series(20_000.0, LICH).mask(LICH >= LICH[5], 21_000.0)
 NAM = lambda d: (DK["dao_han"] - d.date()).days / 365
 GIA = pd.Series(C.black_scholes_call(20_000, 20_000, NAM(LICH[0]), 0.0, 0.30)[0] / 2, LICH)
-GIA[LICH[5]] = C.black_scholes_call(21_000, 20_000, NAM(LICH[5]), 0.0, 0.27)[0] / 2
+GIA.iloc[5] = C.black_scholes_call(21_000, 20_000, NAM(LICH[5]), 0.0, 0.27)[0] / 2
 KL = pd.Series(50_000.0, LICH)
 
 
