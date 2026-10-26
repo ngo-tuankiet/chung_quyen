@@ -417,7 +417,7 @@ def bao_cao_gon(df, luc, loi_nguon=()):
 
 GHI_CHU_GON = (
     f"_Rẻ hơn = giá TB 1 lệnh {D.so(CK.GIA_TRI_LENH / 1e6)} triệu (3 mức chào bán) so iNAV, trừ mức chênh thường gặp của chính quỹ "
-    f"(trung vị giá/NAV 1 năm). Lọc: mua đủ 1 lệnh, giá khớp cũ ≤ {SO_PHIEN_CHUA_KHOP_TOI_DA} phiên, NAV bám chỉ số ≥ "
+    f"(trung vị giá đóng cửa/NAV 1 năm; giá chào bán thường cao hơn giá đóng cửa nên phép so thận trọng). Lọc: mua đủ 1 lệnh, giá khớp cũ ≤ {SO_PHIEN_CHUA_KHOP_TOI_DA} phiên, NAV bám chỉ số ≥ "
     f"{_d(NAV_CS_TOI_THIEU)} điểm/năm; mỗi chỉ số 1 quỹ. Kiểm chứng 22–23/10/2026: chiết khấu không tự có lãi khi mua phiên "
     "sau — đây là sàng lọc, không phải dự báo. Bảng đầy đủ: web /etf và ket_qua/etf_*.md_"
 )

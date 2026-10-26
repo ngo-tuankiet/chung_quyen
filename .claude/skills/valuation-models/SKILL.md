@@ -68,12 +68,35 @@ Giá quyền = S·N(d1) − K·e^(−rT)·N(d2);     Giá 1 CW = Giá quyền / 
 - β là trung vị, không phải hồi quy: không tách được phần IV trôi theo thời gian khỏi phần theo CS. Muốn đổi sang hồi quy hay mô hình IV khác thì hỏi trước.
 - Đọc kết quả xếp hạng lướt đúng nghĩa: thứ tự là **thước đo chi phí** (đúng khi CS đi −5…+5% trong 5 phiên), không phải dự báo, và vô dụng khi CS > +5%.
 
+## CW đang giữ: "Nên bán / Cân nhắc bán" (`danh_muc.py`)
+Các công thức dưới đây là cách so sánh, không phải dự báo. Giá theo VND/CW, n = tỷ lệ chuyển đổi, thuế = `THUE_BAN`, phí = `PHI_GIAO_DICH`.
+- **Bán ngay hay giữ tới đáo hạn** (`giu_hay_ban`):
+  `ban_ngay = giá chờ mua × (1 − phí − thuế)`; `giu_mh = (call(σ = HV) − thuế·S·delta) / n` (xem mục 5 ở trên);
+  `cs_can = (K + n·ban_ngay) / (1 − thuế)` là giá CS lúc đáo hạn để `tien_dao_han(cs_can) = ban_ngay`; `cach = cs_can / S − 1`; `ve_0 = K / S − 1`.
+  Tính tay (test_danh_muc): S 24.000, K 23.379, n 1,5586, giá chờ mua 830 → ban_ngay 827,925, cs_can 24.694,1, cach +2,89%.
+- **Sàn lý thuyết** (`san_ly_thuyet`): `[(1 − thuế)·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / n`, với tᵢ là 5 phiên tính giá thanh toán.
+  Đây là cận dưới call châu Âu (Hull ch. 11, `can_duoi`) áp cho giá bình quân: kỳ vọng rủi ro trung tính của S tại tᵢ là S·e^(r·tᵢ), chiết khấu về
+  từ T nên còn S·e^(−r(T−tᵢ)). Bán ngay sau phí < sàn thì web gắn "dưới sàn": bán lúc đó là bỏ tiền dù CS đứng yên.
+- **Lệch so với CS** (`C.lech_theo_cs`): giải IV ở mốc (giá vốn bỏ phí, giá CS bình quân theo số lượng các lần mua), tính giá CW lẽ ra với S và T hôm nay;
+  `lệch = giá giữa sổ lệnh / giá lẽ ra − 1`. Báo khi |lệch| ≥ `CANH_BAO_LECH` (15%). Giá mốc dưới cận dưới thì tính bằng r = 0 cả hai đầu.
+  "Lệch dương" chỉ là lý do Cân nhắc bán khi CW hết rẻ (bán ngay ≥ giu_mh, hoặc IV ≥ trung vị IV cùng mã), không thì chỉ là thông tin.
+- **Mức** (`trang_thai_vi_the`): Nên bán = chốt lời/cắt lỗ do người dùng tự đặt, CW đắt (bán ngay ≥ giu_mh × (1 + `NGUONG_CW_DAT`) **và**
+  IV giá chờ mua > trung vị IV cùng mã), hoặc mất giá 1 ngày ≥ `THETA_NEN_BAN`; Cân nhắc = ngưỡng chốt lời/cắt lỗ mặc định, mất giá ≥ `THETA_CAN_NHAC`
+  và các lý do khác trong `LY_DO_BAN`.
+- **`THETA_CAN_NHAC` (1%) và `THETA_NEN_BAN` (2%) là heuristic, chưa backtest.** Mất giá 1 ngày tính ở IV giá chào bán, CS và IV đứng yên.
+  `NGUONG_CW_DAT`, `CHOT_LOI_MAC_DINH`, `CAT_LO_MAC_DINH` cũng là ngưỡng người dùng chọn, không có nguồn chuẩn. Đừng trình bày chúng như kết luận.
+- **Xác suất về 0** (`rui_ro_theo_tien`): `N(−d2)` là xác suất **rủi ro trung tính** (drift = r) dùng σ lịch sử, không phải xác suất thật.
+  Trên web ghi "theo mô hình", đừng gọi là dự báo.
+
 ## ETF: NAV / iNAV
 ETF không định giá bằng mô hình mà so với NAV của chính quỹ. Giá mỗi CCQ (9.360 đ hay 33.980 đ) không nói gì về đắt hay rẻ.
 - **CK (chiết khấu mua được)** = giá chào bán tốt nhất / iNAV − 1. **CK 1 lệnh** = giá mua bình quân của 1 lệnh `GIA_TRI_LENH` ăn 3 mức chào bán / iNAV − 1.
 - **Lãi ròng nếu về NAV** = iNAV × (1 − phí − thuế) / (giá chào bán × (1 + phí)) − 1 (`lai_rong_neu_ve_nav`). Tính tay: 9.700 và 10.000 → +2,68%.
 - **Mức thường** = trung vị (giá đóng cửa / NAV − 1) 1 năm của chính quỹ. "Rẻ hơn thường" = CK 1 lệnh − mức thường. Có quỹ chiết khấu thường trực
   (FUEFCV50, FUEIP100), nên CK âm chưa chắc là rẻ bất thường.
+  **Giới hạn:** hai vế không cùng loại giá. CK 1 lệnh dùng giá **chào bán** so **iNAV** trong phiên; mức thường dùng giá **đóng cửa** so **NAV**
+  cuối ngày. Giá chào bán thường cao hơn giá đóng cửa khoảng nửa chênh lệch mua–bán, nên phép so nghiêng về phía "không rẻ" (thận trọng).
+  Quỹ ít thanh khoản có giá đóng cửa cũ nhiều phiên, khiến mức thường bị lệch theo giá cũ; iNAV là ước tính trong phiên, cũng lệch NAV chính thức.
 - **Vượt NAV** (dùng trong backtest) = (1 + lãi) / (1 + lợi nhuận NAV cùng kỳ) − 1: phần lãi nhờ chênh lệch thu hẹp, đã bỏ phần thị trường.
 - Kiểm chứng 22–23/10/2026: cả ngưỡng tuyệt đối 2% lẫn ngưỡng tương đối đều **không** tự có lãi khi mua phiên sau (vượt NAV ≈ 0 sau phí).
   Đây là sàng lọc, không phải tín hiệu. Người kéo giá về NAV là thành viên lập quỹ (lô 100.000 CCQ), họ không bị buộc phải làm vậy.
