@@ -317,7 +317,8 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   mục **⚠ Bất thường** chỉ khi có. Không nắm mã nào và không lỗi thì không gửi gì. Các danh sách CW để mua (mới vào nhóm Nên xem xét,
   CW mới, Top Nên xem xét, Top 5 lướt, IV bất thường, mục ⏳ giữ hay bán, 🎯 gần ngưỡng) đã bỏ khỏi Discord: xem trên web.
 - **Cảnh báo 5 phút** chỉ gửi loại bất thường (`BAT_THUONG`): chạm chốt lời / cắt lỗ, CW đắt, mất giá ≥ 2%/ngày, còn ≤ 20 ngày tới
-  ngày GD cuối, TCPH phát hành thêm, không có người mua, mã không còn trên bảng giá. CS gần giá thực hiện, IV bất thường, CW lệch so với
+  ngày GD cuối, còn ≤ 2 phiên tới ngày GD cuối (`gd_cuoi_gap`), đang trong 5 phiên tính giá thanh toán (`ky_thanh_toan`, 26/10/2026),
+  TCPH phát hành thêm, không có người mua, mã không còn trên bảng giá. CS gần giá thực hiện, IV bất thường, CW lệch so với
   CS chỉ hiện trên web (cột Trạng thái).
 
 **Khi nào bán: trạng thái mỗi vị thế** (lát 1a, 23/10/2026; chỉ hiện ở cột *Trạng thái* trang 💼, **không gửi Discord**, không đổi cảnh báo cũ)

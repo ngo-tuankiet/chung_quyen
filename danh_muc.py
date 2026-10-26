@@ -29,6 +29,9 @@ import cw_scanner as C
 CHOT_LOI_MAC_DINH = 0.50  # báo khi lãi nếu bán ngay ≥ +50% (đặt riêng được cho từng lệnh mua)
 CAT_LO_MAC_DINH = 0.30  # báo khi lỗ nếu bán ngay ≥ 30%
 CANH_BAO_NGAY_GD_CUOI = 20  # báo khi còn ≤ 20 ngày (lịch) tới ngày giao dịch cuối
+# Báo gấp khi còn ≤ 2 phiên tới ngày GD cuối. Ngày GD cuối lấy từ bảng giá (lastTradingDate), không tự tính: quy chế cũ
+# là 2 phiên trước đáo hạn (T−2), chưa xác minh trong quy chế niêm yết CW theo TT 122/2025.
+CANH_BAO_PHIEN_GD_CUOI_GAP = 2
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15 VÀ IV (theo giá chờ mua) > trung vị IV CW cùng mã
@@ -44,7 +47,9 @@ LY_DO_BAN = {
     "chot_loi": "chạm chốt lời",
     "cw_dat": "CW đắt hơn mô hình",
     "theta_cao": "mất giá theo thời gian nhanh",
+    "gd_cuoi_gap": "còn rất ít phiên để bán",
     "gd_cuoi": "sắp tới ngày GD cuối",
+    "ky_thanh_toan": "đang trong 5 phiên tính giá thanh toán",
     "lech_duong": "CW cao hơn mức lẽ ra theo CS",
     "phat_hanh_them": "TCPH phát hành thêm",
     "theta": "mất giá theo thời gian",
@@ -57,6 +62,8 @@ BAT_THUONG = {
     "cw_dat",
     "theta_cao",
     "gd_cuoi",
+    "gd_cuoi_gap",
+    "ky_thanh_toan",
     "phat_hanh_them",
     "khong_nguoi_mua",
     "khong_co_gia",
@@ -254,13 +261,18 @@ def giu_hay_ban(S, K, ty_le, T, r, sigma, gia_ban):
     return {"ban_ngay": ban_ngay, "giu_mh": giu_mh, "cs_can": cs_can, "cach": cs_can / S - 1, "ve_0": K / S - 1}
 
 
+def phien_thanh_toan(dao_han):
+    """SO_PHIEN_THANH_TOAN phiên liền trước đáo hạn (mới nhất trước), dùng tính giá thanh toán.
+    shortcut: chỉ bỏ cuối tuần, chưa bỏ ngày lễ; nếu cần chính xác thì lấy lịch nghỉ của HOSE."""
+    dh = np.datetime64(dao_han)
+    return [np.busday_offset(dh, -i, roll="backward").astype(date) for i in range(1, SO_PHIEN_THANH_TOAN + 1)]
+
+
 def san_ly_thuyet(S, K, ty_le, r, hom_nay, dao_han):
     """Giá trị tối thiểu (đ/CW) nếu giữ tới đáo hạn: [0,999·S·TB(e^(−r(T−tᵢ))) − K·e^(−rT)] / tỷ lệ, tᵢ là 5 phiên tính giá
     thanh toán (bỏ cuối tuần), 0,1% là thuế trên giá thanh toán. Cận dưới call châu Âu (Hull ch. 11) cho giá bình quân.
     """
-    dh = np.datetime64(dao_han)
-    phien = [np.busday_offset(dh, -i, roll="backward") for i in range(1, SO_PHIEN_THANH_TOAN + 1)]
-    chiet_khau = sum(math.exp(-r * int((dh - p).astype(int)) / 365) for p in phien) / SO_PHIEN_THANH_TOAN
+    chiet_khau = sum(math.exp(-r * (dao_han - p).days / 365) for p in phien_thanh_toan(dao_han)) / SO_PHIEN_THANH_TOAN
     return C.can_duoi((1 - C.THUE_BAN) * S * chiet_khau, K, (dao_han - hom_nay).days / 365, r) / ty_le
 
 
@@ -415,6 +427,26 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord)
         if con_ngay is not None and con_ngay <= CANH_BAO_NGAY_GD_CUOI:
             canh_bao.append((ma, "gd_cuoi", f"còn {con_ngay} ngày tới ngày giao dịch cuối {ngay_gd_cuoi:%d/%m/%Y}"))
+        con_phien = (
+            int(np.busday_count(hom_nay, ngay_gd_cuoi)) if ngay_gd_cuoi else None
+        )  # cùng giới hạn ngày lễ như trên
+        if con_phien is not None and 0 <= con_phien <= CANH_BAO_PHIEN_GD_CUOI_GAP:
+            canh_bao.append(
+                (
+                    ma,
+                    "gd_cuoi_gap",
+                    f"còn {con_phien} phiên tới ngày GD cuối {ngay_gd_cuoi:%d/%m}: sau đó không bán được nữa",
+                )
+            )
+        if dao_han and hom_nay in phien_thanh_toan(dao_han):
+            canh_bao.append(
+                (
+                    ma,
+                    "ky_thanh_toan",
+                    f"giá đóng cửa {cs} các phiên tới {phien_thanh_toan(dao_han)[0]:%d/%m} quyết định tiền nhận về "
+                    + f"(bình quân {SO_PHIEN_THANH_TOAN} phiên, đáo hạn {dao_han:%d/%m})",
+                )
+            )
         # làm tròn trước khi so ngưỡng: 20.600 / 20.000 − 1 tính ra 0,030000000000000027 > 0,03 (lỗi số thực ngay tại biên)
         if round(S / K - 1, 9) <= CANH_BAO_CACH_GIA_TH:
             canh_bao.append(

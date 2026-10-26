@@ -97,7 +97,7 @@ def test_ghi_lenh_an_toan_va_them_xoa():
         assert D.xoa_lenh(2) == "" and D.xoa_lenh(2) == "không có lệnh số 2" and len(D.doc_lenh()) == 1
 
 
-def bang_gia_mau(bid, S, ngay_gd_cuoi, kl_niem_yet=18_000_000):
+def bang_gia_mau(bid, S, ngay_gd_cuoi, kl_niem_yet=18_000_000, dao_han="20270217"):
     so_lenh = {
         "bidPrices": [{"price": bid, "volume": 1000}] if bid else [],
         "askPrices": [{"price": (bid or 1000) + 10, "volume": 1000}],
@@ -106,7 +106,7 @@ def bang_gia_mau(bid, S, ngay_gd_cuoi, kl_niem_yet=18_000_000):
         "underlyingSymbol": "VPB",
         "exercisePrice": 20000,
         "exerciseRatio": "2:1",
-        "maturityDate": "20270217",
+        "maturityDate": dao_han,
         "lastTradingDate": ngay_gd_cuoi.strftime("%Y%m%d"),
         "tradingDate": str(HOM_NAY),  # phiên hôm nay (ngày nghỉ lễ thì bảng giá vẫn ghi phiên trước)
         "refPrice": 1000,
@@ -122,11 +122,11 @@ def bang_gia_mau(bid, S, ngay_gd_cuoi, kl_niem_yet=18_000_000):
 DF = pd.DataFrame({"Mã CW": ["CVPB2615"], "Mã CS": ["VPB"], "IV %": [30.0], "Biến động %/năm": [30.0], "r %": [4.0]})
 
 
-def canh_bao(bid, S, con_ngay, kl_truoc=None, kl=18_000_000, **nguong):
+def canh_bao(bid, S, con_ngay, kl_truoc=None, kl=18_000_000, dao_han="20270217", **nguong):
     # Mua 1.000 @1.000 -> giá vốn 1.001,5 đ/CW (đã gồm phí mua 0,15%)
     vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000, **nguong)])
     _, cb, kl_moi = D.danh_gia_danh_muc(
-        vt, bang_gia_mau(bid, S, HOM_NAY + timedelta(days=con_ngay), kl), DF, HOM_NAY, kl_truoc or {}
+        vt, bang_gia_mau(bid, S, HOM_NAY + timedelta(days=con_ngay), kl, dao_han), DF, HOM_NAY, kl_truoc or {}
     )
     return {l for _, l, _ in cb}, kl_moi
 
@@ -173,6 +173,17 @@ def test_canh_bao_lech_so_voi_cs():
     assert math.isnan(
         D.danh_gia_danh_muc(vt, bang_gia_mau(900, 25000, HOM_NAY), DF, HOM_NAY, {})[0][0]["lech"]
     )  # không có lịch sử
+
+
+def test_canh_bao_gd_cuoi_gap_va_ky_thanh_toan():
+    # HOM_NAY thứ Hai 19/10/2026. GD cuối thứ Tư 21/10: còn 2 phiên -> báo gấp; thứ Năm 22/10: 3 phiên -> không
+    assert "gd_cuoi_gap" in canh_bao(1000, 25000, 2)[0] and "gd_cuoi_gap" not in canh_bao(1000, 25000, 3)[0]
+    # GD cuối thứ Hai 26/10 (qua cuối tuần): còn 5 phiên -> không
+    assert "gd_cuoi_gap" not in canh_bao(1000, 25000, 7)[0]
+    # đáo hạn thứ Hai 26/10: 5 phiên tính giá thanh toán 19–23/10, hôm nay là phiên đầu -> báo; đáo hạn 27/10: 20–26/10 -> chưa
+    assert "ky_thanh_toan" in canh_bao(1000, 25000, 2, dao_han="20261026")[0]
+    assert "ky_thanh_toan" not in canh_bao(1000, 25000, 2, dao_han="20261027")[0]
+    assert D.phien_thanh_toan(date(2026, 10, 26)) == [date(2026, 10, d) for d in (23, 22, 21, 20, 19)]
 
 
 def test_san_ly_thuyet():
