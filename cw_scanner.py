@@ -32,6 +32,9 @@ from vnstock import Listing, Quote, login
 # ============ CẤU HÌNH: chỉnh các con số dưới đây theo khẩu vị của bạn ============
 LAI_SUAT_PHI_RUI_RO = 0.04  # r: lợi suất TPCP / lãi tiết kiệm 12 tháng (%/năm). Nên cập nhật định kỳ.
 SO_PHIEN_DO_BIEN_DONG = 250  # số phiên dùng để đo biến động (~1 năm giao dịch)
+# 365 ngày lịch chỉ có ~247 phiên (đo 26/10/2026: 333/333 CW "Số phiên σ" = 247) -> lấy 400 ngày rồi cắt 250 phiên.
+# Gói Khách của vnstock giới hạn 365 ngày: khi đó số phiên thật vẫn ghi ở cột "Số phiên σ".
+SO_NGAY_LICH_SU_HV = 400
 SO_PHIEN_MOT_NAM = 250  # hệ số năm hóa biến động: ~250 phiên giao dịch/năm ở Việt Nam
 
 # 4 tiêu chí "có thể đầu tư"
@@ -386,7 +389,7 @@ def lich_su_iv(gia_cw, gia_cs, K, ty_le, dao_han, r):
 
 def bien_dong_lich_su(ma):
     """Trả về (sigma năm hóa, số phiên đã dùng, [[ngày, giá đóng cửa], ...]) từ giá đóng cửa ngày 1 năm của cổ phiếu cơ sở."""
-    df = lay_gia_dong_cua(ma)
+    df = lay_gia_dong_cua(ma, SO_NGAY_LICH_SU_HV)
     loi_suat = (df["close"] / df["close"].shift(1)).apply(math.log).dropna().tail(SO_PHIEN_DO_BIEN_DONG)
     lich_su = [[str(t)[:10], float(c)] for t, c in zip(df["time"], df["close"])]
     return loi_suat.std() * math.sqrt(SO_PHIEN_MOT_NAM), len(loi_suat), lich_su
@@ -703,6 +706,7 @@ def main():
         "thoi_diem_quet": datetime.now().astimezone().isoformat(timespec="seconds"),
         "lai_suat_phi_rui_ro": LAI_SUAT_PHI_RUI_RO,
         "so_phien_do_bien_dong": SO_PHIEN_DO_BIEN_DONG,
+        "so_ngay_lich_su_hv": SO_NGAY_LICH_SU_HV,
         "so_phien_mot_nam": SO_PHIEN_MOT_NAM,
         "thoi_gian_T": "số ngày lịch còn lại / 365",
         "gia_mua": "giá chào bán thấp nhất trong sổ lệnh; sổ lệnh trống thì giá khớp; chưa khớp thì giá tham chiếu",

@@ -426,6 +426,15 @@ def test_tien_dao_han_thue_tren_gia_tri_danh_nghia():
     assert cw_scanner.tien_dao_han(32_020, 32_000, 3) < 0  # lãi 20 đ < thuế 32 đ: thuế lớn hơn tiền nhận
 
 
+def test_bien_dong_lich_su_tinh_tay():
+    # giá 100 -> 110 -> 99: ln 1,1 = 0,09531; ln 0,9 = −0,10536; độ lệch chuẩn mẫu 0,14190 × √250 = 2,2436
+    df = pd.DataFrame({"time": ["2026-10-20", "2026-10-21", "2026-10-22"], "close": [100.0, 110.0, 99.0]})
+    with mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df) as lay:
+        sigma, n, ls = cw_scanner.bien_dong_lich_su("VPB")
+    assert abs(sigma - 2.2436) < 1e-4 and n == 2 and ls[-1] == ["2026-10-22", 99.0]
+    assert lay.call_args[0][1] == cw_scanner.SO_NGAY_LICH_SU_HV  # đủ ngày lịch cho 250 phiên
+
+
 def test_lich_su_iv():
     # Giá CW tạo từ Black-Scholes với sigma 30% -> giải ngược ra đúng 30% mỗi ngày; ngày thiếu giá CS thì bỏ;
     # ngày giá CW dưới mức tối thiểu S − K·e^(−rT) thì ghi 0 (không có mức biến động nào khớp)
