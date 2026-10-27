@@ -9,6 +9,7 @@ Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 
 import contextlib
 import io
+import os
 import re
 import sys
 import webbrowser
@@ -31,8 +32,11 @@ from web_luot import trang_luot
 def nguon_hop_le(headers):
     """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này."""
     nguon = headers.get("Origin") or headers.get("Referer") or ""
-    goc = (f"http://localhost:{CONG}", f"http://127.0.0.1:{CONG}")
-    return nguon in goc or nguon.startswith(tuple(g + "/" for g in goc))
+    host = headers.get("Host") or ""
+    goc = [f"http://localhost:{CONG}", f"http://127.0.0.1:{CONG}"]
+    if host:
+        goc.extend([f"http://{host}", f"https://{host}"])
+    return any(nguon == g or nguon.startswith(g + "/") for g in goc)
 
 
 class XuLy(BaseHTTPRequestHandler):
@@ -123,8 +127,9 @@ class XuLy(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     # chạy nền không có cửa sổ (Task Scheduler) Windows dùng bảng mã cũ -> in tiếng Việt bị lỗi và dừng chương trình
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
-    # Chỉ mở cho máy của bạn (127.0.0.1), người khác trong mạng không truy cập được
-    may_chu = HTTPServer(("127.0.0.1", CONG), XuLy)
-    print(f"Giao diện web: http://localhost:{CONG}  (Ctrl+C để tắt)")
-    webbrowser.open(f"http://localhost:{CONG}")
+    host_nghe = os.environ.get("HOST", "127.0.0.1")
+    may_chu = HTTPServer((host_nghe, CONG), XuLy)
+    print(f"Giao diện web: http://{host_nghe}:{CONG}  (Ctrl+C để tắt)")
+    if "KHONG_MO_TRINH_DUYET" not in os.environ and not os.environ.get("PORT"):
+        webbrowser.open(f"http://localhost:{CONG}")
     may_chu.serve_forever()

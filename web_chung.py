@@ -3,6 +3,7 @@
 import html
 import json
 import math
+import os
 from datetime import date
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -11,7 +12,7 @@ import pandas as pd
 import cw_scanner
 import danh_muc
 
-CONG = 8000
+CONG = int(os.environ.get("PORT", "8000"))
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
 BO_NHO_IV: dict[tuple, dict] = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
