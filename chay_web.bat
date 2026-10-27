@@ -36,5 +36,6 @@ if errorlevel 1 (
 )
 
 echo [3/3] Mo giao dien web tai http://localhost:8000 - KHONG dong cua so nay khi dang dung, dong lai de tat.
+set PYTHONUTF8=1
 .venv\Scripts\python web.py
 pause

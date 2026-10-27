@@ -10,6 +10,7 @@ Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 import contextlib
 import io
 import re
+import sys
 import webbrowser
 from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -120,6 +121,8 @@ class XuLy(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # chạy nền không có cửa sổ (Task Scheduler) Windows dùng bảng mã cũ -> in tiếng Việt bị lỗi và dừng chương trình
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     # Chỉ mở cho máy của bạn (127.0.0.1), người khác trong mạng không truy cập được
     may_chu = HTTPServer(("127.0.0.1", CONG), XuLy)
     print(f"Giao diện web: http://localhost:{CONG}  (Ctrl+C để tắt)")
