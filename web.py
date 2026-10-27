@@ -14,7 +14,7 @@ import re
 import sys
 import webbrowser
 from datetime import date
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 import chiet_khau
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # chạy nền không có cửa sổ (Task Scheduler) Windows dùng bảng mã cũ -> in tiếng Việt bị lỗi và dừng chương trình
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
     host_nghe = os.environ.get("HOST", "127.0.0.1")
-    may_chu = HTTPServer((host_nghe, CONG), XuLy)
+    may_chu = ThreadingHTTPServer((host_nghe, CONG), XuLy)
     print(f"Giao diện web: http://{host_nghe}:{CONG}  (Ctrl+C để tắt)")
     if "KHONG_MO_TRINH_DUYET" not in os.environ and not os.environ.get("PORT"):
         webbrowser.open(f"http://localhost:{CONG}")
