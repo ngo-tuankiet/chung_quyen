@@ -26,7 +26,7 @@ import danh_muc as D
 # ============ CẤU HÌNH ============
 URL_SSI_ETF = "https://iboard-query.ssi.com.vn/stock/type/e/hose"
 HEADERS_SSI = {
-    "User-Agent": "Mozilla/5.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://iboard.ssi.com.vn",
     "Referer": "https://iboard.ssi.com.vn/",
 }
