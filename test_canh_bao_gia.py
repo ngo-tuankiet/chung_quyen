@@ -44,6 +44,7 @@ DF_QUET = pd.DataFrame(
         "Giá mua": [3000.0],
         "Giá CS": [25000.0],
         "Nguồn giá mua": ["ask"],
+        "KL chào bán": [5000.0],  # 3.000 × 5.000 = 15 triệu: giá yết thật, không phải lô lẻ
         "IV %": [50.0],
         "r %": [4.0],
     }
@@ -72,6 +73,8 @@ def test_cw_lech_re_tinh_tay():
     assert CB.cw_lech_re(DF_QUET, bang_cw(2000), HOM_NAY, date(2027, 1, 25)) == []
     assert CB.cw_lech_re(DF_QUET.assign(**{"Nguồn giá mua": ["khớp"]}), bang_cw(2000), HOM_NAY, HOM_NAY) == []
     assert CB.cw_lech_re(None, bang_cw(2000), HOM_NAY, HOM_NAY) == []
+    # mốc lúc quét chỉ là lô lẻ (3.000 × 1.666 = 4.998.000 đ < 5 triệu): IV mốc không đáng tin -> không báo
+    assert CB.cw_lech_re(DF_QUET.assign(**{"KL chào bán": [1666.0]}), bang_cw(2000), HOM_NAY, HOM_NAY) == []
 
 
 def test_so_hd_phong_ho_tinh_tay():
@@ -96,6 +99,16 @@ def test_chi_phi_hd_va_lai_khoa_tinh_tay():
     lai = CB.lai_khoa_ban_hd_mua_etf(2040, 2000, 10010, 9990, 10000, 73, 80_000, r=0.05)
     assert abs(lai - 5.079566) < 1e-5
     assert CB.lai_khoa_ban_hd_mua_etf(2030, 2000, 10010, 9990, 10000, 73, 80_000, r=0.05) < 0  # 2.030: −4,92
+    # phần mất khi bán ETF ra: đang rẻ hơn iNAV 3% (chờ mua 9.650) thì coi như vẫn rẻ: 1 − 9.650/10.000 = 3,5% (không tính
+    # chiết khấu đóng lại là lãi); đang cao hơn iNAV thì chỉ còn chênh lệch mua–bán (10.110 − 10.100)/10.000 = 0,1%
+    assert (
+        abs(CB.chi_phi_ra_etf(9700, 9650, 10000) - 0.035) < 1e-12
+        and abs(CB.chi_phi_ra_etf(10110, 10100, 10000) - 0.001) < 1e-12
+    )
+    # quỹ kiểu FUEIP100 26/10/2026: chào bán 11.940, chờ mua 11.190, iNAV 13.390,99, VN100 1.761,77, HĐ chờ mua 1.761,77 (basis 0),
+    # 20 ngày, r 4%: trước đây +80 điểm 'khóa được' giả; nay = 1.761,77 − 1.761,77 × 0,8917 × e^0,0021918 − 1.761,77 × (0,4% +
+    # 16,44%) − 0,45 < 0
+    assert CB.lai_khoa_ban_hd_mua_etf(1761.77, 1761.77, 11940, 11190, 13390.99, 20, 45_250, r=0.04) < 0
 
 
 def ssi_mau(ma="E1VFVN30", inav=10000, ban=9700, kl_ban=600, mua=9650):
@@ -117,6 +130,20 @@ def test_etf_duoi_inav_tinh_tay():
     assert (
         CB.etf_duoi_inav(ssi_mau(ma="FUEDCMID"), {}, {"VN30": ("VN30F1M", 1858.0)})[0]["hd"] == ""
     )  # VNMID: không có HĐ
+
+
+def test_etf_mua_duoc_du_hang_va_bo_quy_thuong_re():
+    # cần 200 triệu (1 HĐ ở 2.000 điểm): 10.010 × 50.000 = 500 triệu đủ -> giá bình quân 10.010
+    assert CB.etf_mua_duoc(ssi_mau(ban=10010, kl_ban=50_000, mua=9990), "VN30", 200_000_000) == (
+        "E1VFVN30",
+        10010,
+        9990,
+        10000,
+    )
+    # chỉ 10.010 × 600 = 6 triệu: không đủ 1 HĐ -> không có quỹ để khóa lãi
+    assert CB.etf_mua_duoc(ssi_mau(ban=10010, kl_ban=600, mua=9990), "VN30", 200_000_000) is None
+    # quỹ thường rẻ hơn NAV ≥ 2% (FUEIP100 −4,6%) bị bỏ
+    assert CB.etf_mua_duoc(ssi_mau(ban=10010, kl_ban=50_000, mua=9990), "VN30", 0, {"E1VFVN30": -4.6}) is None
 
 
 def bang_hd(mua, ban, khop, ngay="2026-10-30"):
@@ -150,6 +177,9 @@ def test_hdtl_lech_tinh_tay():
     assert (
         CB.hdtl_lech(bang_hd(1989.5, 1990.5, 1990), cs, ssi, hom_nay, r=0.05)[0]["tin_hieu"] == ""
     )  # 1.990,5: chưa đủ
+    # còn < 2 phiên tới ngày GD cuối (18/11 -> 19/11: 1 phiên): ETF mua hôm nay chưa bán được lúc HĐ thanh toán -> không 'dat'
+    x = CB.hdtl_lech(bang_hd(2040, 2040.5, 2040), cs, ssi, date(2026, 11, 18), r=0.05)[0]
+    assert x["lai_khoa"] > 0 and x["tin_hieu"] == ""
     # ngoài giờ khớp lệnh: sổ lệnh còn lại và iNAV không cùng thời điểm -> không cho tín hiệu
     assert CB.hdtl_lech(bang_hd(2040, 2040.5, 2040), cs, ssi, hom_nay, r=0.05, trong_phien=False)[0]["tin_hieu"] == ""
     # chỉ số khác ngày giao dịch với HĐ: không cho tín hiệu
@@ -185,6 +215,21 @@ def test_doc_form_muc():
     assert f(ma="<b>X", chieu="duoi", muc="1")[1] and f(ma="VPB", chieu="ngang", muc="1")[1]
     assert f(ma="VPB", chieu="duoi", muc="abc")[1] and f(ma="VPB", chieu="duoi", muc="-5")[1]
     assert f(ma="VN30", chieu="duoi", muc="1800")[1]  # chỉ số không có giá trên bảng giá Vietcap
+
+
+def test_bang_gia_muc_bi_danh_hdtl_qua_ticker():
+    # Vietcap: bản ghi bí danh chỉ có listingInfo (ticker = mã KRX), hỏi tiếp mã KRX để có giá; không cần vnstock
+    bi_danh = {"VN30F1M": ({"ticker": "41I1GB000", "mappingSymbol": "VN30F1M"}, {"matchPrice": 0}, {})}
+    krx = bang_hd(1857.9, 1858.1, 1858)
+    goi = []
+
+    def gia(ds, cho=30):
+        goi.append(list(ds))
+        return {m: (bi_danh | krx)[m] for m in ds if m in bi_danh | krx}
+
+    with mock.patch.object(C, "lay_bang_gia", side_effect=gia):
+        bg = CB.bang_gia_muc([{"ma": "VN30F1M"}])
+    assert goi == [["VN30F1M"], ["41I1GB000"]] and CB.ban_ghi_cua("VN30F1M", bg)[0] == "41I1GB000"
 
 
 def test_ban_ghi_cua_bi_danh_hdtl():
@@ -232,7 +277,25 @@ def test_them_xoa_muc_va_kiem_tra_lich_5_phut():
             assert gui.call_count == 2 and "VPB" in gui.call_args[0][0] and CB.doc_da_cham("2026-10-19")["1"]["da_gui"]
             CB.kiem_tra_muc_gia(luc=luc)
             assert gui.call_count == 2  # mỗi mức tối đa 1 tin/ngày
+        assert (
+            CB.kiem_tra_muc_gia(luc=datetime(2026, 10, 19, 14, 48)) == []
+        )  # sau ATC tới 14:50 vẫn xét (không có mức mới)
         assert CB.xoa_muc_gia(1) == "" and [m["id"] for m in CB.doc_muc_gia()] == [2] and CB.xoa_muc_gia(9)
+        # mức 1 đã chạm hôm nay rồi bị xóa: mức mới không được nhận lại id 1 (sẽ mang nhầm 'đã chạm lúc 10:00' của mức cũ)
+        assert CB.them_muc_gia({"ma": ["VPB"], "chieu": ["tren"], "muc": ["30"]}, HOM_NAY) == []
+        assert [m["id"] for m in CB.doc_muc_gia()] == [2, 3]
+        # mức xa giá hiện tại nhưng cùng đơn vị (+22%, CW còn +70%) vẫn lưu; gấp > 10 lần mới coi là sai đơn vị
+        assert CB.them_muc_gia(
+            {"ma": ["VPB"], "chieu": ["tren"], "muc": ["250000"]}, HOM_NAY
+        )  # 250.000 / 24.500 = 10,2 lần
+        (Path(tmp) / "muc_gia.csv").write_text(
+            "id,ma,chieu,muc,ghi_chu,ngay_tao\n1,VPB,xuong,24500,,2026-10-19\n", encoding="utf-8-sig"
+        )
+        try:
+            CB.doc_muc_gia()
+            assert False, "chiều sai phải báo lỗi rõ dòng, không làm sập trang"
+        except ValueError as e:
+            assert "dòng số 1" in str(e)
         (Path(tmp) / "muc_gia.csv").write_text("sai,tieu,de\n", encoding="utf-8-sig")
         try:
             CB.doc_muc_gia()
@@ -285,13 +348,16 @@ def test_trang_co_du_lieu():
     hd = bang_hd(2040, 2040.5, 2040, ngay=str(HOM_NAY))
     hd["41I1GB000"][0]["lastTradingDate"] = "19/11/2026"
     bg = {**bang_cw(2000), **hd}
+    # E1VFVN30: mức 1 9.700 × 600 (đạt ngưỡng 🟢), mức 2 10.010 × 50.000 (đủ hàng để mua 1 HĐ ≈ 200 triệu cho chân phòng hộ)
+    ssi = ssi_mau(mua=9990)
+    ssi["E1VFVN30"] |= {"best2Offer": 10010, "best2OfferVol": 50_000}
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.multiple(CB, FILE_MUC_GIA=Path(tmp) / "muc_gia.csv", THU_MUC_CHAM=Path(tmp)),
         mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF_QUET, HOM_NAY)),
         mock.patch.object(CB, "ma_hdtl", return_value=["41I1GB000"]),
         mock.patch.object(C, "lay_bang_gia", return_value=bg),
-        mock.patch.object(CB.CK, "lay_ssi", return_value=ssi_mau()),
+        mock.patch.object(CB.CK, "lay_ssi", return_value=ssi),
         mock.patch.object(CB, "gia_chi_so", return_value=(2000.0, str(HOM_NAY))),
         mock.patch.object(web_canh_bao, "date", mock.Mock(today=mock.Mock(return_value=HOM_NAY))),
         mock.patch.object(web_canh_bao.danh_muc, "trong_gio_khop_lenh", return_value=True),

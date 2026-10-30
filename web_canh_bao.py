@@ -148,6 +148,8 @@ def muc_etf(ds, ssi):
                     f'bán {so(x["so_hd"], 2)} HĐ {ESC(x["hd"])} cho lệnh {so(CB.GIA_TRI_LENH_ETF / 1e6)} triệu '
                     f'(1 HĐ ứng ≈ {so(x["etf_1_hd"] / 1e6, 1)} triệu ETF)'
                 )
+            elif x["hd"]:
+                phong_ho = f'{ESC(x["hd"])} chưa có giá chờ mua'
             else:
                 phong_ho = "không có HĐTL cùng chỉ số"
             hang.append(
@@ -215,10 +217,13 @@ def muc_hdtl(ds):
         '<p class="phu">Giá hợp lý = chỉ số × e^(r·T) với r = '
         f"{so(C.LAI_SUAT_PHI_RUI_RO * 100, 1)}%/năm, T = số ngày tới ngày GD cuối / 365, chưa trừ cổ tức (Hull ch. 5): đây là "
         "mức cao nhất HĐTL đáng có. <b>Đắt</b> = giá chờ mua của HĐTL cao hơn giá hợp lý cộng chi phí cả 2 chân: bán HĐTL + "
-        "mua ETF cùng chỉ số rẻ nhất (cột ETF) rồi giữ đến đáo hạn thì khóa được phần chênh, không phụ thuộc thị trường lên "
-        "xuống (Lãi khóa, điểm/HĐ, đã trừ phí + thuế 2 chân và chênh lệch mua–bán ETF; cổ tức ETF nhận thêm chưa tính). "
+        "mua đủ 1 HĐ (≈ chỉ số × 100.000 đ) ETF cùng chỉ số tốn ít nhất (cột ETF; bỏ quỹ lúc nào cũng rẻ hơn NAV) rồi giữ đến "
+        "đáo hạn thì khóa được phần chênh, không phụ thuộc thị trường lên xuống (Lãi khóa, điểm/HĐ, đã trừ phí + thuế 2 chân; "
+        "ETF đang rẻ hơn iNAV coi như vẫn rẻ lúc bán, cao hơn iNAV coi như mất phần cao hơn; cổ tức ETF nhận thêm và lãi bỏ lỡ "
+        f"của tiền ký quỹ chưa tính). Không báo khi còn dưới {CB.SO_PHIEN_TOI_THIEU_KHOA} phiên tới ngày GD cuối (ETF mua hôm "
+        "nay sớm nhất chiều T+2 mới bán). "
         "<b>Rẻ</b> = giá chào bán HĐTL thấp hơn tiền bán ETF cùng chỉ số đem lại sau chi phí: chỉ có lợi nếu bạn ĐANG GIỮ ETF "
-        "đó (bán ETF, mua HĐTL; chưa trừ cổ tức bỏ lỡ). Chi phí HĐTL theo trang Phái sinh (phí công ty, Sở, vị thế, thuế 2 lần). "
+        "đó (bán ETF, mua HĐTL; chưa trừ cổ tức bỏ lỡ). Chi phí HĐTL theo trang Phái sinh (phí công ty, Sở, bù trừ VSDC, thuế 2 lần). "
         f"1 HĐ {ESC(ds[0]['bi_danh'] or ds[0]['ma'])} cần ≈ {so(ky_quy / 1e6, 1)} triệu ký quỹ ban đầu; lỗ có thể vượt ký quỹ. VN100F và kỳ hạn xa rất ít giao dịch: "
         "giá khớp có thể cũ, chênh lệch mua–bán rộng.</p>"
         + (
@@ -318,7 +323,9 @@ def trang_canh_bao():
     cw = CB.cw_lech_re(df, bg, du_lieu["ngay_quet"], hom_nay) if bg and df is not None else []
     phien = sorted({ny.get("tradingDate") for ny, *_ in bg.values() if ny.get("tradingDate")})
     dong_cua = not phien or phien[-1] != str(hom_nay) or not danh_muc.trong_gio_khop_lenh(datetime.now())
-    hd = CB.hdtl_lech(du_lieu["hd"], du_lieu["chi_so"], ssi, hom_nay, trong_phien=not dong_cua)
+    hd = CB.hdtl_lech(
+        du_lieu["hd"], du_lieu["chi_so"], ssi, hom_nay, trong_phien=not dong_cua, thuong_lech=du_lieu["thuong"]
+    )
     thang_gan = {x["chi_so"]: (x["bi_danh"] or x["ma"], x["mua"]) for x in hd if x["bi_danh"].endswith("F1M")}
     etf = CB.etf_duoi_inav(ssi, du_lieu["thuong"], thang_gan) if ssi else []
     muc = CB.trang_thai_muc(du_lieu["muc"], bg)  # bảng giá lỗi: mọi mức "chưa có giá"
@@ -342,7 +349,7 @@ def trang_canh_bao():
         + o_so("CW rẻ bất thường", so(len(cw)))
         + o_so("ETF dưới iNAV", so(len(etf)))
         + o_so("HĐTL đắt/rẻ", so(sum(1 for x in hd if x["tin_hieu"])))
-        + o_so("Mức giá đã chạm", so(len(da_cham)), f"trên {so(len(muc))} mức")
+        + o_so("Mức giá đã chạm", so(sum(str(m["id"]) in da_cham for m in muc)), f"trên {so(len(muc))} mức")
         + "</div>"
     )
     phan += [

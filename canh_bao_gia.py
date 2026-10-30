@@ -23,6 +23,7 @@ import re
 import shutil
 import time
 from datetime import date, datetime
+from datetime import time as gio
 
 import pandas as pd
 from vnstock import Listing
@@ -54,11 +55,15 @@ FILE_MUC_GIA = C.THU_MUC / "muc_gia.csv"
 COT_MUC_GIA = ["id", "ma", "chieu", "muc", "ghi_chu", "ngay_tao"]
 CHIEU = {"duoi": "≤", "tren": "≥"}  # giá xuống tới mức (muốn mua) / lên tới mức (muốn bán, chốt lời)
 SO_MUC_TOI_DA = 50
-LECH_TOI_DA_KHI_DAT = 0.5  # mức cách giá hiện tại quá 50%: nghi gõ sai đơn vị (120 nghìn gõ thành 120 đ) -> báo lỗi
+# mức gấp hoặc chỉ bằng 1/10 giá hiện tại: nghi gõ sai đơn vị (120 nghìn gõ thành 120 đ lệch ×1.000); CW đòn bẩy cao nên
+# mức chốt lời +70% hay mua lại −50% vẫn hợp lệ (rà soát 31/10/2026: ngưỡng 50% cũ chặn nhầm)
+HE_SO_SAI_DON_VI = 10
 THU_MUC_CHAM = (
     C.THU_MUC_KET_QUA
 )  # muc_gia_cham_<ngày>.json: các mức đã chạm trong ngày (lịch 5 phút ghi, trang web đọc)
 GUI_DISCORD_MUC_GIA = False  # chờ người dùng cho phép gửi Discord (AGENTS.md mục 4.7)
+GIO_XET_ATC = gio(14, 50)  # lịch 5 phút xét mức giá tới 14:50 để có giá đóng cửa ATC (khớp lúc 14:45)
+SO_PHIEN_TOI_THIEU_KHOA = 2  # ETF mua phiên T sớm nhất chiều T+2 mới bán: HĐ còn < 2 phiên thì không khóa được lãi
 
 
 # ============ CÔNG THỨC ============
@@ -99,14 +104,22 @@ def chi_phi_hd_den_dao_han(F, so_phien_giu, chi_so):
     return gop - rong
 
 
+def chi_phi_ra_etf(A, B, inav):
+    """Phần giá trị mất khi bán ETF lúc đáo hạn, theo tỷ lệ iNAV (thận trọng): ETF đang rẻ hơn iNAV thì coi như vẫn rẻ như vậy
+    (1 − B/iNAV: không tính chiết khấu đóng lại là lãi); đang cao hơn iNAV thì coi phần cao hơn biến mất, chỉ còn chênh lệch
+    mua–bán (A − B)/iNAV. Rà soát 31/10/2026: tính (A − B)/iNAV cho mọi quỹ thì FUEIP100 (thường rẻ hơn NAV 4,6%) cho 'lãi khóa'
+    +80 điểm giả."""
+    return max(1 - B / inav, (A - B) / inav)
+
+
 def lai_khoa_ban_hd_mua_etf(F_ban, S, A, B, inav, ngay_con_lai, chi_phi_hd, r=C.LAI_SUAT_PHI_RUI_RO):
-    """Lãi khóa được (điểm chỉ số, cho 1 HĐ) khi bán HĐTL ở F_ban và mua ETF cùng chỉ số ở giá chào bán A, giữ đến đáo hạn.
-    Mua ETF ở A khi iNAV là inav tương đương mua chỉ số ở S·A/inav; vốn đó mất lãi suất r (giá hợp lý S·e^(rT), q = 0).
-    Trừ phí mua + phí bán + thuế bán ETF và chênh lệch mua–bán ETF hiện tại (A − B)/inav (ước lượng chi phí bán ra lúc đáo hạn),
-    trừ chi phí HĐTL (đồng) quy ra điểm. Cổ tức ETF nhận được và thay đổi chênh lệch giá/iNAV lúc đáo hạn: không tính.
+    """Lãi khóa được (điểm chỉ số, cho 1 HĐ) khi bán HĐTL ở F_ban và mua ETF cùng chỉ số ở giá A (giá bình quân đủ 1 HĐ), giữ đến
+    đáo hạn. Mua ETF ở A khi iNAV là inav tương đương mua chỉ số ở S·A/inav; vốn đó mất lãi suất r (giá hợp lý S·e^(rT), q = 0).
+    Trừ phí mua + phí bán + thuế bán ETF, phần mất khi bán ETF ra (chi_phi_ra_etf) và chi phí HĐTL (đồng) quy ra điểm.
+    Không tính: cổ tức ETF nhận được (có lợi), lãi suất bỏ lỡ của tiền ký quỹ HĐ (khoảng 17% × F × (e^(rT) − 1), bất lợi).
     """
     T = ngay_con_lai / C.NGAY_MOT_NAM
-    chi_phi_etf = S * (2 * C.PHI_GIAO_DICH + C.THUE_BAN + (A - B) / inav)
+    chi_phi_etf = S * (2 * C.PHI_GIAO_DICH + C.THUE_BAN + chi_phi_ra_etf(A, B, inav))
     return F_ban - S * A / inav * math.exp(r * T) - chi_phi_etf - chi_phi_hd / P.HE_SO_NHAN
 
 
@@ -170,6 +183,10 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
         ma = h["Mã CW"]
         if ma not in bang_gia or h.get("Nguồn giá mua") != "ask" or pd.isna(h.get("IV %")):
             continue
+        # mốc phải là giá yết thật: lúc quét có ≥ MIN_GIA_TRI_MUA đồng chào bán (lô lẻ 500 CW giá cao thổi IV mốc lên, hôm sau
+        # TCPH yết bình thường cũng bị báo 'rẻ' — rà soát 31/10/2026; 28–30/10 có 17–62 CW/ngày như vậy)
+        if not float(h["Giá mua"]) * float(h.get("KL chào bán") or 0) >= MIN_GIA_TRI_MUA:
+            continue
         ny, _, so_lenh = bang_gia[ma]
         ban, cs = muc_so_lenh(so_lenh, "askPrices"), ny.get("underlyingSymbol") or h["Mã CS"]
         gd_cuoi, dao_han = doc_ngay(ny.get("lastTradingDate")), doc_ngay(ny.get("maturityDate"))
@@ -208,19 +225,23 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
     return sorted(kq, key=lambda x: x["lech"])
 
 
-def etf_mua_duoc(ssi, chi_so):
-    """ETF cùng chỉ số rẻ nhất để mua (giá chào bán / iNAV nhỏ nhất, phải có cả giá chờ mua): (mã, A, B, iNAV, giá trị 3 mức
-    chào bán đồng) hoặc None."""
+def etf_mua_duoc(ssi, chi_so, gia_tri=0, thuong_lech=None):
+    """ETF cùng chỉ số tốn ít nhất để mua rồi bán ra (giá mua / iNAV + chi_phi_ra_etf nhỏ nhất): (mã, A, B, iNAV) hoặc None.
+    A = giá bình quân mua đủ gia_tri đồng qua 3 mức chào bán (không đủ hàng thì bỏ quỹ; gia_tri 0 -> giá chào bán tốt nhất).
+    Bỏ quỹ có mức thường lệch 1 năm ≤ −NGUONG_GIAM_SO_INAV (lúc nào cũng rẻ, như etf_duoi_inav)."""
     ung_vien = []
     for ma in E.QUY_THEO_CHI_SO.get(chi_so, []):
         bg = ssi.get(ma) or {}
         ban, inav, B = CK.muc_chao_ban(bg), bg.get("iNAV") or 0, bg.get("best1Bid") or 0
-        if ban and inav > 0 and B > 0:
-            ung_vien.append((ban[0][0] / inav, ma, ban[0][0], B, inav, float(sum(g * v for g, v in ban))))
+        if not ban or inav <= 0 or B <= 0 or (thuong_lech or {}).get(ma, math.nan) <= -CK.NGUONG_GIAM_SO_INAV * 100:
+            continue
+        A = CK.gia_mua_lenh(bg, gia_tri) if gia_tri > 0 else ban[0][0]
+        if math.isfinite(A):
+            ung_vien.append((A / inav + chi_phi_ra_etf(A, B, inav), ma, A, B, inav))
     if not ung_vien:
         return None
-    _, ma, A, B, inav, gia_tri = min(ung_vien)
-    return ma, A, B, inav, gia_tri
+    _, ma, A, B, inav = min(ung_vien)
+    return ma, A, B, inav
 
 
 def etf_duoi_inav(ssi, thuong_lech, hd_thang_gan):
@@ -248,14 +269,14 @@ def etf_duoi_inav(ssi, thuong_lech, hd_thang_gan):
                 "mua_duoc": d["Mua được đạt ngưỡng (đ)"],
                 "thuong": thuong_lech.get(ma, math.nan),
                 "hd": hd[0] if hd else "",
-                "so_hd": so_hd_phong_ho(GIA_TRI_LENH_ETF, hd[1]) if hd and hd[1] else math.nan,
-                "etf_1_hd": hd[1] * P.HE_SO_NHAN if hd and hd[1] else math.nan,
+                "so_hd": so_hd_phong_ho(GIA_TRI_LENH_ETF, hd[1]) if hd and math.isfinite(hd[1]) else math.nan,
+                "etf_1_hd": hd[1] * P.HE_SO_NHAN if hd and math.isfinite(hd[1]) else math.nan,
             }
         )
     return sorted(kq, key=lambda x: -x["lai_rong"])
 
 
-def hdtl_lech(bang_gia, chi_so, ssi, hom_nay, r=C.LAI_SUAT_PHI_RUI_RO, trong_phien=True):
+def hdtl_lech(bang_gia, chi_so, ssi, hom_nay, r=C.LAI_SUAT_PHI_RUI_RO, trong_phien=True, thuong_lech=None):
     """Mỗi HĐTL chỉ số trong bang_gia: giá, basis, giá hợp lý S·e^(rT), lệch, chi phí (điểm), và tín hiệu
     'dat' (bán HĐTL + mua ETF cùng chỉ số khóa được lãi sau chi phí cả 2 chân) / 're' (giá chào bán HĐTL thấp hơn số tiền
     bán ETF cùng chỉ số đem lại, sau chi phí: chỉ dùng được khi đang giữ ETF đó). chi_so: {chỉ số: (giá điểm, ngày)}.
@@ -277,12 +298,14 @@ def hdtl_lech(bang_gia, chi_so, ssi, hom_nay, r=C.LAI_SUAT_PHI_RUI_RO, trong_phi
         hop_ly = S * math.exp(r * ngay_con_lai / C.NGAY_MOT_NAM)
         chi_phi = chi_phi_hd_den_dao_han(S if math.isnan(gia) else gia, so_phien, cs)
         cung_ngay = ny.get("tradingDate") == ngay_cs and trong_phien
-        tin_hieu, lai_khoa, etf = "", math.nan, etf_mua_duoc(ssi, cs)
+        # 1 HĐ phòng hộ khoảng S × 100.000 đồng ETF: giá ETF là giá bình quân mua đủ lượng đó (rà soát 31/10/2026)
+        gia_tri_1_hd = S * P.HE_SO_NHAN if not math.isnan(S) else 0
+        tin_hieu, lai_khoa, etf = "", math.nan, etf_mua_duoc(ssi, cs, gia_tri_1_hd, thuong_lech)
         if cung_ngay and not math.isnan(S) and etf:
-            _, A, B, inav, _ = etf
+            _, A, B, inav = etf
             if not math.isnan(B_hd):
                 lai_khoa = lai_khoa_ban_hd_mua_etf(B_hd, S, A, B, inav, ngay_con_lai, chi_phi, r)
-                tin_hieu = "dat" if lai_khoa > 0 else ""
+                tin_hieu = "dat" if lai_khoa > 0 and so_phien >= SO_PHIEN_TOI_THIEU_KHOA else ""
             # người đang giữ ETF: bán ETF ở giá chờ mua B (tương đương chỉ số S·B/iNAV, trừ phí + thuế bán, phí mua lại) rồi
             # mua HĐTL ở A_hd. Lãi tiền nhàn rỗi không tính (thận trọng); cổ tức ETF bỏ lỡ cũng chưa trừ (ghi trên trang)
             if not tin_hieu and not math.isnan(A_hd):
@@ -324,7 +347,11 @@ def doc_muc_gia(file=None):
         doc = csv.DictReader(f)
         if doc.fieldnames != COT_MUC_GIA:  # coi là rỗng thì lần lưu sau ghi đè mất hết mức đã đặt
             raise ValueError(f"dòng tiêu đề muc_gia.csv phải là {','.join(COT_MUC_GIA)}")
-        return [{**d, "id": int(d["id"]), "muc": float(d["muc"])} for d in doc]
+        ds = [{**d, "id": int(d["id"]), "muc": float(d["muc"] or "nan")} for d in doc]
+    for d in ds:  # file sửa tay sai thì báo rõ dòng nào, không để trang sập vì KeyError/None
+        if None in d.values() or d["chieu"] not in CHIEU or not MAU_MA_MUC.fullmatch(d["ma"]) or not d["muc"] > 0:
+            raise ValueError(f"muc_gia.csv dòng số {d['id']}: mã, chiều (duoi/tren) hoặc mức giá sai hay thiếu ô")
+    return ds
 
 
 def ghi_muc_gia(ds, file=None):
@@ -400,35 +427,44 @@ def trang_thai_muc(ds, bang_gia):
     return kq
 
 
-def ma_can_lay(ds):
-    """Các mã cần hỏi bảng giá cho danh sách mức: bí danh HĐTL thay bằng mọi mã KRX đang niêm yết."""
-    thuong = {m["ma"] for m in ds if not MAU_MA_HD_BI_DANH.fullmatch(m["ma"])}
-    co_bi_danh = any(MAU_MA_HD_BI_DANH.fullmatch(m["ma"]) for m in ds)
-    return sorted(thuong | (set(ma_hdtl()) if co_bi_danh else set()))
+def bang_gia_muc(ds, cho=15):
+    """Bảng giá Vietcap cho danh sách mức. Bí danh HĐTL hỏi 2 bước: bản ghi bí danh cho mã KRX (listingInfo.ticker, như
+    phai_sinh.bang_gia_krx), rồi hỏi mã KRX; không cần vnstock (lỗi vnstock không làm hỏng việc xét các mức khác)."""
+    bg = C.lay_bang_gia(sorted({m["ma"] for m in ds}), cho=cho)
+    krx = sorted(
+        {
+            str(ny.get("ticker"))
+            for ma, (ny, *_) in bg.items()
+            if MAU_MA_HD_BI_DANH.fullmatch(ma) and MAU_MA_HD_KRX.fullmatch(str(ny.get("ticker") or ""))
+        }
+    )
+    return {**bg, **C.lay_bang_gia(krx, cho=cho)} if krx else bg
 
 
 def them_muc_gia(form, hom_nay):
-    """Thêm 1 mức từ form web. Kiểm mã có trên bảng giá và mức không cách giá hiện tại quá LECH_TOI_DA_KHI_DAT (nghi sai đơn
-    vị). Trả về danh sách lỗi ([] = đã lưu)."""
+    """Thêm 1 mức từ form web. Kiểm mã có trên bảng giá và mức không gấp / chỉ bằng dưới 1/HE_SO_SAI_DON_VI giá hiện tại
+    (nghi sai đơn vị). Trả về danh sách lỗi ([] = đã lưu)."""
     muc, loi = doc_form_muc(form)
     ds = doc_muc_gia()
     if not loi and len(ds) >= SO_MUC_TOI_DA:
         loi.append(f"tối đa {SO_MUC_TOI_DA} mức, xóa bớt mức cũ trước")
     if loi or muc is None:
         return loi
-    bang_gia = C.lay_bang_gia(ma_can_lay([muc]), cho=10)
+    bang_gia = bang_gia_muc([muc], cho=10)
     that, bg = ban_ghi_cua(muc["ma"], bang_gia)
     if bg is None:
         return [f"{muc['ma']} không có trên bảng giá (mã sai hoặc đã hủy niêm yết)"]
     ny, khop, so_lenh = bg
     hien_tai = khop.get("matchPrice") or C.gia_cho_mua(so_lenh) or ny.get("refPrice") or 0
-    if hien_tai and abs(muc["muc"] / hien_tai - 1) > LECH_TOI_DA_KHI_DAT:
+    if hien_tai and not 1 / HE_SO_SAI_DON_VI <= muc["muc"] / hien_tai <= HE_SO_SAI_DON_VI:
         don_vi = "điểm" if he_so_cua(that) > 1 else "đ"
         return [
-            f"mức {D.so(muc['muc'])} {don_vi} cách giá hiện tại {D.so(hien_tai)} {don_vi} quá "
-            + f"{D.pt(LECH_TOI_DA_KHI_DAT, dau=False)}: kiểm tra đơn vị (cổ phiếu 24,5 hoặc 24500; CW 0,87 hoặc 870)"
+            f"mức {D.so(muc['muc'])} {don_vi} gấp hoặc chỉ bằng dưới 1/{HE_SO_SAI_DON_VI} giá hiện tại {D.so(hien_tai)} "
+            + f"{don_vi}: kiểm tra đơn vị (cổ phiếu 24,5 hoặc 24500; CW 0,87 hoặc 870)"
         ]
-    ghi_muc_gia(ds + [{**muc, "id": max((d["id"] for d in ds), default=0) + 1, "ngay_tao": hom_nay.isoformat()}])
+    # không cấp lại id đã chạm hôm nay (xóa mức rồi thêm mức mới: mức mới nhận nhầm 'đã chạm' của mức cũ — rà soát 31/10/2026)
+    id_cu = [d["id"] for d in ds] + [int(k) for k in doc_da_cham(hom_nay.isoformat())]
+    ghi_muc_gia(ds + [{**muc, "id": max(id_cu, default=0) + 1, "ngay_tao": hom_nay.isoformat()}])
     return []
 
 
@@ -465,12 +501,13 @@ def kiem_tra_muc_gia(luon=False, luc=None):
     GUI_DISCORD_MUC_GIA, gửi Discord mỗi mức tối đa 1 tin/ngày (gửi lỗi thì lần sau gửi lại). Trả về id các mức mới chạm.
     """
     luc = luc or datetime.now()
-    if not luon and not D.trong_gio_khop_lenh(luc):
+    sau_atc = luc.weekday() < 5 and D.GIO_KHOP_LENH[-1][1] < luc.time() <= GIO_XET_ATC
+    if not luon and not D.trong_gio_khop_lenh(luc) and not sau_atc:
         return []
     ds = doc_muc_gia()
     if not ds:
         return []
-    bang_gia = C.lay_bang_gia(ma_can_lay(ds), cho=15)
+    bang_gia = bang_gia_muc(ds)
     hom_nay = str(luc.date())
     if not any(ny.get("tradingDate") == hom_nay for ny, *_ in bang_gia.values()):
         return []  # ngày nghỉ lễ: bảng giá vẫn là phiên trước

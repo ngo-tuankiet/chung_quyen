@@ -737,15 +737,20 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   Giá lẽ ra = `cw_scanner.lech_theo_cs` với IV mốc = IV của chính giá chào bán lúc quét gần nhất (giá tổ chức phát hành tự yết, không
   dùng giá khớp hay giá tham chiếu vì có thể là lô lẻ). Bỏ CW còn < `MIN_NGAY_GD_CUOI_LUOT` (20) ngày tới GD cuối. Tính tay (test):
   IV mốc 50,0% (3.000 đ khi VPB 25.000), VPB 24.000 -> lẽ ra 2.593 đ; chào bán 2.000 -> −22,9%, có 2.000 × 2.500 = 5 triệu -> có.
-  Không phòng hộ được (chưa bán khống cổ phiếu); có thể là TCPH chủ động hạ IV (ACBS, Vietcap) chứ không phải bán nhầm.
+  Mốc phải là giá yết thật: lúc quét có ≥ 5 triệu chào bán (Giá mua × KL chào bán), lô lẻ thổi IV mốc lên thì hôm sau báo
+  "rẻ" giả. Không phòng hộ được (chưa bán khống cổ phiếu); có thể là TCPH chủ động hạ IV (ACBS, Vietcap) chứ không phải bán nhầm.
 - **ETF mua được dưới iNAV** (`etf_duoi_inav`): đúng ngưỡng 🟢 trang ETF (người dùng chọn): ≥ `MIN_GIA_TRI_CHAO_BAN` chào bán ở giá
   đủ lãi ròng ≥ `NGUONG_LAI_RONG` nếu về iNAV, bỏ quỹ có mức thường lệch 1 năm ≤ −`NGUONG_GIAM_SO_INAV` (như cảnh báo trong phiên).
   **Phòng hộ** (người dùng yêu cầu): quỹ VN30 / VN100 bán HĐTL tháng gần, N* = β·V_A / V_F (Hull ch. 3; β = 1 vì quỹ bám cùng chỉ
   số), V_F = giá chờ mua HĐ × 100.000. Lệnh 50 triệu ở 1.858 điểm: 0,27 HĐ -> lệnh nhỏ không phòng hộ trọn được (1 HĐ ≈ 186 triệu ETF).
 - **HĐTL VN30F / VN100F** (`hdtl_lech`, mã KRX từ vnstock `Listing(VCI).symbols_by_group("FU_INDEX")`): giá hợp lý cost-of-carry
   S·e^(rT) với q = 0 (Hull ch. 5; cận trên thận trọng vì chưa có số cổ tức). **Đắt** khi bán HĐ ở giá chờ mua + mua ETF cùng chỉ số rẻ
-  nhất (giá chào bán / iNAV nhỏ nhất) khóa được lãi sau chi phí: F_bán − S·(A/iNAV)·e^(rT) − S·(2·phí + thuế + (A − B)/iNAV) − chi phí
-  HĐ > 0 (`lai_khoa_ban_hd_mua_etf`; tính tay: 2.040 − 2.022,12 − 12 − 0,8 = +5,08 điểm). Chi phí HĐ lấy từ `phai_sinh.lai_lo_dao_han`.
+  khóa được lãi sau chi phí: F_bán − S·(A/iNAV)·e^(rT) − S·(2·phí + thuế + max(1 − B/iNAV, (A − B)/iNAV)) − chi phí HĐ > 0
+  (`lai_khoa_ban_hd_mua_etf`, `chi_phi_ra_etf`; tính tay: 2.040 − 2.022,12 − 12 − 0,8 = +5,08 điểm). A = giá bình quân mua đủ 1 HĐ
+  (≈ S × 100.000 đ) qua 3 mức chào bán; quỹ chọn là quỹ tốn ít nhất, bỏ quỹ lúc nào cũng rẻ hơn NAV; ETF đang rẻ hơn iNAV coi như vẫn
+  rẻ lúc bán (không tính chiết khấu đóng lại là lãi), cao hơn iNAV coi như mất phần cao hơn. Không báo khi còn < 2 phiên tới ngày GD
+  cuối (`SO_PHIEN_TOI_THIEU_KHOA`: ETF mua T sớm nhất chiều T+2 mới bán). Chi phí HĐ lấy từ `phai_sinh.lai_lo_dao_han`. Chưa tính:
+  cổ tức ETF nhận thêm (có lợi), lãi bỏ lỡ của tiền ký quỹ HĐ ≈ 17% × F × (e^(rT) − 1) (bất lợi, 0,7 điểm với F1M, 8 điểm với F2Q).
   **Rẻ** khi giá chào bán HĐ < tiền bán ETF cùng chỉ số quy ra điểm sau phí, thuế, chi phí HĐ: chỉ có lợi nếu đang giữ ETF (chưa trừ cổ
   tức bỏ lỡ). Chỉ cho tín hiệu trong giờ khớp lệnh và khi chỉ số cùng ngày với HĐ: 30/10/2026 sau 15h, E1VFVN30 chờ mua 33.600 trong
   khi iNAV SSI 33.254 (+1,04%) làm cả 4 HĐ VN30 hiện "rẻ" giả (sổ lệnh còn lại và iNAV không cùng thời điểm).
@@ -755,11 +760,17 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   TT 83/2024) — `phai_sinh.PHI_VI_THE_HD_NGAY` còn tính 2.550 đ/ngày (đã báo phiên Phái sinh); giá thanh toán cuối cùng = trung bình 30
   phút cuối bỏ 3 cao + 3 thấp (không phải giá đóng cửa). Một vòng mở + đóng ≈ 0,47–0,51 điểm, chưa tính chênh lệch mua–bán.
 - **Mức giá tự đặt** (`muc_gia.csv`, gitignore, ghi tạm rồi đổi tên + .bak): CW, cổ phiếu, ETF (đồng; dưới 100 là nghìn đồng như Danh
-  mục) và HĐTL (điểm; bí danh VN30F1M tự chuyển sang mã KRX theo `mappingSymbol`). Mức cách giá hiện tại > 50% thì báo nghi sai đơn
-  vị; tối đa 50 mức. Giá xét (`gia_xet`): giá khớp nếu lệnh khớp cuối ≥ 5 triệu, khớp lẻ thì giá chào bán (chiều ≤) / chờ mua (≥).
-  Lịch 5 phút (`danh_muc.py` gọi `kiem_tra_muc_gia` sau `kiem_tra`, trong giờ khớp lệnh) ghi lần chạm đầu tiên trong ngày vào
+  mục) và HĐTL (điểm; bí danh VN30F1M -> mã KRX qua `listingInfo.ticker` của Vietcap, không cần vnstock). Mức gấp > 10 lần hoặc
+  < 1/10 giá hiện tại thì báo nghi sai đơn vị (CW đòn bẩy cao: +70% vẫn hợp lệ); tối đa 50 mức; file sửa tay sai thì báo rõ dòng;
+  id mới không trùng id đã chạm hôm nay. Giá xét (`gia_xet`): giá khớp nếu lệnh khớp cuối ≥ 5 triệu, khớp lẻ thì giá chào bán (chiều ≤) / chờ mua (≥).
+  Lịch 5 phút (`danh_muc.py` gọi `kiem_tra_muc_gia` sau `kiem_tra`, trong giờ khớp lệnh và tới 14:50 để có giá ATC) ghi lần chạm đầu tiên trong ngày vào
   `ket_qua/muc_gia_cham_<ngày>.json`. **Discord tắt** (`GUI_DISCORD_MUC_GIA = False`) chờ người dùng cho phép; bật thì mỗi mức tối
   đa 1 tin/ngày, gửi lỗi thì lần sau gửi lại.
 - **Giới hạn**: chưa kiểm chứng tín hiệu nào; r = 4% là giả định; chưa có cổ tức VN30; giá chỉ số lấy từ nến ngày VCI (độ trễ trong phiên
   chưa đo); đếm phiên chưa trừ ngày lễ; máy chủ web 1 luồng nên trang mất khoảng 1–2 giây mỗi lần mở; VCI/Vietcap chập chờn ban đêm
   (31/10/2026 0h–1h: lỗi 418 và quá thời gian).
+- **Rà soát độc lập 31/10/2026** (workflow 3 hướng + kiểm chứng từng phát hiện): sửa 9 lỗi thật — lãi khóa giả khi ETF thường rẻ
+  (FUEIP100 +80 điểm giả), chân ETF không kiểm đủ hàng cho 1 HĐ, mốc CW từ lô lẻ, T+2 gần ngày GD cuối, ngưỡng sai đơn vị chặn nhầm,
+  id mức bị dùng lại, chưa xét giá ATC, lỗi vnstock làm hỏng việc xét mức, ô phòng hộ khi HĐ chưa có giá chờ mua. Bác 5: sổ lệnh chéo
+  trong ATC (không thấy trong 6 ngày dữ liệu), lãi ký quỹ (giả định mô hình, ghi ở trên), trùng tin Discord (đang tắt), treo máy chủ khi
+  vnstock hết lượt và clickjacking (có từ trước ở mọi trang).
