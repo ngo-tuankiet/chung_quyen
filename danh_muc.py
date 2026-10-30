@@ -38,7 +38,7 @@ NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15
 # CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 15% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026)
 NGUONG_GIAM_MANH = 0.15
 NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
-GUI_DISCORD_GIAM_MANH = False  # tắt: chỉ hiện trên web, chờ người dùng cho phép gửi Discord
+GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
 MUC_KHONG, MUC_CAN_NHAC, MUC_NEN_BAN = 0, 1, 2
