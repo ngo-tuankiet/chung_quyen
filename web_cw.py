@@ -401,6 +401,9 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             f"Lịch sử 1 năm (HV): {so(sigma_ls * 100, 0)}%. {so_sanh_bd}"
             + (f" Trung vị IV các CW {ESC(cs)} khác: {so(tv_cung_ma, 0)}%." if math.isfinite(tv_cung_ma) else ""),
         )
+        + o_so(
+            "Khối lượng phát hành", f"{so(float(h['KL niêm yết']))} CW", "tổng số CW được niêm yết (được phép bán ra)"
+        )
         + "</div>"
     )
 
@@ -486,65 +489,6 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             f"<b>≈ {so(mo_phong)} đ</b> (quy về hôm nay), gần bằng kết quả công thức {so(gia_cw_tinh)} đ.</p>"
             '<p class="phu">Nhớ: con số này dựa trên giả định cổ phiếu sẽ dao động như 1 năm qua. Nó là thước đo để so sánh, không phải dự báo giá.</p></details>'
         )
-
-    # Khối lượng CW: sổ lệnh tải cùng lần định giá trực tiếp ở đầu trang (lỗi thì dùng số lúc quét)
-    kl_ny, kl_khop = float(h["KL niêm yết"]), h["KL khớp"]
-    ban, mua = (so_lenh.get("askPrices") or [])[:3], (so_lenh.get("bidPrices") or [])[:3]
-    kl_ban = C.tong_kl(so_lenh, "askPrices") if so_lenh else h["KL chào bán"]
-    kl_mua = C.tong_kl(so_lenh, "bidPrices") if so_lenh else h["KL chờ mua"]
-    gia = lambda m: m.get("price") or 0
-    tien = lambda m: gia(m) * (m.get("volume") or 0)  # thành tiền của một mức giá (đ)
-
-    def o_sl(ds, i):  # 3 ô (giá, khối lượng, thành tiền) của một mức giá; không có mức đó thì "—"
-        if i >= len(ds):
-            return '<td class="so">—</td>' * 3
-        return f'<td class="so">{so(gia(ds[i]))}</td><td class="so">{so(ds[i].get("volume") or 0)}</td><td class="so">{so(tien(ds[i]) / 1e6, 1)}</td>'
-
-    def goi_y_ben(
-        ds, ten_gia, viec
-    ):  # vd: "ở giá thấp nhất 920 đ chỉ có 5.100 CW (≈ 4,7 triệu đ). Mua hết cả 3 mức ..."
-        kl3, tien3 = sum(m.get("volume") or 0 for m in ds), sum(tien(m) for m in ds)
-        return (
-            f"Ở giá {ten_gia} {so(gia(ds[0]))} đ chỉ có <b>{so(ds[0].get('volume') or 0)} CW</b> (≈ {so(tien(ds[0]) / 1e6, 1)} triệu đ). "
-            f"{viec} hết cả {len(ds)} mức ({so(gia(ds[0]))}–{so(gia(ds[-1]))} đ): ≈ {so(tien3 / 1e6, 1)} triệu đ, "
-            f"giá trung bình ≈ {so(tien3 / kl3 if kl3 else math.nan)} đ"
-        )
-
-    dong_sl = (
-        "".join(f"<tr>{o_sl(mua, i)}{o_sl(ban, i)}</tr>" for i in range(3))
-        if (ban or mua)
-        else '<tr><td colspan="6">Sổ lệnh đang trống (ngoài giờ giao dịch hoặc chưa có lệnh).</td></tr>'
-    )
-    m_khoi_luong = (
-        '<section class="the" id="khoi-luong"><h2>Khối lượng CW</h2><div class="luoi-o">'
-        + o_so("Khối lượng phát hành", f"{so(kl_ny)} CW", "tổng số CW được niêm yết (được phép bán ra)")
-        + o_so(
-            "Đang chào bán (3 mức giá)",
-            f"{so(kl_ban)} CW",
-            goi_y_ben(ban, "thấp nhất", "Mua") if ban else "ở 3 mức giá bán thấp nhất",
-        )
-        + o_so(
-            "Đang chờ mua (3 mức giá)",
-            f"{so(kl_mua)} CW",
-            goi_y_ben(mua, "cao nhất", "Bán") if mua else "ở 3 mức giá mua cao nhất",
-        )
-        + o_so(
-            "Đã khớp trong phiên",
-            f"{so(kl_khop)} CW",
-            f"≈ {so(kl_khop / kl_ny * 100, 1)}% khối lượng phát hành" if kl_ny > 0 else "",
-        )
-        + '</div><div class="cuon"><table style="max-width:820px"><thead><tr><th class="so">Giá chờ mua (đ)</th><th class="so">KL chờ mua</th>'
-        '<th class="so">Thành tiền (triệu đ)</th><th class="so">Giá chào bán (đ)</th><th class="so">KL chào bán</th><th class="so">Thành tiền (triệu đ)</th>'
-        f"</tr></thead><tbody>{dong_sl}</tbody></table></div>"
-        '<p class="phu">Sổ lệnh 3 mức giá tốt nhất. Mua nhiều hơn khối lượng ở giá thấp nhất thì phần còn lại phải mua ở các mức giá cao hơn '
-        f"(bán thì ngược lại). Nguồn: {nguon}.</p>"
-        '<details><summary>Vì sao không có "số CW đã bán ra" và "số CW còn lại"?</summary>'
-        "<p>Các nguồn dữ liệu miễn phí (bảng giá Vietcap, KBS, vnstock gói miễn phí) chỉ công bố <b>tổng khối lượng phát hành</b>, "
-        "không công bố nhà đầu tư đang nắm bao nhiêu CW. Phần CW chưa bán thường nằm trong tay <b>tổ chức phát hành</b>: họ là bên tạo lập "
-        'thị trường, đặt lệnh bán dần ra và đặt lệnh mua lại. Vì vậy con số <b>"có thể mua ngay"</b> trên thực tế là khối lượng '
-        "<b>đang chào bán</b> trong sổ lệnh. Tổ chức phát hành có thể đặt thêm lệnh bán sau đó, nhưng không vượt quá khối lượng phát hành. "
-        "Nếu cần con số chính xác, hãy xem thông báo của tổ chức phát hành hoặc ứng dụng của công ty chứng khoán bạn dùng (nếu có hiển thị).</p></details></section>"
-    )
 
     # Biểu đồ giá cổ phiếu cơ sở
     file_ls = C.THU_MUC_KET_QUA / f"lich_su_{ngay}.json"
@@ -686,14 +630,14 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "".join(f"<div><dt>{a}</dt><dd>{b}</dd></div>" for a, b in dk)
         + "</dl></section>"
     )
-    # bố cục theo luồng quyết định (người dùng chọn 30/10/2026): tổng quan -> thị trường lúc này -> CW so với CS -> IV, thanh khoản
+    # bố cục theo luồng quyết định (người dùng chọn 30/10/2026): tổng quan -> thị trường lúc này -> CW so với CS -> IV
     # -> giữ đến đáo hạn, cách tính -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
     phan += [
         m_o_so,
         hang_doi(m_tom_tat, m_rui_ro),
         m_nen,
         hang_doi(m_theo_kip, m_gia_cs),
-        hang_doi(m_iv, m_khoi_luong),
+        m_iv,
         hang_doi(m_neu_giu, m_cach_tinh),
         m_cw_khac,
         m_dieu_khoan,

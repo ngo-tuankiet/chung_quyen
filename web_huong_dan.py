@@ -105,8 +105,7 @@ def trang_huong_dan():
         "<li><b>Điểm hòa vốn</b>: giá cổ phiếu cần đạt vào ngày đáo hạn để bạn không lỗ không lãi.</li>"
         "<li><b>📐 Giá hợp lý … được tính thế nào?</b>: bấm vào để xem 7 bước tính giá hợp lý bằng số thật của mã đó, "
         "kèm phần kiểm chứng bằng 20.000 kịch bản (xem thêm mục 7).</li>"
-        "<li><b>Khối lượng CW</b>: tổng số CW phát hành, số CW <b>đang chào bán</b> (lượng bạn mua được ngay và giá thấp nhất), "
-        "số CW đang chờ mua (lượng bán ra được ngay) và sổ lệnh 3 mức giá, tải trực tiếp lúc mở trang.</li>"
+        "<li><b>Khối lượng phát hành</b> (ô cuối hàng số liệu đầu trang): tổng số CW được niêm yết.</li>"
         "<li><b>Đòn bẩy</b>: ví dụ 9x nghĩa là cổ phiếu tăng 1% thì CW tăng khoảng 9%, cổ phiếu giảm 1% thì CW giảm khoảng 9%.</li>"
         '<li><b>Delta</b> (từ 0 đến 1): mức CW "chạy theo" cổ phiếu. Ô này ghi sẵn cổ phiếu tăng/giảm 1.000 đ thì 1 CW tăng/giảm khoảng bao nhiêu đồng. '
         "Delta gần 1: CW bám sát cổ phiếu; gần 0: CW gần như không phản ứng (thường do giá cổ phiếu còn xa dưới giá thực hiện).</li>"
@@ -180,8 +179,8 @@ def trang_huong_dan():
             "Xem số CW đã bán ra và còn lại ở đâu?",
             (
                 "Các nguồn dữ liệu miễn phí chỉ công bố tổng khối lượng phát hành, không công bố nhà đầu tư đang nắm bao nhiêu. "
-                'Trang phân tích mỗi mã có mục "Khối lượng CW": khối lượng phát hành, số CW đang chào bán (lượng mua được ngay), đang chờ mua và sổ lệnh 3 mức giá, '
-                'tải trực tiếp lúc mở trang. Cột "Đang chào bán" trong bảng là số liệu lúc quét.'
+                'Trang phân tích mỗi mã có ô "Khối lượng phát hành" ở hàng số liệu đầu trang. '
+                'Lượng mua được ngay xem cột "Đang chào bán" trong bảng (số liệu lúc quét) hoặc sổ lệnh trên app công ty chứng khoán.'
             ),
         ),
         (
