@@ -7,7 +7,7 @@ import pandas as pd
 import chiet_khau
 import cw_scanner
 import etf
-from web_chung import ESC, bieu_do, o_so, so, trang
+from web_chung import ESC, bieu_do, hang_doi, o_so, so, trang
 
 # ============ ETF ============
 GIAI_THICH_SO_CS = (
@@ -320,14 +320,14 @@ def trang_etf_chi_tiet(ma):
         except Exception as e:  # noqa: BLE001
             bd_cl = f'<p class="loi" role="alert">Không đọc được lịch sử NAV: {ESC(str(e)[:200])}</p>'
     phan.append(
-        '<section class="the"><h2>Chênh lệch giá / NAV 1 năm</h2>'
-        '<p class="phu">Giá đóng cửa các phiên có khớp chia NAV cùng ngày − 1. Dưới 0 = chiết khấu. Giá đóng cửa của quỹ ít '
-        "giao dịch thường là 1 lô nhỏ nên đường này nhiễu; đường xám là trung vị, đường cam là ngang NAV.</p>"
-        f"{bd_cl}</section>"
-    )
-    phan.append(
-        '<section class="the"><h2>Giá 1 năm, MA50 và MA200</h2>'
-        '<p class="phu">MA50 (cam) / MA200 (xám, nét đứt): trung bình giá đóng cửa 50 / 200 phiên có khớp lệnh.</p>'
-        f"{bd}</section>"
+        hang_doi(
+            '<section class="the"><h2>Chênh lệch giá / NAV 1 năm</h2>'
+            '<p class="phu">Giá đóng cửa các phiên có khớp chia NAV cùng ngày − 1. Dưới 0 = chiết khấu. Giá đóng cửa của quỹ ít '
+            "giao dịch thường là 1 lô nhỏ nên đường này nhiễu; đường xám là trung vị, đường cam là ngang NAV.</p>"
+            f"{bd_cl}</section>",
+            '<section class="the"><h2>Giá 1 năm, MA50 và MA200</h2>'
+            '<p class="phu">MA50 (cam) / MA200 (xám, nét đứt): trung bình giá đóng cửa 50 / 200 phiên có khớp lệnh.</p>'
+            f"{bd}</section>",
+        )
     )
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")
