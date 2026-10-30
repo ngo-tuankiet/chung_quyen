@@ -66,7 +66,7 @@ def muc_nen_1h(ma, cs, P, S, bg_cw=None, bg_cs=None):
         )
     gio = W.gio_nen_chung(cw, nen_cs, so_phien=SO_PHIEN_NEN_1H)
     return (
-        f'<section class="the tran-ngang" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
         '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div>'
         f'<p class="phu">Hai biểu đồ nến chung trục giờ: cùng cột là cùng giờ; giờ {ESC(ma)} không khớp lệnh thì để trống. '
         "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "

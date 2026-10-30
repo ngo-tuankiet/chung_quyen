@@ -3,6 +3,7 @@
 import html
 import json
 import math
+import re
 from datetime import date
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -105,7 +106,7 @@ CSS = """
   --cam:#d95926; --lien-ket:#86b6ef; --chu-duong:#0ca30c; --chu-am:#e66767; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--nen); color: var(--chu); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+main { margin: 0 auto; padding: 24px 24px 48px; }  /* trải hết chiều ngang; chữ dài tự giới hạn ở .tom-tat, .huong-dan */
 a { color: var(--lien-ket); }
 h1 { font-size: 26px; margin: 0; line-height: 1.25; }
 h2 { font-size: 18px; margin: 0; }
@@ -167,7 +168,10 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
 .kl-nen { fill: var(--truc); }
-.tran-ngang { width: calc(100vw - 48px); position: relative; left: 50%; transform: translateX(-50%); }
+.hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+.hang-doi > .the { margin-top: 0; }
+.giai-thich { margin-top: 4px; } .giai-thich summary { cursor: pointer; color: var(--lien-ket); font-size: 14px; }
+.giai-thich .phu { max-width: 900px; }
 .hang-nen { display: grid; grid-template-columns: minmax(0, 1fr) 320px 360px; gap: 16px; align-items: start; margin-top: 8px; }
 .hang-nen h4 { margin: 0 0 6px; font-size: 14px; } .hang-nen table { font-size: 13px; width: 100%; }
 .hang-nen td, .hang-nen th { padding: 3px 6px; } .khop-cuon { max-height: 330px; overflow-y: auto; }
@@ -176,9 +180,9 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .cot-mua { fill: var(--tot); opacity: .8; } .cot-ban { fill: var(--chu-am); opacity: .8; }
 .gia-tang { color: var(--chu-duong); } .gia-giam { color: var(--chu-am); } .gia-dung { color: #b8860b; }
 @media (max-width: 1100px) { .hang-nen { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 640px) { .tran-ngang { width: auto; left: 0; transform: none; } }
+@media (max-width: 1100px) { .hang-doi { grid-template-columns: minmax(0, 1fr); } }
 .phong-to { position: fixed; inset: 0; z-index: 100; margin: 0; border-radius: 0; overflow: auto; background: var(--be-mat);
-  padding: 16px 24px; width: auto; left: 0; transform: none; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
+  padding: 16px 24px; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
 .duong-gia { fill: none; stroke: var(--xanh); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
 .tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
@@ -342,8 +346,37 @@ MENU = (
 )
 
 
+GIAI_THICH_TOI_THIEU = (
+    160  # ghi chú (p.phu) dài hơn số ký tự chữ này thì thu vào nút "ℹ Giải thích" (người dùng chọn 30/10/2026)
+)
+MAU_GHI_CHU = re.compile(
+    r'<p class="phu"(?: [^>]*)?>.*?</p>', re.DOTALL
+)  # p không lồng p nên khớp ngắn nhất là đúng 1 đoạn
+
+
+def hang_doi(trai, phai):
+    """2 mục cạnh nhau (mỗi mục 1 nửa chiều ngang); màn hình < 1.100 px tự xếp 1 cột."""
+    return f'<div class="hang-doi">{trai}{phai}</div>'
+
+
+def thu_gon_giai_thich(html):
+    """Ghi chú dài thu vào <details> "ℹ Giải thích" để trang trải ngang gọn hơn; ghi chú ngắn giữ nguyên."""
+    dai = lambda m: len(re.sub(r"<[^>]+>", "", m.group(0))) > GIAI_THICH_TOI_THIEU
+    return MAU_GHI_CHU.sub(
+        lambda m: (
+            f'<details class="giai-thich"><summary>ℹ Giải thích</summary>{m.group(0)}</details>'
+            if dai(m)
+            else m.group(0)
+        ),
+        html,
+    )
+
+
 def trang(tieu_de, than, duong_dan=""):
-    """Khung chung của mọi trang: thanh điều hướng trên cùng + nội dung + lưu ý cuối trang."""
+    """Khung chung của mọi trang: thanh điều hướng trên cùng + nội dung + lưu ý cuối trang.
+    Ghi chú dài thu vào "ℹ Giải thích", trừ trang Hướng dẫn (trang để đọc)."""
+    if duong_dan != "/huong-dan":
+        than = thu_gon_giai_thich(than)
     menu = "".join(
         f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}><span class="bt" aria-hidden="true">{bt}</span>'
         f"<span>{ten}</span></a>"

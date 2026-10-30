@@ -592,3 +592,19 @@ def test_khop_lenh_moi_nhat_truoc_va_chenh_lech():
     html = W.bang_khop_lenh(dong, 9100)
     assert "KL: 9.100" in html and "M: 9.000" in html and "B: 100" in html and "+12,2" in html
     assert W.bang_khop_lenh([], 0).count("Chưa có lệnh khớp") == 1
+
+
+def test_khung_trang_hang_doi_va_giai_thich():
+    import web_chung as W
+
+    assert W.hang_doi("<section>A</section>", "<section>B</section>") == (
+        '<div class="hang-doi"><section>A</section><section>B</section></div>'
+    )
+    dai = '<p class="phu">' + "Giải thích rất dài. " * 12 + "<b>đậm</b></p>"
+    ngan = '<p class="phu">Một câu ngắn.</p>'
+    html = W.trang("T", dai + ngan, "/")
+    # ghi chú dài (> GIAI_THICH_TOI_THIEU ký tự chữ) thu vào nút ℹ Giải thích; ghi chú ngắn giữ nguyên
+    assert '<details class="giai-thich"><summary>ℹ Giải thích</summary><p class="phu">Giải thích' in html
+    assert html.count('<details class="giai-thich">') == 1 and ngan in html
+    # trang Hướng dẫn là trang để đọc: không thu gọn
+    assert "<details" not in W.trang("T", dai, "/huong-dan")
