@@ -8,7 +8,7 @@ import pandas as pd
 import cw_scanner
 import danh_muc
 import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
-from web_chung import ESC, o_so, so, trang
+from web_chung import ESC, hang_doi, o_so, so, trang
 
 
 # ============ TRANG DANH MỤC ============
@@ -49,6 +49,7 @@ def trang_danh_muc():
         return trang("Danh mục", "".join(phan), "/danh-muc")
     vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
 
+    m_canh_bao = m_dang_nam = m_lich_su = ""
     # Vị thế đang nắm (giá trực tiếp)
     if vt:
         try:
@@ -69,7 +70,7 @@ def trang_danh_muc():
         else:
             dong, canh_bao = [{"ma": m, **v, "co_gia": False} for m, v in sorted(vt.items())], []
         if canh_bao:
-            phan.append(
+            m_canh_bao = (
                 '<section class="the"><h2>⚠ Cảnh báo hiện tại</h2><ul>'
                 + "".join(f"<li><b>{ESC(m)}</b>: {ESC(nd)}</li>" for m, _, nd in canh_bao)
                 + "</ul></section>"
@@ -102,7 +103,7 @@ def trang_danh_muc():
         for d in co_gia:
             tiep_xuc[d["cs"]] = tiep_xuc.get(d["cs"], 0) + d["tiep_xuc"]
         von = sum(d["so_luong"] * d["gia_von"] for d in dong)
-        phan.append(
+        m_dang_nam = (
             f'<section class="the"><h2>Đang nắm ({len(dong)} mã)</h2><p class="phu">Giá: {nguon}.</p><div class="luoi-o">'
             + o_so(
                 "Tiền vốn đang nằm trong CW", f"{so(von / 1e6, 1)} triệu đ", "theo giá vốn bình quân, đã gồm phí mua"
@@ -132,7 +133,7 @@ def trang_danh_muc():
 
     # Thêm lệnh
     hom_nay, ds_ma = date.today(), sorted(df["Mã CW"]) if df is not None else []
-    phan.append(
+    m_them = (
         '<form method="post" action="/danh-muc/them" class="the form-lenh"><h2>Thêm lệnh</h2>'
         f'<label>Ngày<input type="date" name="ngay" value="{hom_nay}" max="{hom_nay}" required></label>'
         '<label>Mã CW<input name="ma_cw" list="ds-ma" required size="10" pattern="[Cc][A-Za-z]{3}[0-9]{4}" placeholder="CVPB2615"></label>'
@@ -161,10 +162,12 @@ def trang_danh_muc():
             f'<input type="hidden" name="id" value="{d["id"]}"><button class="nut-nho">Xóa</button></form></td></tr>'
             for d in sorted(ds, key=lambda d: (d["ngay"], d["id"]), reverse=True)
         )
-        phan.append(
+        m_lich_su = (
             f'<section class="the"><h2>Lịch sử lệnh ({len(ds)})</h2><p class="phu">Lãi/lỗ đã chốt (các lệnh bán): '
             f'<b class="{"duong" if lai_chot >= 0 else "am"}">{so(lai_chot, 0, True)} đ</b>. Xóa nhầm thì bản trước nằm trong danh_muc.csv.bak.</p>'
             '<div class="cuon"><table><thead><tr><th class="so">Số</th><th>Ngày</th><th>Mã CW</th><th>Loại</th><th class="so">Số lượng</th>'
             f'<th class="so">Giá</th><th class="so">Chốt / cắt</th><th>Ghi chú</th><th></th></tr></thead><tbody>{hang}</tbody></table></div></section>'
         )
+    # Cảnh báo | Thêm lệnh cạnh nhau (người dùng chọn 30/10/2026), bảng Đang nắm và Lịch sử lệnh trải ngang
+    phan += [hang_doi(m_canh_bao, m_them), m_dang_nam, m_lich_su]
     return trang("Danh mục", "".join(phan), "/danh-muc")
