@@ -4,6 +4,7 @@ import html
 import json
 import math
 import re
+import time
 from datetime import date
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -916,4 +917,101 @@ def bang_khop_lenh(dong, kl_phien):
         f'<p class="phu" style="margin:2px 0 4px">M/B cộng trên {len(dong)} lệnh gần nhất</p>'
         '<div class="khop-cuon"><table><thead><tr><th>Thời gian</th><th class="so">KL</th><th class="so">Giá</th><th class="so">+/−</th>'
         f'<th class="so">%</th><th>M/B</th></tr></thead><tbody>{hang}</tbody></table></div>'
+    )
+
+
+# ============ MỤC NẾN DÙNG CHUNG (trang CW và trang ETF) ============
+SO_NEN = 50  # trang chi tiết: 50 nến gần nhất mỗi khung H1 / H4 / D1 của CW và CS (người dùng chọn 30/10/2026)
+SO_NGAY_NEN_1H = 45  # ngày lịch nến 1 giờ cần tải để đủ 50 nến H4 (25 phiên); thử 30/10/2026: 45 ngày -> 34 phiên
+SO_NGAY_NEN_D1 = 80  # ngày lịch nến ngày cần tải để đủ 50 phiên (cuối tuần, nghỉ lễ); thử: 80 ngày -> 56 phiên
+KHUNG_MAC_DINH = "h4"
+GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
+SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
+
+
+def nen_cac_khung(ma, gia_hien_tai, chi_so=None):
+    """{'h1', 'h4', 'd1': nến (giá đồng / điểm)} của 1 mã: H1 và D1 từ vnstock (2 lượt gọi), H4 gộp từ H1; nhớ GIAY_NHO_NEN giây.
+    Đơn vị (vnstock trả nghìn đồng; chỉ số chia 1.000) suy từ giá hiện tại. chi_so = tên chỉ số trong vnstock (vd VNMIDCAP):
+    lấy floating=6, vì mặc định làm tròn 2 số lẻ sau khi chia 1.000 làm sai giá (VN30 1.892,98 -> 1,89)."""
+    luc, nen = BO_NHO_NEN.get(ma, (0.0, None))
+    if nen is None or time.time() - luc > GIAY_NHO_NEN:
+        doc = lambda df: nen_tu_df(
+            df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1
+        )
+        them = {"floating": 6} if chi_so else {}
+        ten = chi_so or ma
+        h1 = doc(cw_scanner.lay_gia_dong_cua(ten, SO_NGAY_NEN_1H, cw_scanner.NGUON_GIA_CW, interval="1H", **them))
+        d1 = doc(cw_scanner.lay_gia_dong_cua(ten, SO_NGAY_NEN_D1, cw_scanner.NGUON_GIA_CW, **them))
+        nen = {"h1": h1, "h4": nen_h4(h1), "d1": d1}
+        BO_NHO_NEN[ma] = (time.time(), nen)
+    return nen
+
+
+def khop_lenh(ma, ref, gia_hien_tai):
+    """SO_LENH_KHOP lệnh khớp gần nhất (vnstock intraday, không nhớ tạm để luôn là số mới) -> dong_khop_lenh."""
+    df = cw_scanner.Quote(source=cw_scanner.NGUON_GIA_CW, symbol=ma).intraday(page_size=SO_LENH_KHOP)
+    if not len(df):
+        return []
+    return dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
+
+
+def hang_nen(ma, cac_gio, nen, bg):
+    """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap,
+    None (mất mạng) hoặc "chi_so" (chỉ số không giao dịch: không có sổ lệnh, khớp lệnh)."""
+    if bg == "chi_so":
+        do_sau = khop_html = '<p class="phu">Chỉ số không giao dịch trực tiếp nên không có sổ lệnh, khớp lệnh.</p>'
+    elif bg:
+        ny, khop, so_lenh = bg
+        try:
+            khop_html = bang_khop_lenh(
+                khop_lenh(ma, ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop)), khop.get("accumulatedVolume") or 0
+            )
+        # lỗi mạng / hết lượt gọi: chỉ ô này trống
+        except Exception as e:  # noqa: BLE001
+            khop_html = f'<p class="phu">Chưa tải được khớp lệnh ({ESC(str(e)[:100])}).</p>'
+        do_sau = do_sau_thi_truong(so_lenh)
+    else:
+        do_sau = khop_html = '<p class="phu">Không lấy được bảng giá trực tiếp.</p>'
+    return (
+        f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
+        + "".join(
+            f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
+            f"{bieu_do_nen(gio, nen[k], ma, k)}</div>"
+            for k, gio in cac_gio.items()
+        )
+        + "</div>"
+        f"<div><h4>Độ sâu thị trường</h4>{do_sau}</div><div><h4>Khớp lệnh</h4>{khop_html}</div></div>"
+    )
+
+
+def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None):
+    """Mục nến trải hết chiều ngang: mỗi mã (CW/ETF trên, cổ phiếu cơ sở / chỉ số dưới) 1 hàng nến | độ sâu | khớp lệnh;
+    nến chung trục. chi_so = tên chỉ số trong vnstock khi `cs` là chỉ số (trang ETF): hàng dưới không có sổ lệnh."""
+    try:
+        cw, nen_cs = nen_cac_khung(ma, P), nen_cac_khung(cs, S, chi_so)
+    # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
+    except Exception as e:  # noqa: BLE001
+        return (
+            f'<section class="the"><h2>Nến: {ESC(ma)} và {ESC(cs)}</h2>'
+            f"<p>Chưa tải được nến ({ESC(str(e)[:120])}). Mở lại trang sau ít phút.</p></section>"
+        )
+    cac_gio = {k: gio_nen_chung(cw[k], nen_cs[k], so_nen=SO_NEN) for k in TEN_KHUNG}
+    nut = "".join(
+        f'<button type="button" data-chon-khung="{k}" aria-pressed="{str(k == KHUNG_MAC_DINH).lower()}">{k.upper()}</button>'
+        for k in TEN_KHUNG
+    )
+    return (
+        f'<section class="the" id="nen-1h"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">'
+        f'<div class="chon-khung" role="group" aria-label="Khung nến">{nut}</div>'
+        f'<h2 style="margin:0">Nến: {ESC(ma)} và {ESC(cs)} ({SO_NEN} nến)</h2></div>'
+        f'<p class="phu">Bấm H1 / H4 / D1 để đổi khung nến ({SO_NEN} nến gần nhất). H4: mỗi phiên 2 nến, buổi sáng (9:15–11:30) và buổi '
+        f"chiều (13:00–14:45), gộp từ nến 1 giờ. Hai biểu đồ chung trục: cùng cột là cùng thời điểm; lúc {ESC(ma)} không khớp lệnh thì "
+        "để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. Cột khối lượng (KL) có vạch chia và số bên trái; "
+        "nhãn bên phải là KL nến cuối; rê chuột lên nến để xem KL chính xác. "
+        "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
+        "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
+        "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức"
+        + (", chỉ số tính bằng điểm" if chi_so else "")
+        + ".</p>"
+        f'{hang_nen(ma, cac_gio, cw, bg_cw)}{hang_nen(cs, cac_gio, nen_cs, "chi_so" if chi_so else bg_cs)}</section>'
     )
