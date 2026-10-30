@@ -248,11 +248,20 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         mat_gia = max(gia_tri_tg, 0) / max(ngay_con_lai, 1)
     chu_dat_re, lop_dat_re = dat_re(h["Đắt/rẻ %"])
 
-    phan = [
-        f'<div class="dau-trang"><div><h1>{ESC(ma)}</h1><p class="phu">Chứng quyền mua <b>{ESC(cs)}</b> · TCPH {ESC(h["TCPH"])}'
+    # mô tả mã + nguồn số liệu: đặt dưới Tóm tắt (người dùng chọn 30/10/2026)
+    dong_nguon = f"Định giá theo {nguon}. σ lịch sử và lãi suất lấy từ lần quét ngày {ngay:%d/%m/%Y}."
+    m_thong_tin = (
+        f'<section class="the"><p class="phu" style="margin:0">Chứng quyền mua <b>{ESC(cs)}</b> · TCPH {ESC(h["TCPH"])}'
         f" · đáo hạn {ngay_dao_han:%d/%m/%Y} (còn {ngay_con_lai} ngày)</p>"
-        f'<p class="{"phu" if truc_tiep else "loi"}"{"" if truc_tiep else " role=alert"}>Định giá theo {nguon}. '
-        f"σ lịch sử và lãi suất lấy từ lần quét ngày {ngay:%d/%m/%Y}.</p></div>"
+        + (f'<p class="phu" style="margin:6px 0 0">{dong_nguon}</p>' if truc_tiep else "")
+        + "</section>"
+    )
+    phan = [
+        f'<div class="dau-trang"><div><h1>{ESC(ma)}</h1>'
+        + (
+            "" if truc_tiep else f"<p class=loi role=alert>{dong_nguon}</p>"
+        )  # lỗi giá trực tiếp: giữ ở đầu trang cho dễ thấy
+        + "</div>"
         f'<div>{huy_hieu(h["Đánh giá"], True)}'
         + (
             f'<p class="phu">Lúc quét {ngay:%d/%m}: {ESC(KET_LUAN.get(ket_luan_quet, ("", "", ket_luan_quet))[2])}</p>'
@@ -527,7 +536,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     # -> CW so với CS | IV -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
     phan += [
         m_o_so,
-        hang_doi(m_tom_tat, m_neu_giu),
+        hang_doi(f'<div class="cot-doc">{m_tom_tat}{m_thong_tin}</div>', m_neu_giu),
         m_nen,
         hang_doi(m_theo_kip, m_iv),
         m_cw_khac,

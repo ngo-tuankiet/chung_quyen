@@ -183,6 +183,7 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
+.cot-doc { display: flex; flex-direction: column; gap: 16px; } .cot-doc > .the { margin-top: 0; }
 .giai-thich { margin-top: 4px; } .giai-thich summary { cursor: pointer; color: var(--lien-ket); font-size: 14px; }
 .giai-thich .phu { max-width: 900px; }
 .hang-nen { display: grid; grid-template-columns: minmax(0, 1fr) 320px 360px; gap: 16px; align-items: start; margin-top: 8px; }
