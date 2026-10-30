@@ -232,13 +232,23 @@ def trang_huong_dan():
         "ký quỹ, lỗ có thể vượt số tiền ký quỹ.</li>"
         "<li><b>Hợp đồng tương lai VN100</b> (VN100F1M … F2Q): cùng cách tính, theo chỉ số VN100. Giao dịch rất ít (vài chục hợp "
         "đồng/phiên) nên khó vào / ra đúng giá; ký quỹ ban đầu 17% như VN30 (VSDC, hiệu lực 16/10/2026).</li>"
-        "<li><b>Basis</b> = giá hợp đồng − VN30. Hợp đồng thanh toán bằng tiền theo VN30 ngày giao dịch cuối nên basis về 0: "
+        "<li><b>Basis</b> = giá hợp đồng − VN30. Hợp đồng thanh toán bằng tiền theo trung bình VN30 30 phút cuối ngày giao dịch cuối nên basis về gần 0: "
         "basis dương thì có lợi cho Short, âm có lợi cho Long. <b>Basis năm hóa</b> so với lãi suất r để biết thị trường đang trả giá "
         "hợp đồng cao hay thấp (chưa tính được giá hợp lý vì chưa có số cổ tức VN30 chắc chắn).</li>"
         "<li>Trang chi tiết: các ô số liệu, Tóm tắt, bảng <b>lãi/lỗ Long và Short nếu giữ đến ngày giao dịch cuối</b> theo từng mức "
         "VN30 (đã trừ phí, thuế theo biểu giá SSI), nến H1/H4/D1 hợp đồng + VN30 (thanh dọc/ngang, thước đo, độ sâu, khớp lệnh), "
         "basis theo ngày. Phí, thuế, ký quỹ là giả định theo 1 công ty lớn: kiểm tra lại với công ty chứng khoán của bạn.</li></ul></section>"
-        '<section class="the" id="hoi-dap"><h2>11. Câu hỏi thường gặp</h2>'
+        '<section class="the" id="canh-bao"><h2>11. Trang 🔔 Cảnh báo: giá lệch bất thường và mức giá tự đặt</h2><ul>'
+        "<li>Chỉ hiện chỗ giá <b>đang mua được</b> lệch bất thường lúc mở trang (so giá chào bán / chờ mua trong sổ lệnh, cần ≥ 5 "
+        "triệu ở mức rẻ đó; nến giật vì lô lẻ không tính): <b>CW</b> rẻ hơn giá lẽ ra theo cổ phiếu cơ sở từ 15%, <b>ETF</b> mua "
+        "được dưới iNAV đủ lãi ròng ≥ 2%, <b>hợp đồng tương lai</b> đắt / rẻ so với giá hợp lý sau chi phí.</li>"
+        "<li><b>Phòng hộ ETF</b>: quỹ VN30 / VN100 bán hợp đồng tương lai cùng chỉ số để lãi/lỗ không phụ thuộc thị trường lên xuống; "
+        "1 hợp đồng ứng khoảng 186 triệu ETF nên lệnh nhỏ không phòng hộ trọn được. CW không phòng hộ được.</li>"
+        "<li><b>Mức giá tôi đặt</b>: nhập mã, chiều (xuống tới / lên tới) và mức giá; lịch 5 phút trong giờ giao dịch ghi lại lần chạm "
+        "đầu tiên trong ngày. Discord chưa bật.</li>"
+        "<li>Chưa tín hiệu nào ở trang này được kiểm chứng là có lãi sau phí; ngoài giờ khớp lệnh trang không đưa tín hiệu hợp đồng "
+        "tương lai (sổ lệnh còn lại và iNAV không cùng thời điểm).</li></ul></section>"
+        '<section class="the" id="hoi-dap"><h2>12. Câu hỏi thường gặp</h2>'
         + "".join(
             f'<details style="margin-top:10px"><summary>{ESC(q)}</summary><p>{ESC(a)}</p></details>' for q, a in hoi_dap
         )

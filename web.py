@@ -4,6 +4,7 @@ web.py - Giao diện web cho cw_scanner (chỉ dùng thư viện có sẵn của
 Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 - Trang chính: bấm "Quét ngay" để chạy cw_scanner.main(); luôn hiển thị kết quả mới nhất trong ket_qua/.
 - Bấm vào một mã CW: trang phân tích chi tiết (biểu đồ, kịch bản lãi/lỗ, so sánh các CW cùng mã cơ sở).
+- Trang "🔔 Cảnh báo giá" (/canh-bao): giá lệch bất thường đang mua được (CW, ETF, HĐTL) + mức giá tự đặt.
 - Trang "Hướng dẫn sử dụng" (/huong-dan): giải thích cho người mới, có trên thanh menu (đầu trang; điện thoại: dưới cùng).
 """
 
@@ -15,10 +16,12 @@ from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
 
+import canh_bao_gia
 import chiet_khau
 import cw_scanner
 import danh_muc
 import phai_sinh
+import web_canh_bao
 import web_chung as W
 from web_chung import CONG, doc_von, trang
 from web_cw import trang_chi_tiet, trang_chinh, trang_sap_ra_mat
@@ -47,30 +50,34 @@ class XuLy(BaseHTTPRequestHandler):
         m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
         m_ps = re.fullmatch(r"/phai-sinh/(" + phai_sinh.MAU_MA_HD.pattern + ")", duong_dan)  # chỉ nhận mã hợp lệ
         noi_dung = (
-            trang_phai_sinh()
-            if duong_dan == "/phai-sinh"
+            web_canh_bao.trang_canh_bao()
+            if duong_dan == "/canh-bao"
             else (
-                trang_phai_sinh_chi_tiet(m_ps.group(1))
-                if m_ps
+                trang_phai_sinh()
+                if duong_dan == "/phai-sinh"
                 else (
-                    trang_etf()
-                    if duong_dan == "/etf"
+                    trang_phai_sinh_chi_tiet(m_ps.group(1))
+                    if m_ps
                     else (
-                        trang_etf_chi_tiet(m_etf.group(1))
-                        if m_etf
+                        trang_etf()
+                        if duong_dan == "/etf"
                         else (
-                            trang_chinh()
-                            if duong_dan == "/"
+                            trang_etf_chi_tiet(m_etf.group(1))
+                            if m_etf
                             else (
-                                trang_huong_dan()
-                                if duong_dan == "/huong-dan"
+                                trang_chinh()
+                                if duong_dan == "/"
                                 else (
-                                    trang_danh_muc()
-                                    if duong_dan == "/danh-muc"
+                                    trang_huong_dan()
+                                    if duong_dan == "/huong-dan"
                                     else (
-                                        trang_sap_ra_mat("tai_moi=1" in self.path)
-                                        if duong_dan == "/sap-ra-mat"
-                                        else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                        trang_danh_muc()
+                                        if duong_dan == "/danh-muc"
+                                        else (
+                                            trang_sap_ra_mat("tai_moi=1" in self.path)
+                                            if duong_dan == "/sap-ra-mat"
+                                            else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                        )
                                     )
                                 )
                             )
@@ -122,6 +129,20 @@ class XuLy(BaseHTTPRequestHandler):
             # vd file danh_muc.csv bị sửa tay sai định dạng: báo lên trang, không ghi gì
             except Exception as e:  # noqa: BLE001
                 W.LOI_DANH_MUC = f"Không lưu được: {e}"
+        elif duong_dan in ("/canh-bao/them", "/canh-bao/xoa"):
+            ve_trang = "/canh-bao"
+            form = parse_qs(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 10_000)).decode("utf-8"))
+            try:
+                if duong_dan.endswith("them"):
+                    web_canh_bao.LOI_MUC_GIA = "; ".join(canh_bao_gia.them_muc_gia(form, date.today()))
+                else:
+                    so_muc = (form.get("id") or [""])[0]
+                    web_canh_bao.LOI_MUC_GIA = (
+                        canh_bao_gia.xoa_muc_gia(int(so_muc)) if so_muc.isdigit() else "số mức không hợp lệ"
+                    )
+            # muc_gia.csv sửa tay sai định dạng, mất mạng khi kiểm mã: báo lên trang, không ghi gì
+            except Exception as e:  # noqa: BLE001
+                web_canh_bao.LOI_MUC_GIA = f"Không lưu được: {e}"
         else:
             self.send_error(404)
             return

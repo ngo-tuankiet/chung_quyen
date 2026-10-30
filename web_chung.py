@@ -424,6 +424,11 @@ def o_so(nhan, gia_tri, goi_y=""):
 # thanh menu: trên đầu trang ở máy tính, dưới cùng màn hình ở điện thoại (như app). Trang "Sắp ra mắt" (/sap-ra-mat) vẫn còn
 # nhưng bỏ khỏi menu theo yêu cầu người dùng 24/10/2026
 MENU = (
+    (
+        "/canh-bao",
+        "🔔",
+        "Cảnh báo",
+    ),  # trang Cảnh báo giá (31/10/2026): giá lệch bất thường đang mua được + mức giá tự đặt
     ("/", "📈", "Chứng quyền"),
     ("/etf", "📊", "ETF"),
     ("/phai-sinh", "📉", "Phái sinh"),

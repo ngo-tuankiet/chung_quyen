@@ -838,4 +838,9 @@ if __name__ == "__main__":
     if "--bao-cao" in sys.argv:
         gui_bao_cao_ngay(quet_loi=os.environ.get("QUET_LOI", ""))  # chay_quet_tu_dong.sh truyền lý do khi quét lỗi
     else:
-        kiem_tra(luon="--luon" in sys.argv)
+        try:
+            kiem_tra(luon="--luon" in sys.argv)
+        finally:  # mức giá tự đặt (trang 🔔 Cảnh báo giá) vẫn được kiểm dù phần danh mục lỗi; lỗi vẫn hiện trong log.txt
+            from canh_bao_gia import kiem_tra_muc_gia  # nhập ở đây: canh_bao_gia dùng danh_muc
+
+            kiem_tra_muc_gia(luon="--luon" in sys.argv)

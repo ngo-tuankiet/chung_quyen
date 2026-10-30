@@ -21,6 +21,7 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 | `web_luot.py` | Mục ⚡ Lướt trên trang chính (`/#luot`, cột `COT_LUOT`; `/luot-cw` chuyển hướng 301) | `muc_luot` |
 | `web_etf.py` | `/etf`, `/etf/<mã>` (giống trang CW: ô, Tóm tắt, kịch bản bán, nến quỹ + chỉ số, iNAV trong phiên, bám chỉ số) | `trang_etf`, `trang_etf_chi_tiet`, `bang_etf`, `so_lieu_truc_tiep`, `kich_ban_ban`, `muc_inav_trong_phien`, `muc_theo_kip_chi_so` |
 | `web_phai_sinh.py`, `phai_sinh.py` | `/phai-sinh`, `/phai-sinh/<mã>`: HĐTL VN30 và VN100 (`CHI_SO_HD`; basis, năm hóa, lãi/lỗ giữ đến đáo hạn, nến HĐ + chỉ số) | `trang_phai_sinh`, `trang_phai_sinh_chi_tiet`; `lay_du_lieu`, `basis`, `basis_nam_hoa`, `lai_lo_dao_han`, `thue_mot_lan` |
+| `web_canh_bao.py`, `canh_bao_gia.py` | `/canh-bao` (🔔 đầu menu): giá lệch bất thường đang mua được (CW so giá lẽ ra theo CS, ETF dưới iNAV + số HĐTL phòng hộ, HĐTL đắt/rẻ so với S·e^(rT) sau chi phí 2 chân) + mức giá tự đặt (`muc_gia.csv`, POST `/canh-bao/them`, `/canh-bao/xoa`); lịch 5 phút `kiem_tra_muc_gia` (gọi từ `danh_muc.py`) | `trang_canh_bao`, `lay_du_lieu`; `cw_lech_re`, `etf_duoi_inav`, `hdtl_lech`, `lai_khoa_ban_hd_mua_etf`, `so_hd_phong_ho`, `gia_xet`, `them_muc_gia`, `kiem_tra_muc_gia` |
 | `web_danh_muc.py`, `web_huong_dan.py` | `/danh-muc`, `/huong-dan` | `trang_danh_muc`, `trang_huong_dan` |
 | `kiem_chung_luot.py` | Backtest thứ tự xếp hạng lướt; tải dữ liệu CW kể cả đã hết hạn (cache `.pkl`) | `lay_du_lieu`, `dieu_khoan`, `chay` |
 | `kiem_chung_truyen_dan.py` | Đo β IV theo TCPH → `ket_qua/he_so_iv_tcph_*.csv` (trang ⚡ đọc) | `gia_tho_hose`, `lay_bo_sung`, `bang_he_so`, `chay` |
@@ -56,6 +57,7 @@ Nhật ký: `log.txt`. Ngày nghỉ lễ: `la_ngay_giao_dich()` bỏ qua.
 | Ngưỡng / tiêu chí CW, phí, thuế, r | hằng số đầu `cw_scanner.py` (rồi cập nhật `KE_HOACH.md` Phần 4) |
 | Công thức định giá, IV, lướt | `cw_scanner.py` + `test_cw_scanner.py` (ca tính tay) |
 | Thêm cột vào bảng CW | `cw_scanner.dinh_gia` (tính) → `web_chung.COT` (hiển thị) |
+| Trang 🔔 Cảnh báo giá, mức giá tự đặt | `canh_bao_gia.py` (công thức, ngưỡng đầu file, `GUI_DISCORD_MUC_GIA`) → `web_canh_bao.py` |
 | Bảng ⚡ Lướt | `cw_scanner.luot_ngan_han`/`chon_luot` → `web_luot.py` |
 | Một trang web | `web_<trang>.py`; menu, CSS, khung trang: `web_chung.py`; đường dẫn mới: `web.py::XuLy.do_GET` |
 | Cảnh báo / báo cáo Discord | `danh_muc.py` (CW), `etf.py`, `chiet_khau.py` (ETF) |
