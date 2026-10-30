@@ -16,7 +16,7 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 | `etf.py` | Báo cáo ETF: giá/NAV, chỉ số kỹ thuật, xếp hạng "rẻ hơn thường" | `lay_du_lieu` (VCI), `lay_nav`, `lap_bang`, `xep_hang`, `bao_cao_gon`, `chay` |
 | `chiet_khau.py` | Chiết khấu ETF so với iNAV (SSI), làm sạch NAV Vietcap IQ, cảnh báo trong phiên | `lai_rong_neu_ve_nav`, `gia_mua_lenh`, `danh_gia_quy`, `lam_sach_nav`, `bo_nav_loi`, `thong_ke_nav`, `kiem_tra_trong_phien` |
 | `web.py` | Máy chủ web localhost:8000: định tuyến GET/POST, chặn CSRF (`nguon_hop_le`) | `XuLy` |
-| `web_chung.py` | Phần chung của web: CSS/JS, `trang` (khung + menu), `so`, `bang` (bảng CW, cột `COT`), `bieu_do`, `doc_ket_qua`, trạng thái `LOI`/`NHAT_KY`/`LOI_DANH_MUC` | |
+| `web_chung.py` | Phần chung của web: CSS/JS, `trang` (khung + menu; trải hết chiều ngang, tự thu `p.phu` > 160 ký tự vào "ℹ Giải thích" trừ /huong-dan), `hang_doi` (2 mục cạnh nhau, < 1.100 px xếp 1 cột), `bieu_do_nen`, `do_sau_thi_truong`, `bang_khop_lenh`, `so`, `bang` (bảng CW, cột `COT`), `bieu_do`, `doc_ket_qua`, trạng thái `LOI`/`NHAT_KY`/`LOI_DANH_MUC` | |
 | `web_cw.py` | `/` danh sách CW (+ mục ⚠ giảm mạnh), `/cw/<mã>` chi tiết (+ nến 1 giờ CW/CS), `/sap-ra-mat` | `trang_chinh`, `muc_giam_manh`, `trang_chi_tiet`, `muc_nen_1h`, `trang_sap_ra_mat` |
 | `web_luot.py` | `/luot-cw` bảng ⚡ Lướt (cột `COT_LUOT`) | `trang_luot` |
 | `web_etf.py` | `/etf`, `/etf/<mã>` | `trang_etf`, `trang_etf_chi_tiet`, `bang_etf` |
