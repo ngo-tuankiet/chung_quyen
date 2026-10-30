@@ -8,7 +8,20 @@ from datetime import date, datetime, timedelta
 import cw_scanner
 import danh_muc
 import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
-from web_chung import BO_NHO_IV, ESC, KET_LUAN, VON_MAC_DINH, bang, bieu_do, dat_re, huy_hieu, o_so, so, trang
+from web_chung import (
+    BO_NHO_IV,
+    ESC,
+    KET_LUAN,
+    VON_MAC_DINH,
+    bang,
+    bieu_do,
+    dat_re,
+    hang_doi,
+    huy_hieu,
+    o_so,
+    so,
+    trang,
+)
 
 SO_PHIEN_NEN_1H = 10  # trang chi tiết: nến 1 giờ của CW và CS trong 10 phiên gần nhất
 SO_NGAY_NEN_1H = 16  # ngày lịch cần tải để đủ 10 phiên (cuối tuần, nghỉ lễ ngắn)
@@ -263,7 +276,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         f"<span>{noi_dung} <small>({yeu_cau})</small></span></li>"
         for dat, noi_dung, yeu_cau in tieu_chi
     )
-    phan.append(
+    m_tom_tat = (
         f'<section class="the"><h2>Tóm tắt</h2><p class="tom-tat">Bạn trả <b>{so(P)} đ</b> cho 1 CW ({mo_ta_gia}; mô hình tính giá hợp lý là {so(h["Giá hợp lý"])} đ). '
         f"Nếu giữ đến ngày {ngay_dao_han:%d/%m/%Y}, giá {ESC(cs)} cần cao hơn <b>{so(hoa_von)} đ</b> ({so(tang, 1, True)}% so với hiện tại {so(S)} đ) thì mới có lãi. "
         f"Trong {so(P)} đ có {so(noi_tai)} đ <b>giá trị nội tại</b> (phần lãi nếu đáo hạn ngay hôm nay) và {so(gia_tri_tg)} đ <b>giá trị thời gian</b> "
@@ -290,13 +303,13 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
-    phan.append(muc_nen_1h(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None))))
+    m_nen = muc_nen_1h(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None)))
 
     # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
     rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))
     gd_cuoi = date.fromisoformat(h["Ngày GD cuối"]) if h.get("Ngày GD cuối") else None
     phi_chu, thue_chu = so(C.PHI_GIAO_DICH * 100, 2), so(C.THUE_BAN * 100, 1)
-    phan.append(
+    m_rui_ro = (
         f'<section class="the" id="rui-ro"><h2>Rủi ro với số tiền của bạn</h2>'
         f'<form method="get" action="/cw/{ESC(ma)}#rui-ro" style="margin-top:8px"><label>Số tiền định đầu tư '
         f'<input type="number" name="von" min="1" max="10000" step="1" value="{von}" style="width:7em"> triệu đồng</label> '
@@ -362,7 +375,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             else "Không giải được: giá mua cao bất thường so với mô hình."
         )
     )
-    phan.append(
+    m_o_so = (
         '<div class="luoi-o">'
         + o_so(
             "Giá mua / giá hợp lý",
@@ -392,6 +405,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     )
 
     # Giá hợp lý được tính thế nào: từng bước bằng số thật của mã này, nói bằng lời thường
+    m_cach_tinh = ""
     if ngay_con_lai > 0:
         N, bdd, kc = (
             C.phan_phoi_chuan,
@@ -457,7 +471,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
                 ),
             ),
         ]
-        phan.append(
+        m_cach_tinh = (
             f'<details class="the" id="cach-tinh"><summary><h2 style="display:inline">📐 Giá hợp lý {so(h["Giá hợp lý"])} đ được tính thế nào?</h2>'
             ' <span class="phu">(bấm để xem từng bước)</span></summary>'
             f'<p class="tom-tat"><b>Ý tưởng:</b> tưởng tượng hàng nghìn kịch bản giá {c} có thể xảy ra đến ngày đáo hạn, với mức dao động như 1 năm qua. '
@@ -501,7 +515,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         if (ban or mua)
         else '<tr><td colspan="6">Sổ lệnh đang trống (ngoài giờ giao dịch hoặc chưa có lệnh).</td></tr>'
     )
-    phan.append(
+    m_khoi_luong = (
         '<section class="the" id="khoi-luong"><h2>Khối lượng CW</h2><div class="luoi-o">'
         + o_so("Khối lượng phát hành", f"{so(kl_ny)} CW", "tổng số CW được niêm yết (được phép bán ra)")
         + o_so(
@@ -535,7 +549,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     # Biểu đồ giá cổ phiếu cơ sở
     file_ls = C.THU_MUC_KET_QUA / f"lich_su_{ngay}.json"
     lich_su = json.loads(file_ls.read_text(encoding="utf-8")).get(cs) if file_ls.exists() else None
-    phan.append(
+    m_gia_cs = (
         f'<section class="the"><h2>Giá {ESC(cs)} 1 năm qua</h2>'
         f'<p class="phu">Muốn có lãi khi giữ đến đáo hạn, giá {ESC(cs)} phải nằm trên đường <b>hòa vốn</b>. Rê chuột lên biểu đồ để xem giá từng ngày.</p>'
         + (
@@ -566,7 +580,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     duong_ke_iv = [("HV 1 năm", sigma_ls * 100, "tc-thuc-hien")] + (
         [("Trung vị cùng mã", tv_cung_ma, "tc-hoa-von")] if math.isfinite(tv_cung_ma) else []
     )
-    phan.append(
+    m_iv = (
         f'<section class="the"><h2>IV của {ESC(ma)} theo thời gian</h2>'
         f'<p class="phu">Mức dao động mà giá CW "giả định" mỗi ngày, so với dao động thật 1 năm qua (HV) và trung vị IV các CW {ESC(cs)} khác '
         f"hôm nay. IV thường cao lúc mới phát hành rồi giảm dần; đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị cùng mã (tổ chức phát hành "
@@ -587,7 +601,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     lech_ls = [[d, round(lech * 100, 1)] for d, *_, lech in hang_lech]
     nguong_lech = danh_muc.CANH_BAO_LECH * 100
     mau_bang = hang_lech[:: max(len(hang_lech) // 4, 1)][:4] + hang_lech[-1:] if hang_lech else []
-    phan.append(
+    m_theo_kip = (
         f'<section class="the"><h2>{ESC(ma)} có theo kịp {ESC(cs)} không?</h2>'
         f'<p class="phu">Lệch = giá CW thực tế so với giá "lẽ ra" nếu CW giữ nguyên mức IV của ngày mốc và chỉ chạy theo giá {ESC(cs)} '
         f"(đã gồm đòn bẩy và mất giá theo thời gian). Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. "
@@ -637,7 +651,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             f'<td class="so">{so(gia_cs)}</td><td class="so">{so(nhan_ve)}</td><td class="so {lop}">{so(lai, 0, True)}</td>'
             f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td><td class="so {lop}">{so(lai * so_cw, 0, True)}</td></tr>'
         )
-    phan.append(
+    m_neu_giu = (
         f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
         f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
         f'Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền. Lỗ tối đa là toàn bộ tiền mua CW.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
@@ -647,7 +661,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
 
     # So sánh các CW cùng mã cơ sở
     cung_cs = df[df["Mã CS"] == cs].sort_values("IV − HV", na_position="last")
-    phan.append(
+    m_cw_khac = (
         f'<section class="the"><h2>Các CW khác của {ESC(cs)} ({len(cung_cs)})</h2>'
         f'<p class="phu">Cùng một cổ phiếu cơ sở nhưng khác TCPH, giá thực hiện và thời hạn. Xếp theo IV − HV (thấp nhất = rẻ nhất trước); dòng tô nền là CW đang xem.</p>'
         f'<div class="cuon">{bang(cung_cs, ma)}</div></section>'
@@ -667,11 +681,23 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         ("Biến động lịch sử 1 năm", f"{so(sigma_ls * 100, 1)}%"),
         ("Lãi suất phi rủi ro (giả định)", f"{so(r * 100, 1)}%"),
     ]
-    phan.append(
+    m_dieu_khoan = (
         '<section class="the"><h2>Điều khoản &amp; số liệu</h2><dl class="dieu-khoan">'
         + "".join(f"<div><dt>{a}</dt><dd>{b}</dd></div>" for a, b in dk)
         + "</dl></section>"
     )
+    # bố cục theo luồng quyết định (người dùng chọn 30/10/2026): tổng quan -> thị trường lúc này -> CW so với CS -> IV, thanh khoản
+    # -> giữ đến đáo hạn, cách tính -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
+    phan += [
+        m_o_so,
+        hang_doi(m_tom_tat, m_rui_ro),
+        m_nen,
+        hang_doi(m_theo_kip, m_gia_cs),
+        hang_doi(m_iv, m_khoi_luong),
+        hang_doi(m_neu_giu, m_cach_tinh),
+        m_cw_khac,
+        m_dieu_khoan,
+    ]
     return trang(f"{ma} – phân tích chứng quyền", "".join(phan))
 
 

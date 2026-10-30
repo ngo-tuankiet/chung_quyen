@@ -115,7 +115,7 @@ h2 { font-size: 18px; margin: 0; }
 .nut { background: var(--nut); color: #fff; border: 0; border-radius: 8px; padding: 10px 22px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
 .nut:disabled { opacity: .6; cursor: wait; }
 .the { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 20px; margin-top: 16px; }
-.luoi-o { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
+.luoi-o { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
 .o-so { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 14px 16px; }
 .o-so .nhan { color: var(--chu-phu); font-size: 13px; }
 .o-so .gia-tri { font-size: 24px; font-weight: 600; margin-top: 2px; }
@@ -355,7 +355,9 @@ MAU_GHI_CHU = re.compile(
 
 
 def hang_doi(trai, phai):
-    """2 mục cạnh nhau (mỗi mục 1 nửa chiều ngang); màn hình < 1.100 px tự xếp 1 cột."""
+    """2 mục cạnh nhau (mỗi mục 1 nửa chiều ngang); màn hình < 1.100 px tự xếp 1 cột. Thiếu 1 bên thì mục còn lại trải ngang."""
+    if not trai or not phai:
+        return trai + phai
     return f'<div class="hang-doi">{trai}{phai}</div>'
 
 

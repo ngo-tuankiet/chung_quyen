@@ -600,6 +600,7 @@ def test_khung_trang_hang_doi_va_giai_thich():
     assert W.hang_doi("<section>A</section>", "<section>B</section>") == (
         '<div class="hang-doi"><section>A</section><section>B</section></div>'
     )
+    assert W.hang_doi("<section>A</section>", "") == "<section>A</section>"  # thiếu 1 bên: không chừa nửa trống
     dai = '<p class="phu">' + "Giải thích rất dài. " * 12 + "<b>đậm</b></p>"
     ngan = '<p class="phu">Một câu ngắn.</p>'
     html = W.trang("T", dai + ngan, "/")
