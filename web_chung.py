@@ -167,6 +167,11 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
 .kl-nen { fill: var(--truc); }
+.tuong-mua, .tuong-ban { stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; } .tuong-mua { stroke: var(--tot); }
+.tuong-ban { stroke: var(--chu-am); } .tuong { stroke-width: 3; stroke-dasharray: none; opacity: 1; }
+.chu-tuong { font-size: 13px; color: var(--chu-phu); margin: 4px 0 0; }
+.phong-to { position: fixed; inset: 0; z-index: 100; margin: 0; border-radius: 0; overflow: auto; background: var(--be-mat);
+  padding: 16px 24px; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
 .duong-gia { fill: none; stroke: var(--xanh); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
 .tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
@@ -239,6 +244,21 @@ document.querySelectorAll("th button").forEach(nut => nut.addEventListener("clic
   bang.tBodies[0].append(...dong);
 }));
 // Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
+// nút ⛶: phóng phần tử data-toan-man-hinh phủ kín cửa sổ (chạy cả trên iPhone, nơi không có toàn màn hình cho 1 phần tử);
+// trình duyệt cho phép thì bật thêm toàn màn hình thật. Bấm lại hoặc Esc để thu nhỏ.
+const nhanNut = (el, to) => el.querySelectorAll("[data-toan-man-hinh]").forEach(n => n.textContent = to ? "✕ Thu nhỏ" : "⛶ Toàn màn hình");
+const thuNho = el => { el.classList.remove("phong-to"); nhanNut(el, false); if (document.fullscreenElement) document.exitFullscreen(); };
+document.querySelectorAll("[data-toan-man-hinh]").forEach(n => n.addEventListener("click", () => {
+  const el = document.querySelector(n.dataset.toanManHinh);
+  if (el.classList.contains("phong-to")) return thuNho(el);
+  el.classList.add("phong-to");
+  nhanNut(el, true);
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});  // bị chặn (khung nhúng): vẫn phủ kín cửa sổ
+}));
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) document.querySelectorAll(".phong-to").forEach(thuNho);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".phong-to").forEach(thuNho); });
 document.querySelectorAll("input[data-loc]").forEach(o => o.addEventListener("input", () => {
   const q = o.value.trim().toUpperCase();
   document.querySelectorAll(o.dataset.loc + " tbody tr").forEach(tr => { tr.hidden = q && !tr.textContent.toUpperCase().includes(q); });
@@ -525,15 +545,33 @@ def gio_nen_chung(*cac_nen, so_phien):
     return [g for g in gio if g[:10] in ngay]
 
 
-def bieu_do_nen(gio, nen, ten):
+def muc_so_lenh(so_lenh):
+    """3 mức giá chờ mua / chào bán tốt nhất (Vietcap chỉ trả 3 mức): [(giá đ, KL, "mua"|"ban", là tường)].
+    Tường = mức có KL lớn nhất của mỗi bên. Giá dạng chữ (ATO/ATC) hoặc ≤ 0 bỏ qua."""
+    muc = []
+    for khoa, ben in (("bidPrices", "mua"), ("askPrices", "ban")):
+        ds = [
+            (float(m["price"]), float(m.get("volume") or 0), ben)
+            for m in (so_lenh or {}).get(khoa) or []
+            if isinstance(m.get("price"), (int, float)) and m["price"] > 0
+        ]
+        lon = max(ds, key=lambda m: m[1], default=None)
+        muc += [(g, kl, b, m is lon) for m in ds for g, kl, b in [m]]
+    return muc
+
+
+def bieu_do_nen(gio, nen, ten, so_lenh=None):
     """SVG nến (xanh tăng, đỏ giảm) + cột khối lượng theo trục giờ `gio`; giờ không có trong `nen` (không khớp) để trống.
+    so_lenh (bảng giá Vietcap): vẽ 3 mức chờ mua (xanh) / chào bán (đỏ) thành đường ngang, mức KL lớn nhất mỗi bên (tường) in đậm.
     Rê chuột lên nến: thẻ <title> hiện giờ, mở/cao/thấp/đóng, KL. Kèm bảng dữ liệu cho người không xem được hình."""
     co = [nen[g] for g in gio if g in nen]
     if not co:
         return f"<p>{ESC(ten)}: không có giao dịch trong khoảng này.</p>"
-    R, TRAI, PHAI, TREN = 900, 60, 20, 10
+    R, TRAI, PHAI, TREN = 1200, 60, 20, 10  # rộng: toàn màn hình vẫn lấp đủ chiều ngang
     C = TREN + NEN_CAO + 24 + KL_CAO
-    thap, cao = min(n[2] for n in co), max(n[1] for n in co)
+    muc = muc_so_lenh(so_lenh)
+    thap = min([n[2] for n in co] + [m[0] for m in muc])  # trục mở rộng để thấy cả mức giá chờ xa giá khớp
+    cao = max([n[1] for n in co] + [m[0] for m in muc])
     le = (cao - thap) * 0.06 or 1
     thap, cao = thap - le, cao + le
     rong = (R - TRAI - PHAI) / len(gio)
@@ -571,6 +609,15 @@ def bieu_do_nen(gio, nen, ten):
             f'<rect class="kl-nen" x="{x(i) - rong * 0.3:.1f}" y="{day_kl - kl / kl_max * KL_CAO:.1f}" '
             f'height="{kl / kl_max * KL_CAO:.1f}" width="{rong * 0.6:.1f}"/></g>'
         )
+    for g, kl, ben, la_tuong in muc:
+        phan.append(
+            f'<line class="tuong-{ben}{" tuong" if la_tuong else ""}" x1="{TRAI}" x2="{R - PHAI}" y1="{y(g):.1f}" y2="{y(g):.1f}">'
+            f"<title>{'Chờ mua' if ben == 'mua' else 'Chào bán'} {so(g)} đ · KL {so(kl)}{' (tường)' if la_tuong else ''}</title></line>"
+        )
+    chu = (
+        lambda ben: ", ".join(f"{so(g)} ({so(kl)}){' ← tường' if t else ''}" for g, kl, b, t in muc if b == ben) or "—"
+    )
+    chu_tuong = f'<p class="chu-tuong">Sổ lệnh: chờ mua {chu("mua")} · chào bán {chu("ban")}</p>' if muc else ""
     mo_ta = f"{ten}: nến 1 giờ từ {gio[0]} đến {gio[-1]}, {len(co)} nến có khớp lệnh, thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
     dong_bang = "".join(
         f"<tr><td>{g[8:10]}/{g[5:7]} {g[11:]}</td>" + "".join(f'<td class="so">{so(x)}</td>' for x in nen[g]) + "</tr>"
@@ -579,6 +626,7 @@ def bieu_do_nen(gio, nen, ten):
     )
     return (
         f'<div class="cuon-bieu-do"><svg viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">{"".join(phan)}</svg></div>'
+        f"{chu_tuong}"
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
         '<table><thead><tr><th>Giờ</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'

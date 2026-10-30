@@ -25,8 +25,8 @@ def nen_1h(ma, gia_hien_tai):
     return nen
 
 
-def muc_nen_1h(ma, cs, P, S):
-    """Mục 2 biểu đồ nến 1 giờ chồng nhau (CW trên, CS dưới), chung trục giờ để so cùng lúc."""
+def muc_nen_1h(ma, cs, P, S, so_lenh_cw=None, so_lenh_cs=None):
+    """Mục 2 biểu đồ nến 1 giờ chồng nhau (CW trên, CS dưới), chung trục giờ để so cùng lúc; kèm 3 mức sổ lệnh mỗi bên."""
     try:
         cw, nen_cs = nen_1h(ma, P), nen_1h(cs, S)
     # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
@@ -37,11 +37,15 @@ def muc_nen_1h(ma, cs, P, S):
         )
     gio = W.gio_nen_chung(cw, nen_cs, so_phien=SO_PHIEN_NEN_1H)
     return (
-        f'<section class="the" id="nen-1h"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div>'
         f'<p class="phu">Hai biểu đồ chung trục giờ: cùng cột là cùng giờ. Xanh = tăng, đỏ = giảm; cột xám bên dưới là khối lượng. '
-        f"Giờ {ESC(ma)} không khớp lệnh thì để trống. Rê chuột lên nến để xem giá và khối lượng. "
-        "Nguồn vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
-        f"<h3>{ESC(ma)}</h3>{W.bieu_do_nen(gio, cw, ma)}<h3>{ESC(cs)}</h3>{W.bieu_do_nen(gio, nen_cs, cs)}</section>"
+        f"Giờ {ESC(ma)} không khớp lệnh thì để trống. Rê chuột lên nến hoặc đường ngang để xem số. "
+        "Đường ngang nét đứt = 3 mức giá chờ mua (xanh) / chào bán (đỏ) trong sổ lệnh lúc mở trang (Vietcap chỉ cho 3 mức); "
+        "nét đậm = <b>tường</b>, mức có khối lượng chờ lớn nhất mỗi bên. Tường có thể bị rút bất cứ lúc nào, không phải cam kết giá. "
+        "Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
+        f"<h3>{ESC(ma)}</h3>{W.bieu_do_nen(gio, cw, ma, so_lenh_cw)}"
+        f"<h3>{ESC(cs)}</h3>{W.bieu_do_nen(gio, nen_cs, cs, so_lenh_cs)}</section>"
     )
 
 
@@ -259,7 +263,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
-    phan.append(muc_nen_1h(ma, cs, P_khop, S))
+    phan.append(muc_nen_1h(ma, cs, P_khop, S, so_lenh, bang_gia[cs][2] if truc_tiep else {}))
 
     # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
     rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))

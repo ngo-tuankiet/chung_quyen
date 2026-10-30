@@ -553,3 +553,21 @@ def test_bieu_do_nen_toa_do_tinh_tay():
     html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
     assert '<rect class="nen-tang" x="' in html and 'y="80.2" height="59.5"' in html
     assert '<rect class="nen-giam"' in html
+
+
+def test_bieu_do_nen_tuong_mua_ban():
+    import web_chung as W
+
+    gio = ["2026-10-30 09:00", "2026-10-30 10:00"]
+    nen = {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}
+    so_lenh = {
+        "bidPrices": [{"price": 99, "volume": 1000}, {"price": 98, "volume": 50000}, {"price": 60, "volume": 2000}],
+        "askPrices": [{"price": 101, "volume": 3000}, {"price": 102, "volume": 800}, {"price": "ATC", "volume": 5}],
+    }
+    html = W.bieu_do_nen(gio, nen, "X", so_lenh)
+    # tường = mức có KL chờ lớn nhất mỗi bên: mua 98 (50.000), bán 101 (3.000); giá chữ (ATO/ATC) bỏ qua
+    assert html.count('class="tuong-mua tuong"') == 1 and html.count('class="tuong-ban tuong"') == 1
+    assert "98 (50.000) ← tường" in html and "101 (3.000) ← tường" in html and "ATC" not in html
+    # giá mua 60 nằm ngoài khoảng nến 90–120: trục mở rộng để vẫn thấy -> có vạch 60 trên trục
+    assert ">60</text>" in html
+    assert W.bieu_do_nen(gio, nen, "X", {}).count("tuong") == 0  # sổ lệnh trống: không vẽ
