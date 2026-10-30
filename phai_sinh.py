@@ -27,10 +27,10 @@ HE_SO_NHAN = 100_000  # đồng / 1 điểm chỉ số (quy chuẩn HĐTL chỉ 
 PHI_CTCK_HD = 3_000  # đồng / HĐ / lần giao dịch (SSI thu cả khi đáo hạn)
 PHI_SO_HD = 2_700  # đồng / HĐ / giao dịch, trả HNX
 PHI_VI_THE_HD_NGAY = 2_550  # đồng / HĐ / ngày giữ vị thế, trả VSDC (tính theo phiên, chưa trừ ngày lễ)
-# Tỷ lệ ký quỹ ban đầu theo chỉ số. VN30: VSDC hiệu lực 22/11/2024. VSDC công bố hằng tháng cho VN30 và VN100 (mới nhất
-# hiệu lực 16/10/2026) nhưng chưa đọc được số; chưa thấy số riêng cho VN100 nên tạm dùng như VN30 (trang ghi rõ chưa xác nhận).
+# Tỷ lệ ký quỹ ban đầu theo chỉ số: VSDC Phụ lục 4, hiệu lực 16/10/2026 (vsdc.vn/vi/ad/201361), cả 8 hợp đồng 41I1… (VN30) và
+# 41I2… (VN100) đều 0,17. VSDC công bố lại hằng tháng: đổi số thì sửa ở đây.
 TY_LE_KY_QUY_BAN_DAU = {"VN30": 0.17, "VN100": 0.17}
-KY_QUY_CHUA_XAC_NHAN = {"VN100"}
+NGUON_KY_QUY = "VSDC, hiệu lực 16/10/2026"
 THUE_TNCN = 0.001  # 0,1% × giá trị chuyển nhượng = giá × HE_SO_NHAN × tỷ lệ ký quỹ ban đầu / 2 mỗi lần (chưa đối chiếu văn bản BTC)
 SO_NGAY_GIA = 80  # ngày lịch giá đóng cửa cần tải: giá hiện tại (nến hôm nay) + basis ~50 phiên gần nhất
 GIAY_NHO = 300  # dữ liệu đã tải dùng lại trong 5 phút
@@ -92,6 +92,16 @@ def chuoi_dong_cua(ma):
     return dict(zip(ngay, (float(g) * 1000 for g in df["close"]))), dict(zip(ngay, (float(v) for v in df["volume"])))
 
 
+def bang_gia_krx(bg_bi_danh):
+    """Bảng giá Vietcap theo mã KRX ({bí danh: (niêm yết, khớp lệnh, sổ lệnh)}). Bản ghi bí danh (VN30F1M) chỉ có niêm yết, giá
+    khớp 0 và sổ lệnh rỗng; mã KRX (41I1GB000, lấy từ listingInfo.ticker) mới có đủ. Ghép lại theo mappingSymbol = bí danh.
+    """
+    ma_krx = [ny["ticker"] for ny, *_ in bg_bi_danh.values() if ny.get("ticker")]
+    krx = {v[0].get("mappingSymbol"): v for v in C.lay_bang_gia(ma_krx).values()} if ma_krx else {}
+    # thiếu mã KRX: giữ bản ghi bí danh (vẫn có ngày đáo hạn)
+    return {ma: krx.get(ma, v) for ma, v in bg_bi_danh.items()}
+
+
 def lay_du_lieu():
     """(danh sách HĐ [dict], giá chỉ số {chỉ số: {ngày: điểm}}, [cảnh báo]); nhớ GIAY_NHO giây. Mỗi HĐ: mã, chỉ số, tên, giá
     (nến ngày mới nhất), ngày giá, KL phiên đó, lịch sử giá, ngày GD cuối / đáo hạn (bảng giá Vietcap), bản ghi bảng giá (sổ lệnh).
@@ -99,14 +109,21 @@ def lay_du_lieu():
     luc, kq = BO_NHO.get("du_lieu", (0.0, None))
     if kq is not None and time.time() - luc <= GIAY_NHO:
         return kq
-    canh_bao = []
+    canh_bao, vietcap_loi = [], False
     gia_cs = {cs: chuoi_dong_cua(cs)[0] for cs in CHI_SO_HD}
     try:
         bang_gia = C.lay_bang_gia(list(HOP_DONG))
     # lỗi mạng: vẫn có giá từ vnstock, chỉ thiếu ngày đáo hạn và sổ lệnh
     except Exception as e:  # noqa: BLE001
-        bang_gia = {}
+        bang_gia, vietcap_loi = {}, True
         canh_bao.append(f"không lấy được bảng giá Vietcap ({type(e).__name__}): thiếu ngày đáo hạn và sổ lệnh")
+    if bang_gia:
+        try:
+            bang_gia = bang_gia_krx(bang_gia)
+        # lỗi mạng ở lần gọi thứ 2: còn ngày đáo hạn từ bản ghi bí danh, chỉ thiếu sổ lệnh, khớp lệnh
+        except Exception as e:  # noqa: BLE001
+            vietcap_loi = True
+            canh_bao.append(f"không lấy được sổ lệnh theo mã KRX ({type(e).__name__})")
     ds = []
     for ma in HOP_DONG:
         gia, kl = chuoi_dong_cua(ma)
@@ -133,5 +150,6 @@ def lay_du_lieu():
         if ngay_gia != max(gia_cs[cs]):
             canh_bao.append(f"{ma}: giá ngày {ngay_gia} khác ngày {cs} {max(gia_cs[cs])}, basis không cùng thời điểm")
     kq = (ds, gia_cs, canh_bao)
-    BO_NHO["du_lieu"] = (time.time(), kq)
+    if not vietcap_loi:  # Vietcap lỗi (thường thoáng qua): không nhớ, lần mở trang sau thử lại
+        BO_NHO["du_lieu"] = (time.time(), kq)
     return kq

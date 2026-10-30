@@ -231,7 +231,7 @@ def trang_huong_dan():
         "xuống (Short) với ký quỹ khoảng 17% giá trị, 1 điểm = 100.000 đ. Đòn bẩy cao: VN30 biến động 1% làm lãi/lỗ khoảng 6% tiền "
         "ký quỹ, lỗ có thể vượt số tiền ký quỹ.</li>"
         "<li><b>Hợp đồng tương lai VN100</b> (VN100F1M … F2Q): cùng cách tính, theo chỉ số VN100. Giao dịch rất ít (vài chục hợp "
-        "đồng/phiên) nên khó vào / ra đúng giá; tỷ lệ ký quỹ của VN100 chưa xác nhận (tạm 17% như VN30).</li>"
+        "đồng/phiên) nên khó vào / ra đúng giá; ký quỹ ban đầu 17% như VN30 (VSDC, hiệu lực 16/10/2026).</li>"
         "<li><b>Basis</b> = giá hợp đồng − VN30. Hợp đồng thanh toán bằng tiền theo VN30 ngày giao dịch cuối nên basis về 0: "
         "basis dương thì có lợi cho Short, âm có lợi cho Long. <b>Basis năm hóa</b> so với lãi suất r để biết thị trường đang trả giá "
         "hợp đồng cao hay thấp (chưa tính được giá hợp lý vì chưa có số cổ tức VN30 chắc chắn).</li>"

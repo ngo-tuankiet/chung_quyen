@@ -973,7 +973,8 @@ def hang_nen(
         ny, khop, so_lenh = bg
         try:
             khop_html = bang_khop_lenh(
-                khop_lenh(ma, ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop) or ny["refPrice"]),
+                # mã trên bảng giá: HĐ tương lai là mã KRX (bí danh VN30F1M không có lệnh khớp)
+                khop_lenh(ny["symbol"], ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop) or ny["refPrice"]),
                 khop.get("accumulatedVolume") or 0,
                 *((1, nhan) if nhan else ()),
             )

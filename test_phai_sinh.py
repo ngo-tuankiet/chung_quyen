@@ -53,6 +53,22 @@ def test_ky_quy_theo_chi_so():
     assert math.isclose(P.thue_mot_lan(1770, "VN100"), 0.001 * 1770 * 100_000 * tl / 2)
 
 
+def test_bang_gia_theo_ma_krx():
+    from unittest import mock
+
+    # bí danh: giá khớp 0, sổ lệnh rỗng; mã KRX (ticker) có sổ lệnh -> ghép về bí danh theo mappingSymbol
+    bi_danh = {
+        "VN30F1M": ({"symbol": "VN30F1M", "ticker": "41I1GB000"}, {"matchPrice": 0}, {"bidPrices": []}),
+        "VN100F2Q": ({"symbol": "VN100F2Q", "ticker": "41I2H6000"}, {"matchPrice": 0}, {"bidPrices": []}),
+    }
+    krx = {"41I1GB000": ({"symbol": "41I1GB000", "mappingSymbol": "VN30F1M"}, {"matchPrice": 1858}, {"bidPrices": [1]})}
+    with mock.patch.object(P.C, "lay_bang_gia", return_value=krx) as goi:
+        kq = P.bang_gia_krx(bi_danh)
+    assert goi.call_args.args[0] == ["41I1GB000", "41I2H6000"]
+    assert kq["VN30F1M"] is krx["41I1GB000"]
+    assert kq["VN100F2Q"] is bi_danh["VN100F2Q"]  # Vietcap không trả mã KRX: giữ bản ghi bí danh
+
+
 def test_trang_web_phai_sinh():
     from unittest import mock
 
@@ -87,8 +103,8 @@ def test_trang_web_phai_sinh():
         assert W.trang_phai_sinh_chi_tiet("VN30F3M") is None and W.trang_phai_sinh_chi_tiet("VN30F2Q") is not None
     # basis 1.858 − 1.855,04 = +2,96 điểm; tháng đáo hạn đọc từ tên; ký quỹ 31,6 triệu
     assert "T11/2026" in ds and "+2,96" in ds and "31,6" in ds and 'href="/phai-sinh/VN30F1M"' in ds
-    # VN100: mục riêng, basis 1.769,4 − 1.761,77 = +7,63 điểm; ký quỹ ghi rõ chưa xác nhận; KL 15 HĐ -> cảnh báo thanh khoản mỏng
-    assert "Hợp đồng tương lai VN100" in ds and "+7,63" in ds and "chưa xác nhận cho VN100" in ds
+    # VN100: mục riêng, basis 1.769,4 − 1.761,77 = +7,63 điểm; KL 15 HĐ -> cảnh báo thanh khoản mỏng
+    assert "Hợp đồng tương lai VN100" in ds and "+7,63" in ds and "hiệu lực 16/10/2026" in ds
     assert "thanh khoản rất mỏng" in ct100 and "VN100 thay đổi" in ct100 and "thanh khoản rất mỏng" not in ct
     # chi tiết: dòng "Giữ nguyên" Long = 0 điểm gộp − phí, thuế; basis theo ngày 29/10: 1.880,8 − 1.877,18 = +3,62
     _, long_ = P.lai_lo_dao_han(1858.0, 1855.04, 1, P.so_phien(hom_nay, gd_cuoi))

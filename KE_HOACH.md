@@ -694,7 +694,9 @@ chưa có báo cáo / cảnh báo Discord.
   Thanh toán bằng tiền theo chỉ số cơ sở đóng cửa ngày giao dịch cuối, nên basis về 0 lúc đó.
 - **Dữ liệu**: giá hợp đồng và VN30 cùng lấy nến ngày vnstock VCI `floating=6` (điểm chia 1.000, mặc định làm tròn 2 số lẻ làm sai
   giá: 1.880,8 -> 1,88); nến hôm nay cập nhật trong phiên nên là giá mới nhất, hai giá cùng ngày (khác ngày thì cảnh báo). Bảng giá
-  Vietcap chỉ để lấy ngày giao dịch cuối / đáo hạn (dạng `dd/mm/yyyy`, khác CW) và sổ lệnh; ngoài giờ giá khớp, sổ lệnh trống; bản ghi
+  Vietcap chỉ để lấy ngày giao dịch cuối / đáo hạn (dạng `dd/mm/yyyy`, khác CW) và sổ lệnh. Bản ghi theo bí danh (VN30F1M) có giá khớp 0,
+  sổ lệnh rỗng, vnstock intraday cũng rỗng: phải dùng mã KRX (`listingInfo.ticker`, vd 41I1GB000 = VN30 T11/2026, 41I2… = VN100;
+  `bang_gia_krx`, phát hiện 31/10/2026). Không dùng `vnstock._core.convert_derivative_symbol` (lệch 1 kỳ so với Vietcap). Bản ghi
   VN30 trên bảng giá rỗng. Nhớ 5 phút.
 - **Tính toán** (người dùng chọn): không đoán tỷ suất cổ tức VN30 (q) nên không tính giá hợp lý F = S·e^((r − q)T) (Hull ch. 5);
   hiện **basis** F − S (điểm, %) và **basis năm hóa** ln(F/S)/T (= r − q ngầm định, T = ngày lịch tới ngày GD cuối / 365) đặt cạnh
@@ -702,8 +704,8 @@ chưa có báo cáo / cảnh báo Discord.
   VN100 1.761,77; VN100F1M 1.769,4 -> +7,63 điểm.
 - **Phí, thuế, ký quỹ** (người dùng: lấy 1 công ty lớn làm chuẩn; hằng số đầu `phai_sinh.py`): phí CTCK 3.000 đ/HĐ/lần (biểu giá SSI
   hiệu lực 01/01/2022, < 100 HĐ/ngày, thu cả khi đáo hạn), Sở HNX 2.700 đ/HĐ, vị thế VSDC 2.550 đ/HĐ/ngày (tính theo phiên, chưa trừ
-  ngày lễ), ký quỹ ban đầu 17% (`TY_LE_KY_QUY_BAN_DAU` theo chỉ số; VN30: VSDC hiệu lực 22/11/2024; có thông báo hiệu lực 16/10/2026
-  chưa đọc được số; **VN100 chưa xác nhận**, tạm 17% như VN30, trang ghi rõ — `KY_QUY_CHUA_XAC_NHAN`), thuế 0,1% × giá ×
+  ngày lễ), ký quỹ ban đầu 17% (`TY_LE_KY_QUY_BAN_DAU` theo chỉ số; VSDC Phụ lục 4 hiệu lực 16/10/2026: cả 4 HĐ VN30 và 4 HĐ
+  VN100 đều 0,17; VSDC công bố lại hằng tháng), thuế 0,1% × giá ×
   100.000 × 17% / 2 mỗi lần (ví dụ Pinetree 11/07/2024, chưa đối chiếu văn bản BTC). Chưa tính phí quản lý tài sản ký quỹ.
 - **Lãi/lỗ giữ đến ngày GD cuối** (`lai_lo_dao_han`): gộp = ±(VN30 lúc đó − giá mở) × 100.000; ròng trừ CTCK × 2, Sở, vị thế × số
   phiên, thuế 2 lần. Tính tay: Long 1.858 -> 1.900, 14 phiên: 4.200.000 − 44.400 − 31.943. Bảng trang chi tiết: VN30 −10% … +10%,

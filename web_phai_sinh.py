@@ -43,13 +43,8 @@ def chi_so_hd(h, gia_cs, hom_nay):
 
 
 def ghi_chu_ky_quy(cs):
-    """Nguồn tỷ lệ ký quỹ ban đầu của chỉ số `cs` (VN100 chưa xác nhận: ghi rõ)."""
-    tl = so(P.TY_LE_KY_QUY_BAN_DAU[cs] * 100, 0)
-    return (
-        f"{tl}% (chưa xác nhận cho {cs}: tạm dùng như VN30, kiểm tra thông báo VSDC / CTCK)"
-        if cs in P.KY_QUY_CHUA_XAC_NHAN
-        else f"{tl}% (VSDC, hiệu lực 22/11/2024)"
-    )
+    """Tỷ lệ ký quỹ ban đầu của chỉ số `cs` kèm nguồn."""
+    return f"{so(P.TY_LE_KY_QUY_BAN_DAU[cs] * 100, 0)}% ({P.NGUON_KY_QUY})"
 
 
 GIAI_THICH = (
