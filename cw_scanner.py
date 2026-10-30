@@ -306,15 +306,15 @@ def gia_mua(niem_yet, khop_lenh, so_lenh):
     return niem_yet["refPrice"], "tham chiếu"
 
 
-def lay_gia_dong_cua(ma, so_ngay=NGAY_MOT_NAM, nguon="KBS", **them):
-    """DataFrame (time, open, high, low, close, volume) giá ngày `so_ngay` ngày qua của một mã từ vnstock.
+def lay_gia_dong_cua(ma, so_ngay=NGAY_MOT_NAM, nguon="KBS", interval="1D", **them):
+    """DataFrame (time, open, high, low, close, volume) giá `so_ngay` ngày qua của một mã từ vnstock; interval "1H" = nến 1 giờ.
     Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng.
     Chỉ số (VN30...) chỉ có ở nguồn VCI, giá chia 1.000: cần floating=6 (mặc định làm tròn 2 số lẻ -> mất độ chính xác).
     """
     hom_nay = date.today()
     # KBS: nguồn mặc định của vnstock, ổn định hơn API lịch sử của VCI. 365 ngày: mức tối đa của gói Khách.
     lay = lambda: Quote(source=nguon, symbol=ma).history(
-        start=str(hom_nay - timedelta(days=so_ngay)), end=str(hom_nay), interval="1D", **them
+        start=str(hom_nay - timedelta(days=so_ngay)), end=str(hom_nay), interval=interval, **them
     )
     try:
         return lay()

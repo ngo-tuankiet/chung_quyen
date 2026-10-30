@@ -395,6 +395,9 @@ Thứ tự quan trọng: (1) đòn bẩy/delta, (2) mất giá theo thời gian,
 5. Khối lượng chào bán của tổ chức phát hành còn nhiều thì giá khó lên nhanh.
 
 Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bước (triệu), Mất giá/ngày %, Lướt: CS cần tăng %, Lướt: lãi kịch bản %.
+**Nến 1 giờ CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`, mục ngay sau Tóm tắt): 2 biểu đồ nến chồng nhau, chung trục giờ, 10 phiên
+(`SO_PHIEN_NEN_1H`), kèm cột khối lượng; giờ CW không khớp để trống. vnstock VCI `interval="1H"`, 2 lượt gọi/lần mở, nhớ 5 phút; giá chưa
+điều chỉnh cổ tức. Dùng để so CW với CS mà không cần mở SSI/Vietcap (vd CSTB2621 30/10: 1 nến, KL 100 trong khi STB đi ngang).
 **Lệch 20 phiên %** và **Mốc lệch** (từ 26/10/2026): lúc quét tính cho mọi CW đúng như mục "<mã> có theo kịp <CS> không?" ở trang chi tiết
 (`cw_scanner.lech_hien_tai` → `lech_20_phien`, 1 lượt vnstock/CW, thêm ~40 giây mỗi lần quét); hiện ở cột "Lệch 20 phiên" của danh sách
 chứng quyền và "Lệch 20p" của trang ⚡ (bấm tiêu đề để sắp xếp; vượt ±15% in đậm ở danh sách). Quét 26/10 13:07: 317/333 CW có số,

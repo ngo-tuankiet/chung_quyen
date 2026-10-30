@@ -516,3 +516,40 @@ if __name__ == "__main__":  # chạy không cần pytest: gọi lần lượt m�
         if ten.startswith("test_"):
             ham()
     print("OK - công thức đúng")
+
+
+def _df_nen(ds):
+    """[(giờ 'YYYY-MM-DD HH:MM', mở, cao, thấp, đóng, KL)] -> DataFrame như vnstock (giá nghìn đồng, có múi giờ)."""
+    return pd.DataFrame(
+        [
+            {"time": pd.Timestamp(t, tz="Asia/Ho_Chi_Minh"), "open": o, "high": h, "low": l, "close": c, "volume": v}
+            for t, o, h, l, c, v in ds
+        ]
+    )
+
+
+def test_nen_1h_doi_don_vi_va_chung_truc_gio():
+    import web_chung as W
+
+    cw = W.nen_tu_df(_df_nen([("2026-10-30 09:00", 1.0, 1.2, 0.9, 1.1, 100)]), 1000)
+    assert cw == {"2026-10-30 09:00": (1000.0, 1200.0, 900.0, 1100.0, 100.0)}  # 0,95 nghìn đồng -> 950 đ
+    cs = W.nen_tu_df(
+        _df_nen([(f"2026-10-{d} {h}:00", 66, 67, 65, 66.5, 1000) for d in (29, 30) for h in (10, 13)]), 1000
+    )
+    gio = W.gio_nen_chung(cw, cs, so_phien=1)  # chỉ giữ phiên cuối 30/10, gộp giờ của cả 2 mã
+    assert gio == ["2026-10-30 09:00", "2026-10-30 10:00", "2026-10-30 13:00"]
+    html = W.bieu_do_nen(gio, cw, "CW")
+    assert html.count('<rect class="nen-') == 1  # 10:00 và 13:00 CW không khớp: để trống, không vẽ nến giả
+    assert "30/10 09:00" in html and "KL 100" in html
+
+
+def test_bieu_do_nen_toa_do_tinh_tay():
+    import web_chung as W
+
+    # 2 nến: (mở 100, cao 120, thấp 90, đóng 110) tăng và (110, 112, 95, 100) giảm. Khoảng 90–120, đệm 6% × 30 = 1,8
+    # -> trục 88,2–121,8. Vùng nến cao NEN_CAO = 200 từ y = 10: y(110) = 10 + (121,8 − 110) × 200 / 33,6 = 80,2;
+    # y(100) = 10 + 21,8 × 200 / 33,6 = 139,8 -> thân nến tăng: y 80,2, cao 59,5
+    gio = ["2026-10-30 09:00", "2026-10-30 10:00"]
+    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
+    assert '<rect class="nen-tang" x="' in html and 'y="80.2" height="59.5"' in html
+    assert '<rect class="nen-giam"' in html

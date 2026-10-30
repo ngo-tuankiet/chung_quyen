@@ -2,12 +2,47 @@
 
 import json
 import math
+import time
 from datetime import date, datetime, timedelta
 
 import cw_scanner
 import danh_muc
 import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
 from web_chung import BO_NHO_IV, ESC, KET_LUAN, VON_MAC_DINH, bang, bieu_do, dat_re, huy_hieu, o_so, so, trang
+
+SO_PHIEN_NEN_1H = 10  # trang chi tiết: nến 1 giờ của CW và CS trong 10 phiên gần nhất
+SO_NGAY_NEN_1H = 16  # ngày lịch cần tải để đủ 10 phiên (cuối tuần, nghỉ lễ ngắn)
+GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
+
+
+def nen_1h(ma, gia_hien_tai):
+    """Nến 1 giờ của 1 mã (giá đồng), nhớ GIAY_NHO_NEN giây. Đơn vị vnstock (nghìn đồng) suy từ giá hiện tại như mục IV."""
+    luc, nen = W.BO_NHO_NEN.get(ma, (0.0, None))
+    if nen is None or time.time() - luc > GIAY_NHO_NEN:
+        df = cw_scanner.lay_gia_dong_cua(ma, SO_NGAY_NEN_1H, cw_scanner.NGUON_GIA_CW, interval="1H")
+        nen = W.nen_tu_df(df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1)
+        W.BO_NHO_NEN[ma] = (time.time(), nen)
+    return nen
+
+
+def muc_nen_1h(ma, cs, P, S):
+    """Mục 2 biểu đồ nến 1 giờ chồng nhau (CW trên, CS dưới), chung trục giờ để so cùng lúc."""
+    try:
+        cw, nen_cs = nen_1h(ma, P), nen_1h(cs, S)
+    # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
+    except Exception as e:  # noqa: BLE001
+        return (
+            f'<section class="the"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)}</h2>'
+            f"<p>Chưa tải được nến 1 giờ ({ESC(str(e)[:120])}). Mở lại trang sau ít phút.</p></section>"
+        )
+    gio = W.gio_nen_chung(cw, nen_cs, so_phien=SO_PHIEN_NEN_1H)
+    return (
+        f'<section class="the" id="nen-1h"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        f'<p class="phu">Hai biểu đồ chung trục giờ: cùng cột là cùng giờ. Xanh = tăng, đỏ = giảm; cột xám bên dưới là khối lượng. '
+        f"Giờ {ESC(ma)} không khớp lệnh thì để trống. Rê chuột lên nến để xem giá và khối lượng. "
+        "Nguồn vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
+        f"<h3>{ESC(ma)}</h3>{W.bieu_do_nen(gio, cw, ma)}<h3>{ESC(cs)}</h3>{W.bieu_do_nen(gio, nen_cs, cs)}</section>"
+    )
 
 
 # ============ TRANG CHÍNH ============
@@ -224,6 +259,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
+    phan.append(muc_nen_1h(ma, cs, P_khop, S))
 
     # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
     rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))
