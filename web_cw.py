@@ -13,6 +13,7 @@ from web_chung import BO_NHO_IV, ESC, KET_LUAN, VON_MAC_DINH, bang, bieu_do, dat
 SO_PHIEN_NEN_1H = 10  # trang chi tiết: nến 1 giờ của CW và CS trong 10 phiên gần nhất
 SO_NGAY_NEN_1H = 16  # ngày lịch cần tải để đủ 10 phiên (cuối tuần, nghỉ lễ ngắn)
 GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
+SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
 
 
 def nen_1h(ma, gia_hien_tai):
@@ -25,8 +26,36 @@ def nen_1h(ma, gia_hien_tai):
     return nen
 
 
-def muc_nen_1h(ma, cs, P, S, so_lenh_cw=None, so_lenh_cs=None):
-    """Mục 2 biểu đồ nến 1 giờ chồng nhau (CW trên, CS dưới), chung trục giờ để so cùng lúc; kèm 3 mức sổ lệnh mỗi bên."""
+def khop_lenh(ma, ref, gia_hien_tai):
+    """SO_LENH_KHOP lệnh khớp gần nhất (vnstock intraday, không nhớ tạm để luôn là số mới) -> dong_khop_lenh."""
+    df = cw_scanner.Quote(source=cw_scanner.NGUON_GIA_CW, symbol=ma).intraday(page_size=SO_LENH_KHOP)
+    if not len(df):
+        return []
+    return W.dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
+
+
+def hang_nen(ma, gio, nen, bg):
+    """1 hàng: nến 1 giờ | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap hoặc None (mất mạng)."""
+    if bg:
+        ny, khop, so_lenh = bg
+        try:
+            khop_html = W.bang_khop_lenh(
+                khop_lenh(ma, ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop)), khop.get("accumulatedVolume") or 0
+            )
+        # lỗi mạng / hết lượt gọi: chỉ ô này trống
+        except Exception as e:  # noqa: BLE001
+            khop_html = f'<p class="phu">Chưa tải được khớp lệnh ({ESC(str(e)[:100])}).</p>'
+        do_sau = W.do_sau_thi_truong(so_lenh)
+    else:
+        do_sau = khop_html = '<p class="phu">Không lấy được bảng giá trực tiếp.</p>'
+    return (
+        f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>{W.bieu_do_nen(gio, nen, ma)}</div>'
+        f"<div><h4>Độ sâu thị trường</h4>{do_sau}</div><div><h4>Khớp lệnh</h4>{khop_html}</div></div>"
+    )
+
+
+def muc_nen_1h(ma, cs, P, S, bg_cw=None, bg_cs=None):
+    """Mục nến 1 giờ trải hết chiều ngang: mỗi mã (CW trên, CS dưới) 1 hàng nến | độ sâu | khớp lệnh; nến chung trục giờ."""
     try:
         cw, nen_cs = nen_1h(ma, P), nen_1h(cs, S)
     # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
@@ -37,15 +66,13 @@ def muc_nen_1h(ma, cs, P, S, so_lenh_cw=None, so_lenh_cs=None):
         )
     gio = W.gio_nen_chung(cw, nen_cs, so_phien=SO_PHIEN_NEN_1H)
     return (
-        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        f'<section class="the tran-ngang" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
         '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div>'
-        f'<p class="phu">Hai biểu đồ chung trục giờ: cùng cột là cùng giờ. Xanh = tăng, đỏ = giảm; cột xám bên dưới là khối lượng. '
-        f"Giờ {ESC(ma)} không khớp lệnh thì để trống. Rê chuột lên nến hoặc đường ngang để xem số. "
-        "Đường ngang nét đứt = 3 mức giá chờ mua (xanh) / chào bán (đỏ) trong sổ lệnh lúc mở trang (Vietcap chỉ cho 3 mức); "
-        "nét đậm = <b>tường</b>, mức có khối lượng chờ lớn nhất mỗi bên. Tường có thể bị rút bất cứ lúc nào, không phải cam kết giá. "
-        "Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
-        f"<h3>{ESC(ma)}</h3>{W.bieu_do_nen(gio, cw, ma, so_lenh_cw)}"
-        f"<h3>{ESC(cs)}</h3>{W.bieu_do_nen(gio, nen_cs, cs, so_lenh_cs)}</section>"
+        f'<p class="phu">Hai biểu đồ nến chung trục giờ: cùng cột là cùng giờ; giờ {ESC(ma)} không khớp lệnh thì để trống. '
+        "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
+        "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
+        "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
+        f"{hang_nen(ma, gio, cw, bg_cw)}{hang_nen(cs, gio, nen_cs, bg_cs)}</section>"
     )
 
 
@@ -263,7 +290,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
-    phan.append(muc_nen_1h(ma, cs, P_khop, S, so_lenh, bang_gia[cs][2] if truc_tiep else {}))
+    phan.append(muc_nen_1h(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None))))
 
     # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
     rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))

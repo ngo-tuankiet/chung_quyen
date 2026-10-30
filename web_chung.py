@@ -167,11 +167,18 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
 .kl-nen { fill: var(--truc); }
-.tuong-mua, .tuong-ban { stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; } .tuong-mua { stroke: var(--tot); }
-.tuong-ban { stroke: var(--chu-am); } .tuong { stroke-width: 3; stroke-dasharray: none; opacity: 1; }
-.chu-tuong { font-size: 13px; color: var(--chu-phu); margin: 4px 0 0; }
+.tran-ngang { width: calc(100vw - 48px); position: relative; left: 50%; transform: translateX(-50%); }
+.hang-nen { display: grid; grid-template-columns: minmax(0, 1fr) 320px 360px; gap: 16px; align-items: start; margin-top: 8px; }
+.hang-nen h4 { margin: 0 0 6px; font-size: 14px; } .hang-nen table { font-size: 13px; width: 100%; }
+.hang-nen td, .hang-nen th { padding: 3px 6px; } .khop-cuon { max-height: 330px; overflow-y: auto; }
+.ti-le { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 6px 0 2px; background: var(--chu-am); }
+.ti-le span { background: var(--tot); } .du { display: flex; justify-content: space-between; font-size: 13px; }
+.cot-mua { fill: var(--tot); opacity: .8; } .cot-ban { fill: var(--chu-am); opacity: .8; }
+.gia-tang { color: var(--chu-duong); } .gia-giam { color: var(--chu-am); } .gia-dung { color: #b8860b; }
+@media (max-width: 1100px) { .hang-nen { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .tran-ngang { width: auto; left: 0; transform: none; } }
 .phong-to { position: fixed; inset: 0; z-index: 100; margin: 0; border-radius: 0; overflow: auto; background: var(--be-mat);
-  padding: 16px 24px; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
+  padding: 16px 24px; width: auto; left: 0; transform: none; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
 .duong-gia { fill: none; stroke: var(--xanh); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
 .tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
@@ -527,7 +534,7 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
 
 
 # ============ NẾN 1 GIỜ ============
-NEN_CAO, KL_CAO = 200, 40  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
+NEN_CAO, KL_CAO = 280, 50  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
 
 
 def nen_tu_df(df, he_so):
@@ -546,32 +553,25 @@ def gio_nen_chung(*cac_nen, so_phien):
 
 
 def muc_so_lenh(so_lenh):
-    """3 mức giá chờ mua / chào bán tốt nhất (Vietcap chỉ trả 3 mức): [(giá đ, KL, "mua"|"ban", là tường)].
-    Tường = mức có KL lớn nhất của mỗi bên. Giá dạng chữ (ATO/ATC) hoặc ≤ 0 bỏ qua."""
-    muc = []
-    for khoa, ben in (("bidPrices", "mua"), ("askPrices", "ban")):
-        ds = [
-            (float(m["price"]), float(m.get("volume") or 0), ben)
-            for m in (so_lenh or {}).get(khoa) or []
-            if isinstance(m.get("price"), (int, float)) and m["price"] > 0
-        ]
-        lon = max(ds, key=lambda m: m[1], default=None)
-        muc += [(g, kl, b, m is lon) for m in ds for g, kl, b in [m]]
-    return muc
+    """3 mức giá chờ mua / chào bán tốt nhất (Vietcap chỉ trả 3 mức), từ giá tốt nhất ra ngoài: ([(giá, KL)] mua, [(giá, KL)] bán).
+    Giá dạng chữ (ATO/ATC) hoặc ≤ 0 bỏ qua."""
+    lay = lambda khoa: [
+        (float(m["price"]), float(m.get("volume") or 0))
+        for m in (so_lenh or {}).get(khoa) or []
+        if isinstance(m.get("price"), (int, float)) and m["price"] > 0
+    ]
+    return lay("bidPrices"), lay("askPrices")
 
 
-def bieu_do_nen(gio, nen, ten, so_lenh=None):
+def bieu_do_nen(gio, nen, ten):
     """SVG nến (xanh tăng, đỏ giảm) + cột khối lượng theo trục giờ `gio`; giờ không có trong `nen` (không khớp) để trống.
-    so_lenh (bảng giá Vietcap): vẽ 3 mức chờ mua (xanh) / chào bán (đỏ) thành đường ngang, mức KL lớn nhất mỗi bên (tường) in đậm.
     Rê chuột lên nến: thẻ <title> hiện giờ, mở/cao/thấp/đóng, KL. Kèm bảng dữ liệu cho người không xem được hình."""
     co = [nen[g] for g in gio if g in nen]
     if not co:
         return f"<p>{ESC(ten)}: không có giao dịch trong khoảng này.</p>"
-    R, TRAI, PHAI, TREN = 1200, 60, 20, 10  # rộng: toàn màn hình vẫn lấp đủ chiều ngang
+    R, TRAI, PHAI, TREN = 900, 60, 20, 10  # tỷ lệ ~2,5:1: cột nến hẹp (cạnh độ sâu, khớp lệnh) vẫn đủ cao
     C = TREN + NEN_CAO + 24 + KL_CAO
-    muc = muc_so_lenh(so_lenh)
-    thap = min([n[2] for n in co] + [m[0] for m in muc])  # trục mở rộng để thấy cả mức giá chờ xa giá khớp
-    cao = max([n[1] for n in co] + [m[0] for m in muc])
+    thap, cao = min(n[2] for n in co), max(n[1] for n in co)
     le = (cao - thap) * 0.06 or 1
     thap, cao = thap - le, cao + le
     rong = (R - TRAI - PHAI) / len(gio)
@@ -609,15 +609,6 @@ def bieu_do_nen(gio, nen, ten, so_lenh=None):
             f'<rect class="kl-nen" x="{x(i) - rong * 0.3:.1f}" y="{day_kl - kl / kl_max * KL_CAO:.1f}" '
             f'height="{kl / kl_max * KL_CAO:.1f}" width="{rong * 0.6:.1f}"/></g>'
         )
-    for g, kl, ben, la_tuong in muc:
-        phan.append(
-            f'<line class="tuong-{ben}{" tuong" if la_tuong else ""}" x1="{TRAI}" x2="{R - PHAI}" y1="{y(g):.1f}" y2="{y(g):.1f}">'
-            f"<title>{'Chờ mua' if ben == 'mua' else 'Chào bán'} {so(g)} đ · KL {so(kl)}{' (tường)' if la_tuong else ''}</title></line>"
-        )
-    chu = (
-        lambda ben: ", ".join(f"{so(g)} ({so(kl)}){' ← tường' if t else ''}" for g, kl, b, t in muc if b == ben) or "—"
-    )
-    chu_tuong = f'<p class="chu-tuong">Sổ lệnh: chờ mua {chu("mua")} · chào bán {chu("ban")}</p>' if muc else ""
     mo_ta = f"{ten}: nến 1 giờ từ {gio[0]} đến {gio[-1]}, {len(co)} nến có khớp lệnh, thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
     dong_bang = "".join(
         f"<tr><td>{g[8:10]}/{g[5:7]} {g[11:]}</td>" + "".join(f'<td class="so">{so(x)}</td>' for x in nen[g]) + "</tr>"
@@ -626,8 +617,91 @@ def bieu_do_nen(gio, nen, ten, so_lenh=None):
     )
     return (
         f'<div class="cuon-bieu-do"><svg viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">{"".join(phan)}</svg></div>'
-        f"{chu_tuong}"
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
         '<table><thead><tr><th>Giờ</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
+    )
+
+
+# ============ ĐỘ SÂU THỊ TRƯỜNG, KHỚP LỆNH ============
+DO_SAU_CAO = 150  # chiều cao vùng cột của biểu đồ độ sâu
+
+
+def do_sau_thi_truong(so_lenh):
+    """Bảng 3 mức giá mua/bán, dư mua/dư bán + thanh tỷ lệ, và biểu đồ bậc độ sâu (KL cộng dồn từ giá tốt nhất ra ngoài:
+    cột cao nhất mỗi bên là tổng chờ ở 3 mức; bậc nhảy lớn = nơi có "tường")."""
+    mua, ban = muc_so_lenh(so_lenh)
+    if not mua and not ban:
+        return '<p class="phu">Chưa có sổ lệnh.</p>'
+    du_mua, du_ban = sum(kl for _, kl in mua), sum(kl for _, kl in ban)
+    hang = "".join(
+        "<tr>"
+        + (
+            f'<td class="so">{so(mua[i][1])}</td><td class="so gia-tang">{so(mua[i][0])}</td>'
+            if i < len(mua)
+            else "<td></td><td></td>"
+        )
+        + (
+            f'<td class="so gia-giam">{so(ban[i][0])}</td><td class="so">{so(ban[i][1])}</td>'
+            if i < len(ban)
+            else "<td></td><td></td>"
+        )
+        + "</tr>"
+        for i in range(max(len(mua), len(ban)))
+    )
+    # biểu đồ bậc: trục ngang là các mức giá tăng dần (mua xa nhất ... mua tốt nhất | bán tốt nhất ... bán xa nhất)
+    cot = [(g, sum(k for _, k in mua[: i + 1]), "mua") for i, (g, _) in enumerate(mua)][::-1] + [
+        (g, sum(k for _, k in ban[: i + 1]), "ban") for i, (g, _) in enumerate(ban)
+    ]
+    R, TREN, rong = 320, 6, 320 / len(cot)
+    cao_max = max(c for _, c, _ in cot) or 1
+    hinh = "".join(
+        f'<rect class="cot-{b}" x="{i * rong:.1f}" y="{TREN + DO_SAU_CAO - c / cao_max * DO_SAU_CAO:.1f}" width="{rong:.1f}" '
+        f'height="{c / cao_max * DO_SAU_CAO:.1f}"><title>{"Mua" if b == "mua" else "Bán"} {so(g)} đ: cộng dồn {so(c)}</title></rect>'
+        f'<text class="nhan-truc" x="{(i + 0.5) * rong:.1f}" y="{TREN + DO_SAU_CAO + 14}" text-anchor="middle">{so(g)}</text>'
+        for i, (g, c, b) in enumerate(cot)
+    )
+    ty_le = du_mua / (du_mua + du_ban) * 100 if du_mua + du_ban else 50
+    return (
+        '<table><thead><tr><th class="so">KL</th><th class="so">Giá mua</th><th class="so">Giá bán</th><th class="so">KL</th></tr></thead>'
+        f"<tbody>{hang}</tbody></table>"
+        f'<div class="ti-le" aria-hidden="true"><span style="width:{ty_le:.1f}%"></span></div>'
+        f'<div class="du"><span>Dư mua: {so(du_mua)}</span><span>Dư bán: {so(du_ban)}</span></div>'
+        f'<svg viewBox="0 0 {R} {TREN + DO_SAU_CAO + 20}" role="img" aria-label="Độ sâu: dư mua {so(du_mua)}, dư bán {so(du_ban)}">{hinh}</svg>'
+    )
+
+
+def dong_khop_lenh(df, ref, he_so):
+    """DataFrame intraday vnstock (cũ -> mới, giá nghìn đồng) -> [(giờ, KL, giá đ, +/− đ, +/−%, M|B|"")] mới nhất trước.
+    +/− so với giá tham chiếu `ref` (đ). M = mua chủ động (Buy), B = bán chủ động (Sell), còn lại (ATO/ATC) để trống."""
+    mb = {"Buy": "M", "Sell": "B"}
+    return [
+        (
+            f"{t:%H:%M:%S}",
+            int(v),
+            float(g) * he_so,
+            float(g) * he_so - ref,
+            (float(g) * he_so - ref) / ref if ref else 0.0,
+            mb.get(m, ""),
+        )
+        for t, g, v, m in zip(df["time"], df["price"], df["volume"], df["match_type"])
+    ][::-1]
+
+
+def bang_khop_lenh(dong, kl_phien):
+    """Bảng khớp lệnh kiểu bảng điện: giá xanh/đỏ/vàng theo tham chiếu; dòng tổng KL phiên, M/B cộng trên các lệnh đang hiện."""
+    if not dong:
+        return '<p class="phu">Chưa có lệnh khớp.</p>'
+    lop = lambda c: "gia-tang" if c > 0 else ("gia-giam" if c < 0 else "gia-dung")
+    hang = "".join(
+        f'<tr><td>{gio}</td><td class="so">{so(kl)}</td><td class="so {lop(c)}">{so(g)}</td><td class="so {lop(c)}">{so(c, 0, True)}</td>'
+        f'<td class="so {lop(c)}">{so(pt * 100, 1, True)}</td><td class="{"gia-tang" if m == "M" else "gia-giam"}">{m}</td></tr>'
+        for gio, kl, g, c, pt, m in dong
+    )
+    m, b = sum(d[1] for d in dong if d[5] == "M"), sum(d[1] for d in dong if d[5] == "B")
+    return (
+        f'<div class="du"><span>KL: {so(kl_phien)}</span><span class="gia-tang">M: {so(m)}</span><span class="gia-giam">B: {so(b)}</span></div>'
+        f'<p class="phu" style="margin:2px 0 4px">M/B cộng trên {len(dong)} lệnh gần nhất</p>'
+        '<div class="khop-cuon"><table><thead><tr><th>Thời gian</th><th class="so">KL</th><th class="so">Giá</th><th class="so">+/−</th>'
+        f'<th class="so">%</th><th>M/B</th></tr></thead><tbody>{hang}</tbody></table></div>'
     )

@@ -398,9 +398,10 @@ Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bư�
 **Nến 1 giờ CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`, mục ngay sau Tóm tắt): 2 biểu đồ nến chồng nhau, chung trục giờ, 10 phiên
 (`SO_PHIEN_NEN_1H`), kèm cột khối lượng; giờ CW không khớp để trống. vnstock VCI `interval="1H"`, 2 lượt gọi/lần mở, nhớ 5 phút; giá chưa
 điều chỉnh cổ tức. Dùng để so CW với CS mà không cần mở SSI/Vietcap (vd CSTB2621 30/10: 1 nến, KL 100 trong khi STB đi ngang).
-Nút ⛶ phóng mục nến phủ kín cửa sổ (Esc/bấm lại để thu nhỏ; trình duyệt cho phép thì toàn màn hình thật). **Tường mua/bán**: 3 mức chờ mua
-(xanh) / chào bán (đỏ) của sổ lệnh Vietcap lúc mở trang vẽ thành đường ngang nét đứt, mức KL lớn nhất mỗi bên nét đậm (`muc_so_lenh`).
-Vietcap chỉ trả 3 mức nên tường xa hơn 3 bước giá không thấy được; tường có thể bị rút bất cứ lúc nào.
+Nút ⛶ phóng mục nến phủ kín cửa sổ (Esc/bấm lại để thu nhỏ). Từ 30/10/2026 mục này trải hết chiều ngang, mỗi mã 1 hàng 3 cột như bảng điện:
+nến | **độ sâu thị trường** (3 mức giá mua/bán Vietcap lúc mở trang, dư mua/dư bán, biểu đồ bậc KL cộng dồn từ giá tốt nhất ra ngoài:
+bậc nhảy lớn là tường) | **khớp lệnh** (vnstock `intraday`, 100 lệnh gần nhất, mới nhất trước; M = mua chủ động, B = bán chủ động;
+M/B cộng trên các lệnh đang hiện vì Vietcap không trả tổng cả phiên). Không tự làm mới: tải lại trang. Bỏ các đường tường vẽ trên nến.
 **Lệch 20 phiên %** và **Mốc lệch** (từ 26/10/2026): lúc quét tính cho mọi CW đúng như mục "<mã> có theo kịp <CS> không?" ở trang chi tiết
 (`cw_scanner.lech_hien_tai` → `lech_20_phien`, 1 lượt vnstock/CW, thêm ~40 giây mỗi lần quét); hiện ở cột "Lệch 20 phiên" của danh sách
 chứng quyền và "Lệch 20p" của trang ⚡ (bấm tiêu đề để sắp xếp; vượt ±15% in đậm ở danh sách). Quét 26/10 13:07: 317/333 CW có số,

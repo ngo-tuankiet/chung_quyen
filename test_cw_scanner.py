@@ -547,27 +547,48 @@ def test_bieu_do_nen_toa_do_tinh_tay():
     import web_chung as W
 
     # 2 nến: (mở 100, cao 120, thấp 90, đóng 110) tăng và (110, 112, 95, 100) giảm. Khoảng 90–120, đệm 6% × 30 = 1,8
-    # -> trục 88,2–121,8. Vùng nến cao NEN_CAO = 200 từ y = 10: y(110) = 10 + (121,8 − 110) × 200 / 33,6 = 80,2;
-    # y(100) = 10 + 21,8 × 200 / 33,6 = 139,8 -> thân nến tăng: y 80,2, cao 59,5
+    # -> trục 88,2–121,8. Vùng nến cao NEN_CAO = 280 từ y = 10: y(110) = 10 + (121,8 − 110) × 280 / 33,6 = 108,3;
+    # y(100) = 10 + 21,8 × 280 / 33,6 = 191,7 -> thân nến tăng: y 108,3, cao 83,3
     gio = ["2026-10-30 09:00", "2026-10-30 10:00"]
     html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
-    assert '<rect class="nen-tang" x="' in html and 'y="80.2" height="59.5"' in html
+    assert '<rect class="nen-tang" x="' in html and 'y="108.3" height="83.3"' in html
     assert '<rect class="nen-giam"' in html
 
 
-def test_bieu_do_nen_tuong_mua_ban():
+SO_LENH_MAU = {
+    "bidPrices": [{"price": 450, "volume": 169900}, {"price": 440, "volume": 169900}, {"price": 410, "volume": 1900}],
+    "askPrices": [{"price": 460, "volume": 169900}, {"price": 470, "volume": 169900}, {"price": "ATC", "volume": 5}],
+}
+
+
+def test_do_sau_thi_truong_tinh_tay():
     import web_chung as W
 
-    gio = ["2026-10-30 09:00", "2026-10-30 10:00"]
-    nen = {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}
-    so_lenh = {
-        "bidPrices": [{"price": 99, "volume": 1000}, {"price": 98, "volume": 50000}, {"price": 60, "volume": 2000}],
-        "askPrices": [{"price": 101, "volume": 3000}, {"price": 102, "volume": 800}, {"price": "ATC", "volume": 5}],
-    }
-    html = W.bieu_do_nen(gio, nen, "X", so_lenh)
-    # tường = mức có KL chờ lớn nhất mỗi bên: mua 98 (50.000), bán 101 (3.000); giá chữ (ATO/ATC) bỏ qua
-    assert html.count('class="tuong-mua tuong"') == 1 and html.count('class="tuong-ban tuong"') == 1
-    assert "98 (50.000) ← tường" in html and "101 (3.000) ← tường" in html and "ATC" not in html
-    # giá mua 60 nằm ngoài khoảng nến 90–120: trục mở rộng để vẫn thấy -> có vạch 60 trên trục
-    assert ">60</text>" in html
-    assert W.bieu_do_nen(gio, nen, "X", {}).count("tuong") == 0  # sổ lệnh trống: không vẽ
+    # số như ảnh CVNM2624 30/10: dư mua 169.900 + 169.900 + 1.900 = 341.700; dư bán 339.800 (giá chữ ATC bỏ qua)
+    # thanh xanh = 341.700 / 681.500 = 50,1%
+    html = W.do_sau_thi_truong(SO_LENH_MAU)
+    assert "Dư mua: 341.700" in html and "Dư bán: 339.800" in html and 'style="width:50.1%"' in html
+    assert "ATC" not in html and html.count("<tr>") == 1 + 3  # tiêu đề + 3 hàng (bên bán chỉ 2 mức giá số: ô trống)
+    # biểu đồ bậc: cột cộng dồn từ giá tốt nhất ra ngoài; cột cao nhất = 341.700 (mua tại 410) cao đủ DO_SAU_CAO
+    assert f'height="{W.DO_SAU_CAO:.1f}"' in html
+    assert W.do_sau_thi_truong({}) == '<p class="phu">Chưa có sổ lệnh.</p>'
+
+
+def test_khop_lenh_moi_nhat_truoc_va_chenh_lech():
+    import web_chung as W
+
+    df = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2026-10-30 10:26:21", "2026-10-30 10:49:54"]).tz_localize("Asia/Ho_Chi_Minh"),
+            "price": [0.41, 0.46],
+            "volume": [100, 9000],
+            "match_type": ["Sell", "Buy"],
+        }
+    )
+    dong = W.dong_khop_lenh(df, 410, 1000)
+    # mới nhất trước; 0,46 nghìn -> 460 đ; +50 đ so với tham chiếu 410 = +12,2%; Buy -> M (mua chủ động)
+    assert dong[0] == ("10:49:54", 9000, 460.0, 50.0, 50 / 410, "M")
+    assert dong[1] == ("10:26:21", 100, 410.0, 0.0, 0.0, "B")
+    html = W.bang_khop_lenh(dong, 9100)
+    assert "KL: 9.100" in html and "M: 9.000" in html and "B: 100" in html and "+12,2" in html
+    assert W.bang_khop_lenh([], 0).count("Chưa có lệnh khớp") == 1
