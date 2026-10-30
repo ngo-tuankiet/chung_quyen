@@ -111,7 +111,7 @@ def trang_huong_dan():
         '<b>IV − HV</b> âm → CW đang rẻ, dương → đắt. Khác với "% so với giá hợp lý", con số này so sánh được giữa các CW ở gần và xa giá thực hiện, '
         f'nên bảng xếp theo nó và dùng nó làm tiêu chí (≤ {so(C.MAX_IV_TRU_HV * 100, 0, True)} điểm). "—" nghĩa là không giải được, thường do giá mua thấp hơn <b>mức tối thiểu</b> S − K × e<sup>−rT</sup> của mô hình '
         '(có khung ⚠ Lưu ý): khi đó chữ "Rẻ" chủ yếu đến từ giả định lãi suất và mức dao động, không chắc là món hời.</li>'
-        "<li><b>Nến H4 của CW và cổ phiếu</b>: 30 nến gần nhất, mỗi phiên 2 nến (sáng, chiều), hai biểu đồ chung trục để so CW có chạy theo "
+        "<li><b>Nến của CW và cổ phiếu</b>: bấm <b>H1 / H4 / D1</b> để đổi khung (30 nến gần nhất; mặc định H4: mỗi phiên 2 nến sáng, chiều), hai biểu đồ chung trục để so CW có chạy theo "
         "cổ phiếu không. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối; rê chuột lên nến để xem mở/cao/thấp/đóng và khối lượng.</li>"
         '<li><b>Bảng "Nếu giữ đến ngày đáo hạn"</b>: xem trước lãi/lỗ theo từng kịch bản cổ phiếu tăng/giảm. '
         "Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>; dòng nào cổ phiếu dưới giá thực hiện là mất toàn bộ tiền mua CW.</li>"

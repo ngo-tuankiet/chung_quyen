@@ -397,7 +397,9 @@ Thứ tự quan trọng: (1) đòn bẩy/delta, (2) mất giá theo thời gian,
 5. Khối lượng chào bán của tổ chức phát hành còn nhiều thì giá khó lên nhanh.
 
 Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bước (triệu), Mất giá/ngày %, Lướt: CS cần tăng %, Lướt: lãi kịch bản %.
-**Nến H4 CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`): 2 biểu đồ nến chồng nhau, chung trục, 30 nến (`SO_NEN_H4`, ≈ 15 phiên).
+**Nến H1 / H4 / D1 CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`): nút chọn khung (mặc định H4, đổi ngay trên trang, không tải lại;
+3 khung vẽ sẵn), 2 biểu đồ nến chồng nhau, chung trục, 30 nến mỗi khung (`SO_NEN`). H1 và D1 lấy thẳng từ vnstock (nến ngày 50 ngày lịch,
+4 lượt gọi/lần mở cho 2 mã, nhớ 5 phút); nhãn ngày thưa còn ≤ 10 (`MAX_NHAN_NGAY`).
 Nến H4 gộp từ nến 1 giờ (`nen_h4`): mỗi phiên 1 nến sáng (mốc 09:00, gồm nến 9/10/11 giờ) và 1 nến chiều (mốc 13:00, gồm 13/14 giờ); mở = nến sớm
 nhất, đóng = nến muộn nhất, KL cộng dồn. Kèm cột khối lượng cùng màu nến, đường đứt + nhãn giá đóng cuối, dòng tóm tắt (đóng cuối, % cả khoảng,
 cao/thấp); buổi CW không khớp để trống. Biểu đồ giá CS 1 năm và mục "Giá hợp lý được tính thế nào" đã bỏ khỏi trang (người dùng chọn).

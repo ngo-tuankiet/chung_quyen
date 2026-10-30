@@ -565,6 +565,21 @@ def test_gop_nen_h4_sang_chieu():
     assert W.nen_h4(dict(reversed(list(nen.items())))) == W.nen_h4(nen)
 
 
+def test_bieu_do_nen_nhan_theo_khung():
+    import web_chung as W
+
+    # D1: 30 nến ngày -> nhãn ngày thưa (≤ 10 nhãn) để không chồng chữ; tooltip chỉ có ngày
+    ngay = [f"2026-{m:02d}-{d:02d} 00:00" for m, d in [(9, x) for x in range(1, 31)]]
+    html = W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 1) for g in ngay}, "X", "d1")
+    assert html.count('class="nhan-truc" x=') - html.count('text-anchor="end"') <= 10
+    assert "<title>01/09 · mở" in html
+    # H1: tooltip có giờ; H4 mặc định: buổi sáng/chiều
+    gio = ["2026-10-30 09:00", "2026-10-30 14:00"]
+    nen = {g: (100, 110, 90, 105, 1) for g in gio}
+    assert "30/10 14:00 · mở" in W.bieu_do_nen(gio, nen, "X", "h1")
+    assert "30/10 buổi chiều · mở" in W.bieu_do_nen(gio, nen, "X")
+
+
 def test_bieu_do_nen_toa_do_tinh_tay():
     import web_chung as W
 

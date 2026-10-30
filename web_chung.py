@@ -172,6 +172,9 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .gia-cuoi { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 4 3; }
 .nhan-gia-cuoi { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bieu-do-nen line, .bieu-do-nen rect { vector-effect: non-scaling-stroke; } .bieu-do-nen { width: 100%; height: auto; display: block; }
+.chon-khung { display: inline-flex; border: 1px solid var(--vien); border-radius: 8px; overflow: hidden; }
+.chon-khung button { border: 0; background: transparent; color: var(--chu); padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.chon-khung button[aria-pressed="true"] { background: var(--nut); color: #fff; }
 .tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
@@ -275,6 +278,12 @@ document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) document.querySelectorAll(".phong-to").forEach(thuNho);
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".phong-to").forEach(thuNho); });
+// nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
+document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
+  const muc = n.closest("section");
+  muc.querySelectorAll(".khung-nen").forEach(k => { k.hidden = k.dataset.khung !== n.dataset.chonKhung; });
+  muc.querySelectorAll("[data-chon-khung]").forEach(b => b.setAttribute("aria-pressed", b === n));
+}));
 document.querySelectorAll("input[data-loc]").forEach(o => o.addEventListener("input", () => {
   const q = o.value.trim().toUpperCase();
   document.querySelectorAll(o.dataset.loc + " tbody tr").forEach(tr => { tr.hidden = q && !tr.textContent.toUpperCase().includes(q); });
@@ -616,8 +625,12 @@ def muc_so_lenh(so_lenh):
     return lay("bidPrices"), lay("askPrices")
 
 
-def bieu_do_nen(gio, nen, ten):
-    """SVG nến H4 (xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
+TEN_KHUNG = {"h1": "1 giờ", "h4": "4 giờ", "d1": "ngày"}
+MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
+
+
+def bieu_do_nen(gio, nen, ten, khung="h4"):
+    """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
     Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Rê chuột lên nến: <title> hiện buổi, mở/cao/thấp/đóng, KL.
     Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình."""
     co = [nen[g] for g in gio if g in nen]
@@ -633,7 +646,9 @@ def bieu_do_nen(gio, nen, ten):
     x = lambda i: TRAI + (i + 0.5) * rong
     y = lambda v: TREN + (cao - v) * NEN_CAO / (cao - thap)
     kl_max = max(n[4] for n in co) or 1
-    buoi = lambda g: "sáng" if g[11:16] < "13:00" else "chiều"
+    buoi = lambda g: {"h1": g[11:16], "h4": "buổi " + ("sáng" if g[11:16] < "13:00" else "chiều"), "d1": ""}[khung]
+    dau_phien = [i for i, g in enumerate(gio) if i == 0 or g[:10] != gio[i - 1][:10]]
+    co_nhan = set(dau_phien[:: math.ceil(len(dau_phien) / MAX_NHAN_NGAY)])
     phan = []
     buoc_tho = (cao - thap) / 4
     mu = 10 ** math.floor(math.log10(buoc_tho))
@@ -646,10 +661,9 @@ def bieu_do_nen(gio, nen, ten):
         )
         v += buoc
     phan.append(f'<line class="truc" x1="{TRAI}" x2="{R - PHAI}" y1="{day_nen + 24:.1f}" y2="{day_nen + 24:.1f}"/>')
-    ngay_truoc = ""
     for i, g in enumerate(gio):
-        if g[:10] != ngay_truoc:  # vạch mờ đầu mỗi phiên + nhãn ngày
-            ngay_truoc, xg = g[:10], TRAI + i * rong
+        if i in co_nhan:  # vạch mờ + nhãn ngày, thưa bớt khi nhiều ngày
+            xg = TRAI + i * rong
             phan.append(
                 f'<line class="vach-phien" x1="{xg:.1f}" x2="{xg:.1f}" y1="{TREN}" y2="{day_kl}"/>'
                 f'<text class="nhan-truc" x="{xg + 3:.1f}" y="{day_nen + 16}">{g[8:10]}/{g[5:7]}</text>'
@@ -660,7 +674,7 @@ def bieu_do_nen(gio, nen, ten):
         lop = "tang" if c >= o else "giam"
         tren, duoi = y(max(o, c)), y(min(o, c))
         phan.append(
-            f"<g><title>{g[8:10]}/{g[5:7]} buổi {buoi(g)} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}</title>"
+            f"<g><title>{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}</title>"
             f'<line class="nen-{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
             f'<rect class="nen-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" '
             f'width="{rong * 0.7:.1f}" rx="1"/>'
@@ -681,7 +695,7 @@ def bieu_do_nen(gio, nen, ten):
         f"{so(thay_doi * 100, 1, True)}%</b> trong {len(gio)} nến · cao nhất {so(max(n[1] for n in co))} · thấp nhất {so(min(n[2] for n in co))}</p>"
     )
     mo_ta = (
-        f"{ten}: nến 4 giờ từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong)} đ, "
+        f"{ten}: nến {TEN_KHUNG[khung]} từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong)} đ, "
         f"thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
     )
     dong_bang = "".join(
@@ -693,7 +707,7 @@ def bieu_do_nen(gio, nen, ten):
         f'{tom_tat}<div class="cuon-bieu-do"><svg class="bieu-do-nen" viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">'
         f'{"".join(phan)}</svg></div>'
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
-        '<table><thead><tr><th>Buổi</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
+        '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
     )
 

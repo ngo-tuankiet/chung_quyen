@@ -23,20 +23,25 @@ from web_chung import (
     trang,
 )
 
-SO_NEN_H4 = 30  # trang chi tiết: 30 nến H4 (2 nến/phiên: sáng, chiều) ≈ 15 phiên gần nhất của CW và CS (người dùng chọn 30/10/2026)
-SO_NGAY_NEN_1H = 30  # ngày lịch nến 1 giờ cần tải để đủ 15 phiên (cuối tuần, nghỉ lễ); vnstock VCI trả ~1 tháng
+SO_NEN = 30  # trang chi tiết: 30 nến gần nhất mỗi khung H1 / H4 / D1 của CW và CS (người dùng chọn 30/10/2026)
+SO_NGAY_NEN_1H = 30  # ngày lịch nến 1 giờ cần tải để đủ 30 nến H4 (≈ 15 phiên); vnstock VCI trả ~1 tháng
+SO_NGAY_NEN_D1 = 50  # ngày lịch nến ngày cần tải để đủ 30 phiên (cuối tuần, nghỉ lễ)
+KHUNG_MAC_DINH = "h4"
 GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
 SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
 
 
-def nen_1h(ma, gia_hien_tai):
-    """Nến H4 của 1 mã (giá đồng), gộp từ nến 1 giờ vnstock, nhớ GIAY_NHO_NEN giây. Đơn vị (nghìn đồng) suy từ giá hiện tại."""
+def nen_cac_khung(ma, gia_hien_tai):
+    """{'h1', 'h4', 'd1': nến (giá đồng)} của 1 mã: H1 và D1 từ vnstock (2 lượt gọi), H4 gộp từ H1; nhớ GIAY_NHO_NEN giây.
+    Đơn vị (vnstock trả nghìn đồng) suy từ giá hiện tại."""
     luc, nen = W.BO_NHO_NEN.get(ma, (0.0, None))
     if nen is None or time.time() - luc > GIAY_NHO_NEN:
-        df = cw_scanner.lay_gia_dong_cua(ma, SO_NGAY_NEN_1H, cw_scanner.NGUON_GIA_CW, interval="1H")
-        nen = W.nen_h4(
-            W.nen_tu_df(df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1)
+        doc = lambda df: W.nen_tu_df(
+            df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1
         )
+        h1 = doc(cw_scanner.lay_gia_dong_cua(ma, SO_NGAY_NEN_1H, cw_scanner.NGUON_GIA_CW, interval="1H"))
+        d1 = doc(cw_scanner.lay_gia_dong_cua(ma, SO_NGAY_NEN_D1, cw_scanner.NGUON_GIA_CW))
+        nen = {"h1": h1, "h4": W.nen_h4(h1), "d1": d1}
         W.BO_NHO_NEN[ma] = (time.time(), nen)
     return nen
 
@@ -49,8 +54,8 @@ def khop_lenh(ma, ref, gia_hien_tai):
     return W.dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
 
 
-def hang_nen(ma, gio, nen, bg):
-    """1 hàng: nến H4 | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap hoặc None (mất mạng)."""
+def hang_nen(ma, cac_gio, nen, bg):
+    """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap hoặc None (mất mạng)."""
     if bg:
         ny, khop, so_lenh = bg
         try:
@@ -64,7 +69,13 @@ def hang_nen(ma, gio, nen, bg):
     else:
         do_sau = khop_html = '<p class="phu">Không lấy được bảng giá trực tiếp.</p>'
     return (
-        f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>{W.bieu_do_nen(gio, nen, ma)}</div>'
+        f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
+        + "".join(
+            f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
+            f"{W.bieu_do_nen(gio, nen[k], ma, k)}</div>"
+            for k, gio in cac_gio.items()
+        )
+        + "</div>"
         f"<div><h4>Độ sâu thị trường</h4>{do_sau}</div><div><h4>Khớp lệnh</h4>{khop_html}</div></div>"
     )
 
@@ -72,23 +83,29 @@ def hang_nen(ma, gio, nen, bg):
 def muc_nen_1h(ma, cs, P, S, bg_cw=None, bg_cs=None):
     """Mục nến H4 trải hết chiều ngang: mỗi mã (CW trên, CS dưới) 1 hàng nến | độ sâu | khớp lệnh; nến chung trục."""
     try:
-        cw, nen_cs = nen_1h(ma, P), nen_1h(cs, S)
+        cw, nen_cs = nen_cac_khung(ma, P), nen_cac_khung(cs, S)
     # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
     except Exception as e:  # noqa: BLE001
         return (
-            f'<section class="the"><h2>Nến H4: {ESC(ma)} và {ESC(cs)}</h2>'
+            f'<section class="the"><h2>Nến: {ESC(ma)} và {ESC(cs)}</h2>'
             f"<p>Chưa tải được nến ({ESC(str(e)[:120])}). Mở lại trang sau ít phút.</p></section>"
         )
-    gio = W.gio_nen_chung(cw, nen_cs, so_nen=SO_NEN_H4)
+    cac_gio = {k: W.gio_nen_chung(cw[k], nen_cs[k], so_nen=SO_NEN) for k in W.TEN_KHUNG}
+    nut = "".join(
+        f'<button type="button" data-chon-khung="{k}" aria-pressed="{str(k == KHUNG_MAC_DINH).lower()}">{k.upper()}</button>'
+        for k in W.TEN_KHUNG
+    )
     return (
-        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến H4: {ESC(ma)} và {ESC(cs)} ({len(gio)} nến)</h2>'
-        '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div>'
-        f'<p class="phu">Mỗi phiên 2 nến: buổi sáng (9:15–11:30) và buổi chiều (13:00–14:45). Hai biểu đồ chung trục: cùng cột là '
-        f"cùng buổi; buổi {ESC(ma)} không khớp lệnh thì để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. "
+        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến: {ESC(ma)} và {ESC(cs)} ({SO_NEN} nến)</h2>'
+        f'<div style="display:flex;gap:8px;align-items:center"><div class="chon-khung" role="group" aria-label="Khung nến">{nut}</div>'
+        '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div></div>'
+        f'<p class="phu">Bấm H1 / H4 / D1 để đổi khung nến (30 nến gần nhất). H4: mỗi phiên 2 nến, buổi sáng (9:15–11:30) và buổi '
+        f"chiều (13:00–14:45), gộp từ nến 1 giờ. Hai biểu đồ chung trục: cùng cột là cùng thời điểm; lúc {ESC(ma)} không khớp lệnh thì "
+        "để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. "
         "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
         "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
-        f"{hang_nen(ma, gio, cw, bg_cw)}{hang_nen(cs, gio, nen_cs, bg_cs)}</section>"
+        f"{hang_nen(ma, cac_gio, cw, bg_cw)}{hang_nen(cs, cac_gio, nen_cs, bg_cs)}</section>"
     )
 
 
