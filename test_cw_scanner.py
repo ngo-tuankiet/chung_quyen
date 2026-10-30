@@ -580,6 +580,18 @@ def test_bieu_do_nen_nhan_theo_khung():
     assert "30/10 buổi chiều · mở" in W.bieu_do_nen(gio, nen, "X")
 
 
+def test_cot_khoi_luong_co_truc_va_so():
+    import web_chung as W
+
+    assert [W.kl_gon(x) for x in (950, 150_000, 1_260_000)] == ["950", "150K", "1,3M"]
+    # KL 5 và 10: bước trục = 5 (số "đẹp" gần 10/2), đỉnh trục = 10 -> cột 10 cao đúng KL_CAO, cột 5 cao một nửa;
+    # nhãn trục 5 và 10 bên trái, nhãn KL nến cuối (10) bên phải
+    gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
+    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
+    assert f'height="{W.KL_CAO:.1f}"' in html and f'height="{W.KL_CAO / 2:.1f}"' in html
+    assert ">5</text>" in html and html.count(">10</text>") == 2
+
+
 def test_bieu_do_nen_toa_do_tinh_tay():
     import web_chung as W
 

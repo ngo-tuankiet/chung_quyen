@@ -23,9 +23,9 @@ from web_chung import (
     trang,
 )
 
-SO_NEN = 30  # trang chi tiết: 30 nến gần nhất mỗi khung H1 / H4 / D1 của CW và CS (người dùng chọn 30/10/2026)
-SO_NGAY_NEN_1H = 30  # ngày lịch nến 1 giờ cần tải để đủ 30 nến H4 (≈ 15 phiên); vnstock VCI trả ~1 tháng
-SO_NGAY_NEN_D1 = 50  # ngày lịch nến ngày cần tải để đủ 30 phiên (cuối tuần, nghỉ lễ)
+SO_NEN = 50  # trang chi tiết: 50 nến gần nhất mỗi khung H1 / H4 / D1 của CW và CS (người dùng chọn 30/10/2026)
+SO_NGAY_NEN_1H = 45  # ngày lịch nến 1 giờ cần tải để đủ 50 nến H4 (25 phiên); thử 30/10/2026: 45 ngày -> 34 phiên
+SO_NGAY_NEN_D1 = 80  # ngày lịch nến ngày cần tải để đủ 50 phiên (cuối tuần, nghỉ lễ); thử: 80 ngày -> 56 phiên
 KHUNG_MAC_DINH = "h4"
 GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
 SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
@@ -96,12 +96,13 @@ def muc_nen_1h(ma, cs, P, S, bg_cw=None, bg_cs=None):
         for k in W.TEN_KHUNG
     )
     return (
-        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến: {ESC(ma)} và {ESC(cs)} ({SO_NEN} nến)</h2>'
-        f'<div style="display:flex;gap:8px;align-items:center"><div class="chon-khung" role="group" aria-label="Khung nến">{nut}</div>'
-        '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div></div>'
-        f'<p class="phu">Bấm H1 / H4 / D1 để đổi khung nến (30 nến gần nhất). H4: mỗi phiên 2 nến, buổi sáng (9:15–11:30) và buổi '
+        f'<section class="the" id="nen-1h"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">'
+        f'<div class="chon-khung" role="group" aria-label="Khung nến">{nut}</div>'
+        f'<h2 style="margin:0">Nến: {ESC(ma)} và {ESC(cs)} ({SO_NEN} nến)</h2></div>'
+        f'<p class="phu">Bấm H1 / H4 / D1 để đổi khung nến ({SO_NEN} nến gần nhất). H4: mỗi phiên 2 nến, buổi sáng (9:15–11:30) và buổi '
         f"chiều (13:00–14:45), gộp từ nến 1 giờ. Hai biểu đồ chung trục: cùng cột là cùng thời điểm; lúc {ESC(ma)} không khớp lệnh thì "
-        "để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. "
+        "để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. Cột khối lượng (KL) có vạch chia và số bên trái; "
+        "nhãn bên phải là KL nến cuối; rê chuột lên nến để xem KL chính xác. "
         "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
         "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"

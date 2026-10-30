@@ -167,7 +167,8 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .truc { stroke: var(--truc); stroke-width: 1; }
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
-.kl-tang { fill: var(--tot); opacity: .35; } .kl-giam { fill: var(--chu-am); opacity: .35; }
+.kl-tang { fill: var(--tot); opacity: .45; } .kl-giam { fill: var(--chu-am); opacity: .45; }
+.kl-tang-dam { fill: var(--tot); } .kl-giam-dam { fill: var(--chu-am); }
 .vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }
 .gia-cuoi { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 4 3; }
 .nhan-gia-cuoi { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -189,8 +190,6 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .gia-tang { color: var(--chu-duong); } .gia-giam { color: var(--chu-am); } .gia-dung { color: #b8860b; }
 @media (max-width: 1100px) { .hang-nen { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1100px) { .hang-doi { grid-template-columns: minmax(0, 1fr); } }
-.phong-to { position: fixed; inset: 0; z-index: 100; margin: 0; border-radius: 0; overflow: auto; background: var(--be-mat);
-  padding: 16px 24px; } .phong-to svg { width: 100%; height: auto; max-height: 40vh; } .phong-to details, .phong-to > p.phu { display: none; }
 .duong-gia { fill: none; stroke: var(--xanh); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
 .tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
@@ -263,21 +262,6 @@ document.querySelectorAll("th button").forEach(nut => nut.addEventListener("clic
   bang.tBodies[0].append(...dong);
 }));
 // Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
-// nút ⛶: phóng phần tử data-toan-man-hinh phủ kín cửa sổ (chạy cả trên iPhone, nơi không có toàn màn hình cho 1 phần tử);
-// trình duyệt cho phép thì bật thêm toàn màn hình thật. Bấm lại hoặc Esc để thu nhỏ.
-const nhanNut = (el, to) => el.querySelectorAll("[data-toan-man-hinh]").forEach(n => n.textContent = to ? "✕ Thu nhỏ" : "⛶ Toàn màn hình");
-const thuNho = el => { el.classList.remove("phong-to"); nhanNut(el, false); if (document.fullscreenElement) document.exitFullscreen(); };
-document.querySelectorAll("[data-toan-man-hinh]").forEach(n => n.addEventListener("click", () => {
-  const el = document.querySelector(n.dataset.toanManHinh);
-  if (el.classList.contains("phong-to")) return thuNho(el);
-  el.classList.add("phong-to");
-  nhanNut(el, true);
-  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});  // bị chặn (khung nhúng): vẫn phủ kín cửa sổ
-}));
-document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement) document.querySelectorAll(".phong-to").forEach(thuNho);
-});
-document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".phong-to").forEach(thuNho); });
 // nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
 document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
   const muc = n.closest("section");
@@ -583,7 +567,7 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
 
 
 # ============ NẾN H4 (gộp từ nến 1 giờ) ============
-NEN_CAO, KL_CAO = 280, 50  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
+NEN_CAO, KL_CAO = 280, 110  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
 
 
 def nen_tu_df(df, he_so):
@@ -626,6 +610,19 @@ def muc_so_lenh(so_lenh):
 
 
 TEN_KHUNG = {"h1": "1 giờ", "h4": "4 giờ", "d1": "ngày"}
+
+
+def kl_gon(x):
+    """Khối lượng ngắn gọn cho nhãn trục: 950 -> '950', 150.000 -> '150K', 1.250.000 -> '1,3M'."""
+    return so(x / 1e6, 1) + "M" if x >= 1e6 else (so(x / 1e3) + "K" if x >= 1e3 else so(x))
+
+
+def buoc_dep(tho):
+    """Bước trục "đẹp" (1, 2, 2,5, 5 × 10^n) nhỏ nhất ≥ tho."""
+    mu = 10 ** math.floor(math.log10(tho))
+    return next(b * mu for b in (1, 2, 2.5, 5, 10) if b * mu >= tho)
+
+
 MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
 
 
@@ -645,14 +642,14 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
     rong = (R - TRAI - PHAI) / len(gio)
     x = lambda i: TRAI + (i + 0.5) * rong
     y = lambda v: TREN + (cao - v) * NEN_CAO / (cao - thap)
-    kl_max = max(n[4] for n in co) or 1
+    # trục KL: 2 vạch "đẹp", đỉnh trục là vạch trên cùng nên chiều cao cột đọc được bằng vạch
+    buoc_kl = buoc_dep((max(n[4] for n in co) or 1) / 2)
+    kl_max = math.ceil((max(n[4] for n in co) or 1) / buoc_kl) * buoc_kl
     buoi = lambda g: {"h1": g[11:16], "h4": "buổi " + ("sáng" if g[11:16] < "13:00" else "chiều"), "d1": ""}[khung]
     dau_phien = [i for i, g in enumerate(gio) if i == 0 or g[:10] != gio[i - 1][:10]]
     co_nhan = set(dau_phien[:: math.ceil(len(dau_phien) / MAX_NHAN_NGAY)])
     phan = []
-    buoc_tho = (cao - thap) / 4
-    mu = 10 ** math.floor(math.log10(buoc_tho))
-    buoc = next(b * mu for b in (1, 2, 2.5, 5, 10) if b * mu >= buoc_tho)
+    buoc = buoc_dep((cao - thap) / 4)
     v = math.ceil(thap / buoc) * buoc
     while v <= cao:
         phan.append(
@@ -661,6 +658,12 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         )
         v += buoc
     phan.append(f'<line class="truc" x1="{TRAI}" x2="{R - PHAI}" y1="{day_nen + 24:.1f}" y2="{day_nen + 24:.1f}"/>')
+    for k in (buoc_kl, kl_max):
+        yk = day_kl - k / kl_max * KL_CAO
+        phan.append(
+            f'<line class="luoi-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="{yk:.1f}" y2="{yk:.1f}"/>'
+            f'<text class="nhan-truc" x="{TRAI - 8}" y="{yk + 4:.1f}" text-anchor="end">{kl_gon(k)}</text>'
+        )
     for i, g in enumerate(gio):
         if i in co_nhan:  # vạch mờ + nhãn ngày, thưa bớt khi nhiều ngày
             xg = TRAI + i * rong
@@ -689,10 +692,16 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         f'<rect class="nen-{lop_cuoi}" x="{R - PHAI + 4}" y="{y(dong) - 10:.1f}" width="{PHAI - 6}" height="20" rx="3"/>'
         f'<text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" y="{y(dong) + 4:.1f}" text-anchor="middle">{so(dong)}</text>'
     )
+    kl_cuoi = nen[g_cuoi][4]
+    phan.append(
+        f'<rect class="kl-{lop_cuoi}-dam" x="{R - PHAI + 4}" y="{day_kl - kl_cuoi / kl_max * KL_CAO - 10:.1f}" width="{PHAI - 6}" '
+        f'height="20" rx="3"/><text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" '
+        f'y="{day_kl - kl_cuoi / kl_max * KL_CAO + 4:.1f}" text-anchor="middle">{kl_gon(kl_cuoi)}</text>'
+    )
     thay_doi = dong / o_dau - 1 if o_dau else 0.0
     tom_tat = (
         f'<p class="tom-nen">Đóng cuối <b>{so(dong)} đ</b> · <b class="{"gia-tang" if thay_doi >= 0 else "gia-giam"}">'
-        f"{so(thay_doi * 100, 1, True)}%</b> trong {len(gio)} nến · cao nhất {so(max(n[1] for n in co))} · thấp nhất {so(min(n[2] for n in co))}</p>"
+        f"{so(thay_doi * 100, 1, True)}%</b> trong {len(gio)} nến · KL nến cuối {so(kl_cuoi)} · cao nhất {so(max(n[1] for n in co))} · thấp nhất {so(min(n[2] for n in co))}</p>"
     )
     mo_ta = (
         f"{ten}: nến {TEN_KHUNG[khung]} từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong)} đ, "
