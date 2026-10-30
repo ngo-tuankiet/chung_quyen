@@ -113,12 +113,10 @@ def trang_huong_dan():
         '<b>IV − HV</b> âm → CW đang rẻ, dương → đắt. Khác với "% so với giá hợp lý", con số này so sánh được giữa các CW ở gần và xa giá thực hiện, '
         f'nên bảng xếp theo nó và dùng nó làm tiêu chí (≤ {so(C.MAX_IV_TRU_HV * 100, 0, True)} điểm). "—" nghĩa là không giải được, thường do giá mua thấp hơn <b>mức tối thiểu</b> S − K × e<sup>−rT</sup> của mô hình '
         '(có khung ⚠ Lưu ý): khi đó chữ "Rẻ" chủ yếu đến từ giả định lãi suất và mức dao động, không chắc là món hời.</li>'
-        "<li><b>Biểu đồ</b>: đường xanh là giá cổ phiếu 1 năm qua; đường xám là giá thực hiện; đường cam là <b>điểm hòa vốn</b>. "
+        "<li><b>Biểu đồ</b>: đường xanh là giá cổ phiếu 1 năm qua; đường xám là giá thực hiện; đường cam là <b>điểm hòa vốn</b> (đã trừ phí, thuế). "
         "Muốn có lãi khi giữ đến đáo hạn, giá cổ phiếu phải <b>nằm trên đường cam</b>. Rê chuột (hoặc bấm vào biểu đồ rồi dùng phím ← →) để xem giá từng ngày.</li>"
         '<li><b>Bảng "Nếu giữ đến ngày đáo hạn"</b>: xem trước lãi/lỗ theo từng kịch bản cổ phiếu tăng/giảm. '
-        "Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>, cột cuối cho biết lãi/lỗ theo số tiền bạn nhập ở mục <b>Rủi ro với số tiền của bạn</b>.</li>"
-        "<li><b>Rủi ro với số tiền của bạn</b>: nhập số tiền định bỏ ra để xem mua được bao nhiêu CW, tương đương nắm bao nhiêu tiền cổ phiếu "
-        "(thường gấp 5-15 lần), cổ phiếu giảm đến đâu thì mất toàn bộ, ngày cuối cùng còn bán được và điểm hòa vốn sau phí, thuế.</li>"
+        "Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>; dòng nào cổ phiếu dưới giá thực hiện là mất toàn bộ tiền mua CW.</li>"
         '<li><b>IV theo thời gian</b>: biểu đồ mức dao động mà giá CW "giả định" từng ngày từ lúc lên sàn. IV thường cao lúc mới phát hành rồi '
         "giảm dần. Đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị các CW cùng mã (ví dụ CVPB2608, CVPB2615 của ACBS tháng 10/2026): "
         "tổ chức phát hành đang bán ra rẻ, nên giá có thể còn thấp nữa trước khi đáo hạn.</li>"

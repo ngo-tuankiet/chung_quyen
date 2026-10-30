@@ -202,7 +202,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     # P = giá mua (chào bán thấp nhất): giá người mua phải trả, dùng cho mọi chỉ số bên dưới
     S, K, ty_le, P = float(h["Giá CS"]), float(h["Giá thực hiện"]), float(h["Tỷ lệ CĐ"]), float(h["Giá mua"])
     P_khop, nguon_gia, ngay_con_lai = float(h["Giá CW"]), h["Nguồn giá mua"], int(h["Ngày còn lại"])
-    T, hoa_von, tang = ngay_con_lai / C.NGAY_MOT_NAM, K + P * ty_le, float(h["CS tăng % để hòa vốn"])
+    T, tang = ngay_con_lai / C.NGAY_MOT_NAM, float(h["CS tăng % để hòa vốn"])
     ngay_dao_han = ngay_tinh + timedelta(days=ngay_con_lai)
     iv = cw_scanner.bien_dong_ngam_dinh(P, S, K, T, r, ty_le)
     toi_thieu = cw_scanner.can_duoi(S, K, T, r)  # giá tối thiểu của quyền trên 1 cổ phiếu theo mô hình
@@ -276,9 +276,14 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         f"<span>{noi_dung} <small>({yeu_cau})</small></span></li>"
         for dat, noi_dung, yeu_cau in tieu_chi
     )
+    # hòa vốn đã gồm phí mua, thuế khi nhận tiền (rui_ro_theo_tien)
+    rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))
+    gd_cuoi = date.fromisoformat(h["Ngày GD cuối"]) if h.get("Ngày GD cuối") else None
+    phi_chu, thue_chu = so(C.PHI_GIAO_DICH * 100, 2), so(C.THUE_BAN * 100, 1)
+    hoa_von_phi = rr["hoa_von_phi"]
     m_tom_tat = (
         f'<section class="the"><h2>Tóm tắt</h2><p class="tom-tat">Bạn trả <b>{so(P)} đ</b> cho 1 CW ({mo_ta_gia}; mô hình tính giá hợp lý là {so(h["Giá hợp lý"])} đ). '
-        f"Nếu giữ đến ngày {ngay_dao_han:%d/%m/%Y}, giá {ESC(cs)} cần cao hơn <b>{so(hoa_von)} đ</b> ({so(tang, 1, True)}% so với hiện tại {so(S)} đ) thì mới có lãi. "
+        f"Nếu giữ đến ngày {ngay_dao_han:%d/%m/%Y}, giá {ESC(cs)} cần cao hơn <b>{so(hoa_von_phi)} đ</b> ({so((hoa_von_phi / S - 1) * 100, 1, True)}% so với hiện tại {so(S)} đ, đã trừ phí, thuế) thì mới có lãi. "
         f"Trong {so(P)} đ có {so(noi_tai)} đ <b>giá trị nội tại</b> (phần lãi nếu đáo hạn ngay hôm nay) và {so(gia_tri_tg)} đ <b>giá trị thời gian</b> "
         f"(mất dần về 0 đến ngày đáo hạn, khoảng {so(mat_gia, 1 if mat_gia < 10 else 0)} đ/ngày nếu giá {ESC(cs)} đứng yên).</p>"
         + (
@@ -304,53 +309,6 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
     m_nen = muc_nen_1h(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None)))
-
-    # Rủi ro với số tiền của bạn (đã tính phí mua, thuế khi nhận tiền; con số "xác suất" là của mô hình, không phải dự báo)
-    rr = C.rui_ro_theo_tien(von * 1_000_000, P, S, K, ty_le, T, r, sigma_ls, float(h["Đòn bẩy"]))
-    gd_cuoi = date.fromisoformat(h["Ngày GD cuối"]) if h.get("Ngày GD cuối") else None
-    phi_chu, thue_chu = so(C.PHI_GIAO_DICH * 100, 2), so(C.THUE_BAN * 100, 1)
-    m_rui_ro = (
-        f'<section class="the" id="rui-ro"><h2>Rủi ro với số tiền của bạn</h2>'
-        f'<form method="get" action="/cw/{ESC(ma)}#rui-ro" style="margin-top:8px"><label>Số tiền định đầu tư '
-        f'<input type="number" name="von" min="1" max="10000" step="1" value="{von}" style="width:7em"> triệu đồng</label> '
-        '<button class="nut" style="padding:6px 14px">Tính lại</button></form><div class="luoi-o">'
-        + o_so(
-            "Mua được",
-            f"{so(rr['so_cw'])} CW" if rr["so_cw"] else "Chưa đủ 1 lô",
-            f"≈ {so(rr['tien_chi'])} đ, đã gồm phí mua {phi_chu}% (lô 100 CW)",
-        )
-        + o_so(
-            "Tương đương nắm",
-            f"{so(rr['tiep_xuc'] / 1e6, 1)} triệu đ {ESC(cs)}",
-            f"≈ {so(rr['so_cp'])} cổ phiếu · gấp {so(rr['tiep_xuc'] / (von * 1e6), 1)} lần số tiền bỏ ra",
-        )
-        + o_so(
-            "Mất toàn bộ tiền nếu",
-            f"{ESC(cs)} ≤ {so(K)} đ",
-            (
-                f"tức giảm {so(-rr['giam_ve_0'] * 100, 1)}% vào lúc đáo hạn · xác suất theo mô hình ≈ {so(rr['xs_ve_0'] * 100, 0)}% "
-                "(σ lịch sử, không phải dự báo)"
-                if rr["giam_ve_0"] < 0
-                else f"{ESC(cs)} đang thấp hơn giá thực hiện"
-            ),
-        )
-        + o_so(
-            f"{ESC(cs)} giảm 1%",
-            f"≈ −{so(rr['mat_khi_giam_1pct'])} đ",
-            f"trước ngày đáo hạn, theo đòn bẩy {so(h['Đòn bẩy'], 1)}x; giảm sâu thì mất nhanh hơn",
-        )
-        + o_so(
-            "Ngày giao dịch cuối",
-            f"{gd_cuoi:%d/%m/%Y}" if gd_cuoi else "Không rõ",
-            (
-                f"còn {(gd_cuoi - ngay_tinh).days} ngày để bán; sau đó chỉ chờ nhận tiền theo giá trung bình 5 phiên trước "
-                f"ngày đáo hạn {ngay_dao_han:%d/%m/%Y}"
-                if gd_cuoi
-                else "bấm Quét ngay để lấy ngày này"
-            ),
-        )
-        + "</div></section>"
-    )
 
     # Các chỉ số chính
     delta = C.black_scholes_call(S, K, T, r, sigma_ls)[
@@ -379,8 +337,8 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + o_so("So với giá hợp lý", f'<span class="{lop_dat_re}">{chu_dat_re}</span>', "Rẻ = giá mua thấp hơn mô hình")
         + o_so(
             "Hòa vốn (đã trừ phí, thuế)",
-            f"{so(rr['hoa_von_phi'])} đ",
-            f'{ESC(cs)} cần <b class="am">{so((rr["hoa_von_phi"] / S - 1) * 100, 1, True)}%</b> đến ngày đáo hạn. '
+            f"{so(hoa_von_phi)} đ",
+            f'{ESC(cs)} cần <b class="am">{so((hoa_von_phi / S - 1) * 100, 1, True)}%</b> đến ngày đáo hạn. '
             f"Phí {phi_chu}% + thuế {thue_chu}% là giả định - kiểm tra với công ty chứng khoán của bạn",
         )
         + o_so(
@@ -394,6 +352,16 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             f"{so(iv * 100, 0)}%" if iv else "—",
             f"Lịch sử 1 năm (HV): {so(sigma_ls * 100, 0)}%. {so_sanh_bd}"
             + (f" Trung vị IV các CW {ESC(cs)} khác: {so(tv_cung_ma, 0)}%." if math.isfinite(tv_cung_ma) else ""),
+        )
+        + o_so(
+            "Ngày giao dịch cuối",
+            f"{gd_cuoi:%d/%m/%Y}" if gd_cuoi else "Không rõ",
+            (
+                f"còn {(gd_cuoi - ngay_tinh).days} ngày để bán; sau đó chỉ chờ nhận tiền theo giá trung bình 5 phiên trước "
+                f"ngày đáo hạn {ngay_dao_han:%d/%m/%Y}"
+                if gd_cuoi
+                else "bấm Quét ngay để lấy ngày này"
+            ),
         )
         + o_so(
             "Khối lượng phát hành", f"{so(float(h['KL niêm yết']))} CW", "tổng số CW được niêm yết (được phép bán ra)"
@@ -491,7 +459,11 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         f'<section class="the"><h2>Giá {ESC(cs)} 1 năm qua</h2>'
         f'<p class="phu">Muốn có lãi khi giữ đến đáo hạn, giá {ESC(cs)} phải nằm trên đường <b>hòa vốn</b>. Rê chuột lên biểu đồ để xem giá từng ngày.</p>'
         + (
-            bieu_do(lich_su, [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn", hoa_von, "tc-hoa-von")], f"Giá {cs}")
+            bieu_do(
+                lich_su,
+                [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn (có phí, thuế)", hoa_von_phi, "tc-hoa-von")],
+                f"Giá {cs}",
+            )
             if lich_su
             else "<p>Chưa có dữ liệu biểu đồ. Bấm <b>Quét ngay</b> ở trang chính để tải.</p>"
         )
@@ -577,7 +549,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     )
 
     # Kịch bản lãi/lỗ khi đáo hạn
-    so_cw, gia_von = rr["so_cw"], P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
+    gia_von = P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
     dong = []
     for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
         gia_cs = S * (1 + thay_doi / 100)
@@ -587,14 +559,14 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         dong.append(
             f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'
             f'<td class="so">{so(gia_cs)}</td><td class="so">{so(nhan_ve)}</td><td class="so {lop}">{so(lai, 0, True)}</td>'
-            f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td><td class="so {lop}">{so(lai * so_cw, 0, True)}</td></tr>'
+            f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td></tr>'
         )
     m_neu_giu = (
         f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
         f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
         f'Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền. Lỗ tối đa là toàn bộ tiền mua CW.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
         f'<th class="so">Nhận về / CW (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
-        f'<th class="so">Với {so(so_cw)} CW ≈ {von} triệu (đ)</th></tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
+        f'</tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
     )
 
     # So sánh các CW cùng mã cơ sở
@@ -624,15 +596,14 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "".join(f"<div><dt>{a}</dt><dd>{b}</dd></div>" for a, b in dk)
         + "</dl></section>"
     )
-    # bố cục theo luồng quyết định (người dùng chọn 30/10/2026): tổng quan -> thị trường lúc này -> CW so với CS -> IV
-    # -> giữ đến đáo hạn, cách tính -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
+    # bố cục (người dùng chọn 30/10/2026): số liệu chính -> tóm tắt + lãi/lỗ nếu giữ đến đáo hạn -> thị trường lúc này
+    # -> CW so với CS -> IV, cách tính -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
     phan += [
         m_o_so,
-        hang_doi(m_tom_tat, m_rui_ro),
+        hang_doi(m_tom_tat, m_neu_giu),
         m_nen,
         hang_doi(m_theo_kip, m_gia_cs),
-        m_iv,
-        hang_doi(m_neu_giu, m_cach_tinh),
+        hang_doi(m_iv, m_cach_tinh),
         m_cw_khac,
         m_dieu_khoan,
     ]

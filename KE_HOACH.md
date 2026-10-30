@@ -188,11 +188,11 @@ Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
   bảng chữ nhỏ hơn, cột mã đứng yên khi vuốt ngang.
 - **Bấm vào một mã CW** để mở trang phân tích: tóm tắt dễ hiểu, 4 tiêu chí đạt/không đạt, giá trị nội tại / thời gian,
   biểu đồ giá cổ phiếu cơ sở 1 năm kèm đường giá thực hiện và hòa vốn (rê chuột xem giá từng ngày), bảng **lãi/lỗ khi đáo hạn**
-  theo từng kịch bản (kèm ví dụ 10 triệu đồng), biến động ngầm định so với lịch sử, và so sánh các CW khác cùng mã cơ sở.
+  theo từng kịch bản, biến động ngầm định so với lịch sử, và so sánh các CW khác cùng mã cơ sở.
   Trang phân tích **tính lại mọi con số theo giá trực tiếp** lúc mở trang (giá cổ phiếu cơ sở + giá chào bán, chờ tối đa 5 giây; σ và lãi suất
-  lấy từ lần quét). Không tải được thì dùng số lúc quét và báo đỏ ở đầu trang. Mục **Rủi ro với số tiền của bạn**: nhập số tiền (triệu đồng)
-  để xem số CW mua được, giá trị cổ phiếu cơ sở tương đương đang nắm, mức giảm làm mất toàn bộ tiền, ngày giao dịch cuối, hòa vốn sau phí
-  (`PHI_GIAO_DICH` 0,15%) và thuế (`THUE_BAN` 0,1%) - hai mức này là giả định, chỉnh ở đầu `cw_scanner.py` theo công ty chứng khoán của bạn.
+  lấy từ lần quét). Không tải được thì dùng số lúc quét và báo đỏ ở đầu trang. Hàng ô đầu trang (30/10/2026) gồm giá mua/hợp lý, so với giá hợp lý, **hòa vốn đã trừ phí**
+  (`PHI_GIAO_DICH` 0,15%) **và thuế** (`THUE_BAN` 0,1%; hai mức giả định, chỉnh ở đầu `cw_scanner.py`), đòn bẩy, delta, IV, **ngày giao dịch cuối**,
+  khối lượng phát hành; Tóm tắt và đường hòa vốn trên biểu đồ dùng cùng mức hòa vốn đã trừ phí, thuế. Mục "Rủi ro với số tiền của bạn" đã bỏ (trùng).
   Mục **IV theo thời gian**: biểu đồ IV từng ngày từ lúc CW lên sàn (giá CW tải qua vnstock 1 lần/ngày, giá cổ phiếu đã điều chỉnh quyền) kèm đường HV 1 năm và trung vị IV các CW cùng mã. IV thường cao lúc mới phát hành rồi giảm dần; đáng chú ý khi IV xuống thấp hẳn dưới HV và trung vị cùng mã (ví dụ CVPB2615: khoảng 37% lúc lên sàn tháng 7 → 15,6% ngày 19/10/2026).
 - Nếu máy chủ dữ liệu lỗi, thông báo lỗi màu đỏ hiện ngay trên trang — chờ vài phút rồi bấm lại.
 
@@ -350,7 +350,7 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 1. **σ lịch sử ≠ biến động tương lai.** Đây là nguồn sai số lớn nhất. Một CW "rẻ 40%" có thể chỉ vì TCPH dùng σ thấp hơn, hoặc năm qua cổ phiếu có biến cố lớn khiến σ lịch sử bị phóng đại.
 2. **Cổ tức không cần đưa vào mô hình.** Khi cổ phiếu cơ sở trả cổ tức tiền, cổ tức bằng cổ phiếu hay thưởng cổ phiếu, TCPH điều chỉnh giá thực hiện và tỷ lệ chuyển đổi theo hệ số giá tham chiếu tại ngày GDKHQ (TT 107/2016 Điều 10, nay là TT 122/2025). Ví dụ VPB năm 2026: cổ tức tiền 500 đ (GDKHQ 15/05, hệ số 0,982548) và cổ tức cổ phiếu 26,04% (GDKHQ 24/09, hệ số 0,793165) đưa CVPB2608 từ 30.000 đ, tỷ lệ 2:1 về 23.379 đ, tỷ lệ 1,5586:1. Lịch sử giá lấy từ KBS cũng đã được điều chỉnh theo các sự kiện này, nên σ không bị phóng đại bởi khoảng trống giá.
 3. **Giá thanh toán là trung bình 5 phiên**, không phải giá 1 ngày — mô hình bỏ qua chi tiết này (sai số nhỏ). CW đáo hạn giữa tháng 2/2027 có 5 phiên này nằm sát kỳ nghỉ Tết Nguyên đán (mùng 1 Tết ≈ 06/02/2027): xem lịch nghỉ của HOSE.
-4. **4 tiêu chí chưa tính phí và thuế** (phí môi giới tùy công ty, thuế TNCN 0,1% khi bán). Mục "Rủi ro với số tiền của bạn" ở trang phân tích có tính, theo `PHI_GIAO_DICH` và `THUE_BAN` ở đầu `cw_scanner.py` (giả định, chỉnh theo công ty chứng khoán của bạn). Với CW giá vài trăm đồng, bước giá 10đ và phí ăn mòn lợi nhuận đáng kể.
+4. **4 tiêu chí chưa tính phí và thuế** (phí môi giới tùy công ty, thuế TNCN 0,1% khi bán). Ô "Hòa vốn (đã trừ phí, thuế)" và bảng "Nếu giữ đến ngày đáo hạn" ở trang phân tích có tính, theo `PHI_GIAO_DICH` và `THUE_BAN` ở đầu `cw_scanner.py` (giả định, chỉnh theo công ty chứng khoán của bạn). Với CW giá vài trăm đồng, bước giá 10đ và phí ăn mòn lợi nhuận đáng kể.
 5. **Thanh khoản chỉ đo trong 1 phiên.** Chạy trước giờ giao dịch thì KL = 0 cho mọi mã, và sổ lệnh có thể trống → giá mua rơi về giá khớp/tham chiếu (cột *Nguồn giá mua* ghi rõ). Giá chào bán có thể cao hơn giá khớp hơn 10% (CTCB2619 ngày 16/10/2026: khớp 980đ, chào bán 1.100đ), nên kết quả từ bản này **không so trực tiếp** với file CSV cũ định giá theo giá khớp.
 6. **Dữ liệu từ API không chính thức** (Vietcap, KBS) có thể đổi định dạng hoặc lỗi tạm thời. Khi chạy thử, một số API của Vietcap trả lỗi 500 từ vài phút đến hơn 20 phút. Nếu bảng giá Vietcap lỗi, lần quét đó thất bại và báo lỗi — chờ rồi chạy lại.
 7. **Giá CW do tổ chức phát hành chi phối.** TCPH là bên bán chính và không bắt buộc yết giá theo giá trị lý thuyết; Việt Nam lại không cho bán khống nên không ai kéo giá về giá hợp lý. Giá có thể nằm dưới giá hợp lý rất lâu, ví dụ ACBS với CVPB2608/CVPB2615: IV từ khoảng 41% lúc lên sàn xuống 12–14% vào tháng 10/2026, kể cả khi ACBS phát hành bổ sung 5 triệu CVPB2608 giá 760 đ. Phần "rẻ" chỉ chắc thu về được nếu giữ đến đáo hạn.
