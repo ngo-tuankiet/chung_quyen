@@ -426,6 +426,7 @@ def o_so(nhan, gia_tri, goi_y=""):
 MENU = (
     ("/", "📈", "Chứng quyền"),
     ("/etf", "📊", "ETF"),
+    ("/phai-sinh", "📉", "Phái sinh"),
     ("/danh-muc", "💼", "Danh mục"),
     ("/huong-dan", "❓", "Hướng dẫn"),
 )
@@ -715,7 +716,7 @@ def buoc_dep(tho):
 MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
 
 
-def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0):
+def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1):
     """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
     Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Thanh dọc theo chuột/ngón tay (như TradingView, JS ở đầu trang) và dòng
     thông số của nến đang trỏ: thời điểm, mở/cao/thấp/đóng, % so với đóng cửa nến trước, KL (mặc định là nến cuối).
@@ -774,7 +775,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0):
             f'Đóng <b class="{lop_doi}">{so(c, so_le)}</b> <span class="{lop_doi}">{so(doi * 100, 1, True)}%</span> KL <b>{so(kl)}</b>'
             + (
                 " · <i>khớp lẻ dưới 5 triệu đồng, giá không đáng tin</i>"
-                if c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU
+                if c * kl * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU
                 else ""
             )
             + "</span>"
@@ -782,7 +783,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0):
         dong_truoc = c
         lop = "tang" if c >= o else "giam"
         tren, duoi = y(max(o, c)), y(min(o, c))
-        le = c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU  # khớp lẻ: giá không đáng tin, vẽ mờ
+        le = c * kl * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU  # khớp lẻ: giá không đáng tin, vẽ mờ
         lop_le = ' class="nen-le"' if le else ""
         phan.append(
             f"<g{lop_le}>"
@@ -844,7 +845,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0):
 DO_SAU_CAO = 150  # chiều cao vùng cột của biểu đồ độ sâu
 
 
-def do_sau_thi_truong(so_lenh):
+def do_sau_thi_truong(so_lenh, so_le=0):
     """Bảng 3 mức giá mua/bán, dư mua/dư bán + thanh tỷ lệ, và biểu đồ bậc độ sâu (KL cộng dồn từ giá tốt nhất ra ngoài:
     cột cao nhất mỗi bên là tổng chờ ở 3 mức; bậc nhảy lớn = nơi có "tường")."""
     mua, ban = muc_so_lenh(so_lenh)
@@ -854,12 +855,12 @@ def do_sau_thi_truong(so_lenh):
     hang = "".join(
         "<tr>"
         + (
-            f'<td class="so">{so(mua[i][1])}</td><td class="so gia-tang">{so(mua[i][0])}</td>'
+            f'<td class="so">{so(mua[i][1])}</td><td class="so gia-tang">{so(mua[i][0], so_le)}</td>'
             if i < len(mua)
             else "<td></td><td></td>"
         )
         + (
-            f'<td class="so gia-giam">{so(ban[i][0])}</td><td class="so">{so(ban[i][1])}</td>'
+            f'<td class="so gia-giam">{so(ban[i][0], so_le)}</td><td class="so">{so(ban[i][1])}</td>'
             if i < len(ban)
             else "<td></td><td></td>"
         )
@@ -874,8 +875,8 @@ def do_sau_thi_truong(so_lenh):
     cao_max = max(c for _, c, _ in cot) or 1
     hinh = "".join(
         f'<rect class="cot-{b}" x="{i * rong:.1f}" y="{TREN + DO_SAU_CAO - c / cao_max * DO_SAU_CAO:.1f}" width="{rong:.1f}" '
-        f'height="{c / cao_max * DO_SAU_CAO:.1f}"><title>{"Mua" if b == "mua" else "Bán"} {so(g)} đ: cộng dồn {so(c)}</title></rect>'
-        f'<text class="nhan-truc" x="{(i + 0.5) * rong:.1f}" y="{TREN + DO_SAU_CAO + 14}" text-anchor="middle">{so(g)}</text>'
+        f'height="{c / cao_max * DO_SAU_CAO:.1f}"><title>{"Mua" if b == "mua" else "Bán"} {so(g, so_le)}: cộng dồn {so(c)}</title></rect>'
+        f'<text class="nhan-truc" x="{(i + 0.5) * rong:.1f}" y="{TREN + DO_SAU_CAO + 14}" text-anchor="middle">{so(g, so_le)}</text>'
         for i, (g, c, b) in enumerate(cot)
     )
     ty_le = du_mua / (du_mua + du_ban) * 100 if du_mua + du_ban else 50
@@ -905,14 +906,15 @@ def dong_khop_lenh(df, ref, he_so):
     ][::-1]
 
 
-def bang_khop_lenh(dong, kl_phien):
-    """Bảng khớp lệnh kiểu bảng điện: giá xanh/đỏ/vàng theo tham chiếu; dòng tổng KL phiên, M/B cộng trên các lệnh đang hiện."""
+def bang_khop_lenh(dong, kl_phien, so_le=0, nhan=1):
+    """Bảng khớp lệnh kiểu bảng điện: giá xanh/đỏ/vàng theo tham chiếu; dòng tổng KL phiên, M/B cộng trên các lệnh đang hiện.
+    nhan: đồng cho 1 đơn vị giá (HĐ tương lai: 100.000 đ/điểm) để xét khớp lẻ theo giá trị."""
     if not dong:
         return '<p class="phu">Chưa có lệnh khớp.</p>'
     lop = lambda c: "gia-tang" if c > 0 else ("gia-giam" if c < 0 else "gia-dung")
-    le = lambda g, kl: ' class="khop-le"' if g * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU else ""  # khớp lẻ: vẽ mờ
+    le = lambda g, kl: ' class="khop-le"' if g * kl * nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU else ""  # khớp lẻ: vẽ mờ
     hang = "".join(
-        f'<tr{le(g, kl)}><td>{gio}</td><td class="so">{so(kl)}</td><td class="so {lop(c)}">{so(g)}</td><td class="so {lop(c)}">{so(c, 0, True)}</td>'
+        f'<tr{le(g, kl)}><td>{gio}</td><td class="so">{so(kl)}</td><td class="so {lop(c)}">{so(g, so_le)}</td><td class="so {lop(c)}">{so(c, so_le, True)}</td>'
         f'<td class="so {lop(c)}">{so(pt * 100, 1, True)}</td><td class="{"gia-tang" if m == "M" else "gia-giam"}">{m}</td></tr>'
         for gio, kl, g, c, pt, m in dong
     )
@@ -936,7 +938,7 @@ SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
 
 def nen_cac_khung(ma, gia_hien_tai, chi_so=None):
     """{'h1', 'h4', 'd1': nến (giá đồng / điểm)} của 1 mã: H1 và D1 từ vnstock (2 lượt gọi), H4 gộp từ H1; nhớ GIAY_NHO_NEN giây.
-    Đơn vị (vnstock trả nghìn đồng; chỉ số chia 1.000) suy từ giá hiện tại. chi_so = tên chỉ số trong vnstock (vd VNMIDCAP):
+    Đơn vị (vnstock trả nghìn đồng; chỉ số, HĐ tương lai chia 1.000) suy từ giá hiện tại. chi_so = tên trong vnstock (vd VNMIDCAP):
     lấy floating=6, vì mặc định làm tròn 2 số lẻ sau khi chia 1.000 làm sai giá (VN30 1.892,98 -> 1,89)."""
     luc, nen = BO_NHO_NEN.get(ma, (0.0, None))
     if nen is None or time.time() - luc > GIAY_NHO_NEN:
@@ -960,7 +962,9 @@ def khop_lenh(ma, ref, gia_hien_tai):
     return dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
 
 
-def hang_nen(ma, cac_gio, nen, bg):  # bg == "chi_so": nến tính bằng điểm, 2 số lẻ
+def hang_nen(
+    ma, cac_gio, nen, bg, nhan=None
+):  # bg == "chi_so": nến bằng điểm, 2 số lẻ; nhan: HĐ tương lai (điểm, 1 số lẻ)
     """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap,
     None (mất mạng) hoặc "chi_so" (chỉ số không giao dịch: không có sổ lệnh, khớp lệnh)."""
     if bg == "chi_so":
@@ -969,19 +973,21 @@ def hang_nen(ma, cac_gio, nen, bg):  # bg == "chi_so": nến tính bằng điể
         ny, khop, so_lenh = bg
         try:
             khop_html = bang_khop_lenh(
-                khop_lenh(ma, ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop)), khop.get("accumulatedVolume") or 0
+                khop_lenh(ma, ny["refPrice"], cw_scanner.gia_hien_tai(ny, khop) or ny["refPrice"]),
+                khop.get("accumulatedVolume") or 0,
+                *((1, nhan) if nhan else ()),
             )
         # lỗi mạng / hết lượt gọi: chỉ ô này trống
         except Exception as e:  # noqa: BLE001
             khop_html = f'<p class="phu">Chưa tải được khớp lệnh ({ESC(str(e)[:100])}).</p>'
-        do_sau = do_sau_thi_truong(so_lenh)
+        do_sau = do_sau_thi_truong(so_lenh, 1 if nhan else 0)
     else:
         do_sau = khop_html = '<p class="phu">Không lấy được bảng giá trực tiếp.</p>'
     return (
         f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
         + "".join(
             f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
-            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ()))}</div>"
+            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ('điểm', 1, nhan) if nhan else ()))}</div>"
             for k, gio in cac_gio.items()
         )
         + "</div>"
@@ -989,11 +995,13 @@ def hang_nen(ma, cac_gio, nen, bg):  # bg == "chi_so": nến tính bằng điể
     )
 
 
-def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None):
-    """Mục nến trải hết chiều ngang: mỗi mã (CW/ETF trên, cổ phiếu cơ sở / chỉ số dưới) 1 hàng nến | độ sâu | khớp lệnh;
-    nến chung trục. chi_so = tên chỉ số trong vnstock khi `cs` là chỉ số (trang ETF): hàng dưới không có sổ lệnh."""
+def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None):
+    """Mục nến trải hết chiều ngang: mỗi mã (CW/ETF/HĐ tương lai trên, cổ phiếu cơ sở / chỉ số dưới) 1 hàng nến | độ sâu |
+    khớp lệnh; nến chung trục. chi_so = tên chỉ số trong vnstock khi `cs` là chỉ số (trang ETF, phái sinh): hàng dưới không có
+    sổ lệnh. nhan = hệ số nhân khi `ma` là HĐ tương lai (giá bằng điểm: vnstock floating=6, 1 số lẻ, khớp lẻ theo giá trị).
+    """
     try:
-        cw, nen_cs = nen_cac_khung(ma, P), nen_cac_khung(cs, S, chi_so)
+        cw, nen_cs = nen_cac_khung(ma, P, ma if nhan else None), nen_cac_khung(cs, S, chi_so)
     # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
     except Exception as e:  # noqa: BLE001
         return (
@@ -1018,5 +1026,5 @@ def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None):
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức"
         + (", chỉ số tính bằng điểm" if chi_so else "")
         + ".</p>"
-        f'{hang_nen(ma, cac_gio, cw, bg_cw)}{hang_nen(cs, cac_gio, nen_cs, "chi_so" if chi_so else bg_cs)}</section>'
+        f'{hang_nen(ma, cac_gio, cw, bg_cw, nhan)}{hang_nen(cs, cac_gio, nen_cs, "chi_so" if chi_so else bg_cs)}</section>'
     )

@@ -41,6 +41,39 @@ def test_phien_giu_va_doc_ngay():
     assert P.MAU_MA_HD.fullmatch("VN30F1M") and not P.MAU_MA_HD.fullmatch("VN30F3M")
 
 
+def test_trang_web_phai_sinh():
+    from unittest import mock
+
+    import web_chung
+    import web_phai_sinh as W
+
+    hom_nay = date.today()
+    gd_cuoi = date.fromordinal(hom_nay.toordinal() + 20)
+    hd = {
+        "ma": "VN30F1M",
+        "ten": "VN30 Index Futures 112026",
+        "gia": 1858.0,
+        "ngay_gia": "2026-10-30",
+        "lich_su": {"2026-10-29": 1880.8, "2026-10-30": 1858.0},
+        "gd_cuoi": gd_cuoi,
+        "dao_han": None,
+        "bang_gia": None,
+    }
+    vn30 = {"2026-10-29": 1877.18, "2026-10-30": 1855.04}
+    with (
+        mock.patch.object(P, "lay_du_lieu", return_value=([hd], vn30, [])),
+        mock.patch.object(web_chung, "muc_nen", return_value=""),  # mục nến gọi mạng: kiểm riêng ở test_cw_scanner
+    ):
+        ds = W.trang_phai_sinh()
+        ct = W.trang_phai_sinh_chi_tiet("VN30F1M")
+        assert W.trang_phai_sinh_chi_tiet("VN30F3M") is None and W.trang_phai_sinh_chi_tiet("VN30F2Q") is not None
+    # basis 1.858 − 1.855,04 = +2,96 điểm; tháng đáo hạn đọc từ tên; ký quỹ 31,6 triệu
+    assert "T11/2026" in ds and "+2,96" in ds and "31,6" in ds and 'href="/phai-sinh/VN30F1M"' in ds
+    # chi tiết: dòng "Giữ nguyên" Long = 0 điểm gộp − phí, thuế; basis theo ngày 29/10: 1.880,8 − 1.877,18 = +3,62
+    _, long_ = P.lai_lo_dao_han(1858.0, 1855.04, 1, P.so_phien(hom_nay, gd_cuoi))
+    assert web_chung.so(long_, 0, True) in ct and "Basis theo ngày" in ct and "3.62" in ct
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

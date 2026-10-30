@@ -27,6 +27,7 @@ def trang_huong_dan():
         ("gia-hop-ly", "Giá hợp lý được tính thế nào?"),
         ("truoc-khi-mua", "5 câu tự hỏi trước khi mua"),
         ("etf", "Trang 📊 ETF: mua quỹ dưới NAV"),
+        ("phai-sinh", "Trang 📉 Phái sinh: hợp đồng tương lai VN30"),
         ("hoi-dap", "Câu hỏi thường gặp"),
     ]
     phan = [
@@ -225,7 +226,17 @@ def trang_huong_dan():
         "phiên</b> (5 phút/lần, chọn ngày: lúc nào rẻ nhất), chênh lệch giá/NAV 1 năm và <b>quỹ có theo kịp chỉ số không</b>.</li></ul></section>"
     )
     phan.append(
-        '<section class="the" id="hoi-dap"><h2>10. Câu hỏi thường gặp</h2>'
+        '<section class="the" id="phai-sinh"><h2>10. Trang 📉 Phái sinh: hợp đồng tương lai VN30</h2><ul>'
+        "<li><b>Hợp đồng tương lai VN30</b> (VN30F1M tháng gần, F2M tháng sau, F1Q, F2Q 2 quý gần): đặt cược VN30 lên (Long) hoặc "
+        "xuống (Short) với ký quỹ khoảng 17% giá trị, 1 điểm = 100.000 đ. Đòn bẩy cao: VN30 biến động 1% làm lãi/lỗ khoảng 6% tiền "
+        "ký quỹ, lỗ có thể vượt số tiền ký quỹ.</li>"
+        "<li><b>Basis</b> = giá hợp đồng − VN30. Hợp đồng thanh toán bằng tiền theo VN30 ngày giao dịch cuối nên basis về 0: "
+        "basis dương thì có lợi cho Short, âm có lợi cho Long. <b>Basis năm hóa</b> so với lãi suất r để biết thị trường đang trả giá "
+        "hợp đồng cao hay thấp (chưa tính được giá hợp lý vì chưa có số cổ tức VN30 chắc chắn).</li>"
+        "<li>Trang chi tiết: các ô số liệu, Tóm tắt, bảng <b>lãi/lỗ Long và Short nếu giữ đến ngày giao dịch cuối</b> theo từng mức "
+        "VN30 (đã trừ phí, thuế theo biểu giá SSI), nến H1/H4/D1 hợp đồng + VN30 (thanh dọc/ngang, thước đo, độ sâu, khớp lệnh), "
+        "basis theo ngày. Phí, thuế, ký quỹ là giả định theo 1 công ty lớn: kiểm tra lại với công ty chứng khoán của bạn.</li></ul></section>"
+        '<section class="the" id="hoi-dap"><h2>11. Câu hỏi thường gặp</h2>'
         + "".join(
             f'<details style="margin-top:10px"><summary>{ESC(q)}</summary><p>{ESC(a)}</p></details>' for q, a in hoi_dap
         )

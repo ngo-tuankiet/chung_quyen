@@ -18,12 +18,14 @@ from urllib.parse import parse_qs, urlsplit
 import chiet_khau
 import cw_scanner
 import danh_muc
+import phai_sinh
 import web_chung as W
 from web_chung import CONG, doc_von, trang
 from web_cw import trang_chi_tiet, trang_chinh, trang_sap_ra_mat
 from web_danh_muc import trang_danh_muc
 from web_etf import trang_etf, trang_etf_chi_tiet
 from web_huong_dan import trang_huong_dan
+from web_phai_sinh import trang_phai_sinh, trang_phai_sinh_chi_tiet
 
 
 def nguon_hop_le(headers):
@@ -43,25 +45,34 @@ class XuLy(BaseHTTPRequestHandler):
             return
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
+        m_ps = re.fullmatch(r"/phai-sinh/(" + phai_sinh.MAU_MA_HD.pattern + ")", duong_dan)  # chỉ nhận mã hợp lệ
         noi_dung = (
-            trang_etf()
-            if duong_dan == "/etf"
+            trang_phai_sinh()
+            if duong_dan == "/phai-sinh"
             else (
-                trang_etf_chi_tiet(m_etf.group(1))
-                if m_etf
+                trang_phai_sinh_chi_tiet(m_ps.group(1))
+                if m_ps
                 else (
-                    trang_chinh()
-                    if duong_dan == "/"
+                    trang_etf()
+                    if duong_dan == "/etf"
                     else (
-                        trang_huong_dan()
-                        if duong_dan == "/huong-dan"
+                        trang_etf_chi_tiet(m_etf.group(1))
+                        if m_etf
                         else (
-                            trang_danh_muc()
-                            if duong_dan == "/danh-muc"
+                            trang_chinh()
+                            if duong_dan == "/"
                             else (
-                                trang_sap_ra_mat("tai_moi=1" in self.path)
-                                if duong_dan == "/sap-ra-mat"
-                                else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                trang_huong_dan()
+                                if duong_dan == "/huong-dan"
+                                else (
+                                    trang_danh_muc()
+                                    if duong_dan == "/danh-muc"
+                                    else (
+                                        trang_sap_ra_mat("tai_moi=1" in self.path)
+                                        if duong_dan == "/sap-ra-mat"
+                                        else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
+                                    )
+                                )
                             )
                         )
                     )

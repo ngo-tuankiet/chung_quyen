@@ -20,6 +20,7 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 | `web_cw.py` | `/` danh sách CW (+ mục ⚠ giảm mạnh), `/cw/<mã>` chi tiết (+ nến H1/H4/D1 CW/CS), `/sap-ra-mat` | `trang_chinh`, `muc_giam_manh`, `trang_chi_tiet`, `trang_sap_ra_mat` (mục nến: `web_chung.muc_nen`, dùng chung với ETF) |
 | `web_luot.py` | Mục ⚡ Lướt trên trang chính (`/#luot`, cột `COT_LUOT`; `/luot-cw` chuyển hướng 301) | `muc_luot` |
 | `web_etf.py` | `/etf`, `/etf/<mã>` (giống trang CW: ô, Tóm tắt, kịch bản bán, nến quỹ + chỉ số, iNAV trong phiên, bám chỉ số) | `trang_etf`, `trang_etf_chi_tiet`, `bang_etf`, `so_lieu_truc_tiep`, `kich_ban_ban`, `muc_inav_trong_phien`, `muc_theo_kip_chi_so` |
+| `web_phai_sinh.py`, `phai_sinh.py` | `/phai-sinh`, `/phai-sinh/<mã>`: HĐTL VN30 (basis, năm hóa, lãi/lỗ giữ đến đáo hạn, nến HĐ + VN30) | `trang_phai_sinh`, `trang_phai_sinh_chi_tiet`; `lay_du_lieu`, `basis`, `basis_nam_hoa`, `lai_lo_dao_han`, `thue_mot_lan` |
 | `web_danh_muc.py`, `web_huong_dan.py` | `/danh-muc`, `/huong-dan` | `trang_danh_muc`, `trang_huong_dan` |
 | `kiem_chung_luot.py` | Backtest thứ tự xếp hạng lướt; tải dữ liệu CW kể cả đã hết hạn (cache `.pkl`) | `lay_du_lieu`, `dieu_khoan`, `chay` |
 | `kiem_chung_truyen_dan.py` | Đo β IV theo TCPH → `ket_qua/he_so_iv_tcph_*.csv` (trang ⚡ đọc) | `gia_tho_hose`, `lay_bo_sung`, `bang_he_so`, `chay` |
