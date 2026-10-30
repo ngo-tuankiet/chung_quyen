@@ -397,8 +397,11 @@ Thứ tự quan trọng: (1) đòn bẩy/delta, (2) mất giá theo thời gian,
 5. Khối lượng chào bán của tổ chức phát hành còn nhiều thì giá khó lên nhanh.
 
 Cột mới trong `ket_qua/cw_*.csv`: Giá chờ mua, Spread %, Bên mua 3 bước (triệu), Mất giá/ngày %, Lướt: CS cần tăng %, Lướt: lãi kịch bản %.
-**Nến 1 giờ CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`, mục ngay sau Tóm tắt): 2 biểu đồ nến chồng nhau, chung trục giờ, 10 phiên
-(`SO_PHIEN_NEN_1H`), kèm cột khối lượng; giờ CW không khớp để trống. vnstock VCI `interval="1H"`, 2 lượt gọi/lần mở, nhớ 5 phút; giá chưa
+**Nến H4 CW và CS** (30/10/2026, trang chi tiết `/cw/<mã>`): 2 biểu đồ nến chồng nhau, chung trục, 30 nến (`SO_NEN_H4`, ≈ 15 phiên).
+Nến H4 gộp từ nến 1 giờ (`nen_h4`): mỗi phiên 1 nến sáng (mốc 09:00, gồm nến 9/10/11 giờ) và 1 nến chiều (mốc 13:00, gồm 13/14 giờ); mở = nến sớm
+nhất, đóng = nến muộn nhất, KL cộng dồn. Kèm cột khối lượng cùng màu nến, đường đứt + nhãn giá đóng cuối, dòng tóm tắt (đóng cuối, % cả khoảng,
+cao/thấp); buổi CW không khớp để trống. Biểu đồ giá CS 1 năm và mục "Giá hợp lý được tính thế nào" đã bỏ khỏi trang (người dùng chọn).
+vnstock VCI `interval="1H"` 30 ngày lịch, 2 lượt gọi/lần mở, nhớ 5 phút; giá chưa
 điều chỉnh cổ tức. Dùng để so CW với CS mà không cần mở SSI/Vietcap (vd CSTB2621 30/10: 1 nến, KL 100 trong khi STB đi ngang).
 Nút ⛶ phóng mục nến phủ kín cửa sổ (Esc/bấm lại để thu nhỏ). Từ 30/10/2026 mục này trải hết chiều ngang, mỗi mã 1 hàng 3 cột như bảng điện:
 nến | **độ sâu thị trường** (3 mức giá mua/bán Vietcap lúc mở trang, dư mua/dư bán, biểu đồ bậc KL cộng dồn từ giá tốt nhất ra ngoài:

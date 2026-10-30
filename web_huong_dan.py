@@ -103,8 +103,6 @@ def trang_huong_dan():
         "<li><b>Giá trị nội tại và giá trị thời gian</b>: giá CW = phần lãi nếu đáo hạn ngay hôm nay (<i>nội tại</i>) + phần trả thêm cho thời gian còn lại "
         "(<i>thời gian</i>). Phần thời gian luôn giảm về 0 vào ngày đáo hạn. Phần này càng nhỏ, bạn càng ít mất tiền do thời gian.</li>"
         "<li><b>Điểm hòa vốn</b>: giá cổ phiếu cần đạt vào ngày đáo hạn để bạn không lỗ không lãi.</li>"
-        "<li><b>📐 Giá hợp lý … được tính thế nào?</b>: bấm vào để xem 7 bước tính giá hợp lý bằng số thật của mã đó, "
-        "kèm phần kiểm chứng bằng 20.000 kịch bản (xem thêm mục 7).</li>"
         "<li><b>Khối lượng phát hành</b> (ô cuối hàng số liệu đầu trang): tổng số CW được niêm yết.</li>"
         "<li><b>Đòn bẩy</b>: ví dụ 9x nghĩa là cổ phiếu tăng 1% thì CW tăng khoảng 9%, cổ phiếu giảm 1% thì CW giảm khoảng 9%.</li>"
         '<li><b>Delta</b> (từ 0 đến 1): mức CW "chạy theo" cổ phiếu. Ô này ghi sẵn cổ phiếu tăng/giảm 1.000 đ thì 1 CW tăng/giảm khoảng bao nhiêu đồng. '
@@ -113,8 +111,8 @@ def trang_huong_dan():
         '<b>IV − HV</b> âm → CW đang rẻ, dương → đắt. Khác với "% so với giá hợp lý", con số này so sánh được giữa các CW ở gần và xa giá thực hiện, '
         f'nên bảng xếp theo nó và dùng nó làm tiêu chí (≤ {so(C.MAX_IV_TRU_HV * 100, 0, True)} điểm). "—" nghĩa là không giải được, thường do giá mua thấp hơn <b>mức tối thiểu</b> S − K × e<sup>−rT</sup> của mô hình '
         '(có khung ⚠ Lưu ý): khi đó chữ "Rẻ" chủ yếu đến từ giả định lãi suất và mức dao động, không chắc là món hời.</li>'
-        "<li><b>Biểu đồ</b>: đường xanh là giá cổ phiếu 1 năm qua; đường xám là giá thực hiện; đường cam là <b>điểm hòa vốn</b> (đã trừ phí, thuế). "
-        "Muốn có lãi khi giữ đến đáo hạn, giá cổ phiếu phải <b>nằm trên đường cam</b>. Rê chuột (hoặc bấm vào biểu đồ rồi dùng phím ← →) để xem giá từng ngày.</li>"
+        "<li><b>Nến H4 của CW và cổ phiếu</b>: 30 nến gần nhất, mỗi phiên 2 nến (sáng, chiều), hai biểu đồ chung trục để so CW có chạy theo "
+        "cổ phiếu không. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối; rê chuột lên nến để xem mở/cao/thấp/đóng và khối lượng.</li>"
         '<li><b>Bảng "Nếu giữ đến ngày đáo hạn"</b>: xem trước lãi/lỗ theo từng kịch bản cổ phiếu tăng/giảm. '
         "Nhìn dòng <b>−10%</b> và <b>−20%</b> để biết <b>kịch bản xấu</b>; dòng nào cổ phiếu dưới giá thực hiện là mất toàn bộ tiền mua CW.</li>"
         '<li><b>IV theo thời gian</b>: biểu đồ mức dao động mà giá CW "giả định" từng ngày từ lúc lên sàn. IV thường cao lúc mới phát hành rồi '
@@ -144,7 +142,7 @@ def trang_huong_dan():
         "<p><b>3 quy luật dễ nhớ – CW đáng giá hơn khi:</b></p><ol>"
         "<li>Giá cổ phiếu <b>càng cao hơn</b> giá thực hiện.</li><li><b>Còn càng nhiều thời gian</b> đến ngày đáo hạn.</li>"
         "<li>Cổ phiếu <b>càng hay dao động mạnh</b> (như ví dụ trên).</li></ol>"
-        f'<p>Muốn xem <b>từng bước tính bằng số thật</b>: mở trang phân tích một mã bất kỳ, bấm mục <b>"📐 Giá hợp lý … được tính thế nào?"</b>.{vi_du}</p></section>'
+        "</section>"
         '<section class="the" id="truoc-khi-mua"><h2>8. Năm câu tự hỏi trước khi mua</h2><ol>'
         "<li><b>Tôi có lý do tin cổ phiếu cơ sở sẽ lên trên điểm hòa vốn trước ngày đáo hạn không?</b> "
         "Công cụ chỉ cho biết CW đắt hay rẻ, không cho biết cổ phiếu sẽ tăng.</li>"

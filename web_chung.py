@@ -16,7 +16,7 @@ CONG = 8000
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
 BO_NHO_NEN: dict[str, tuple] = (
     {}
-)  # mã -> (lúc tải, nến 1 giờ): trang chi tiết mở lại trong vài phút không gọi vnstock lần nữa
+)  # mã -> (lúc tải, nến H4): trang chi tiết mở lại trong vài phút không gọi vnstock lần nữa
 BO_NHO_IV: dict[tuple, dict] = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
 LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
 NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
@@ -167,7 +167,12 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .truc { stroke: var(--truc); stroke-width: 1; }
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
-.kl-nen { fill: var(--truc); }
+.kl-tang { fill: var(--tot); opacity: .35; } .kl-giam { fill: var(--chu-am); opacity: .35; }
+.vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }
+.gia-cuoi { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 4 3; }
+.nhan-gia-cuoi { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bieu-do-nen line, .bieu-do-nen rect { vector-effect: non-scaling-stroke; } .bieu-do-nen { width: 100%; height: auto; display: block; }
+.tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
 .giai-thich { margin-top: 4px; } .giai-thich summary { cursor: pointer; color: var(--lien-ket); font-size: 14px; }
@@ -568,7 +573,7 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
     )
 
 
-# ============ NẾN 1 GIỜ ============
+# ============ NẾN H4 (gộp từ nến 1 giờ) ============
 NEN_CAO, KL_CAO = 280, 50  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
 
 
@@ -580,11 +585,24 @@ def nen_tu_df(df, he_so):
     }
 
 
-def gio_nen_chung(*cac_nen, so_phien):
-    """Trục giờ chung của nhiều mã (gộp giờ của tất cả), chỉ giữ `so_phien` ngày cuối: 2 biểu đồ cùng cột = cùng giờ."""
-    gio = sorted(set().union(*cac_nen))
-    ngay = sorted({g[:10] for g in gio})[-so_phien:]
-    return [g for g in gio if g[:10] in ngay]
+def gio_nen_chung(*cac_nen, so_nen):
+    """Trục thời gian chung của nhiều mã (gộp mốc của tất cả), chỉ giữ `so_nen` mốc cuối: 2 biểu đồ cùng cột = cùng thời điểm."""
+    return sorted(set().union(*cac_nen))[-so_nen:]
+
+
+def nen_h4(nen):
+    """Gộp nến 1 giờ thành nến 4 giờ mốc 09:00 và 13:00. HOSE chỉ khớp 9:15–11:30 và 13:00–14:45 nên mỗi phiên có đúng
+    1 nến buổi sáng và 1 nến buổi chiều: mở = mở nến sớm nhất, đóng = đóng nến muộn nhất, cao/thấp = max/min, KL cộng dồn.
+    """
+    gop = {}
+    for g in sorted(nen):
+        k, (o, h, l, c, v) = g[:11] + ("09:00" if g[11:16] < "13:00" else "13:00"), nen[g]
+        if k in gop:
+            o0, h0, l0, _, v0 = gop[k]
+            gop[k] = (o0, max(h0, h), min(l0, l), c, v0 + v)
+        else:
+            gop[k] = (o, h, l, c, v)
+    return gop
 
 
 def muc_so_lenh(so_lenh):
@@ -599,13 +617,15 @@ def muc_so_lenh(so_lenh):
 
 
 def bieu_do_nen(gio, nen, ten):
-    """SVG nến (xanh tăng, đỏ giảm) + cột khối lượng theo trục giờ `gio`; giờ không có trong `nen` (không khớp) để trống.
-    Rê chuột lên nến: thẻ <title> hiện giờ, mở/cao/thấp/đóng, KL. Kèm bảng dữ liệu cho người không xem được hình."""
+    """SVG nến H4 (xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
+    Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Rê chuột lên nến: <title> hiện buổi, mở/cao/thấp/đóng, KL.
+    Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình."""
     co = [nen[g] for g in gio if g in nen]
     if not co:
         return f"<p>{ESC(ten)}: không có giao dịch trong khoảng này.</p>"
-    R, TRAI, PHAI, TREN = 900, 60, 20, 10  # tỷ lệ ~2,5:1: cột nến hẹp (cạnh độ sâu, khớp lệnh) vẫn đủ cao
-    C = TREN + NEN_CAO + 24 + KL_CAO
+    R, TRAI, PHAI, TREN = 900, 56, 76, 10  # PHAI chừa chỗ nhãn giá cuối
+    day_nen, day_kl = TREN + NEN_CAO, TREN + NEN_CAO + 24 + KL_CAO
+    C = day_kl + 4
     thap, cao = min(n[2] for n in co), max(n[1] for n in co)
     le = (cao - thap) * 0.06 or 1
     thap, cao = thap - le, cao + le
@@ -613,6 +633,7 @@ def bieu_do_nen(gio, nen, ten):
     x = lambda i: TRAI + (i + 0.5) * rong
     y = lambda v: TREN + (cao - v) * NEN_CAO / (cao - thap)
     kl_max = max(n[4] for n in co) or 1
+    buoi = lambda g: "sáng" if g[11:16] < "13:00" else "chiều"
     phan = []
     buoc_tho = (cao - thap) / 4
     mu = 10 ** math.floor(math.log10(buoc_tho))
@@ -624,36 +645,55 @@ def bieu_do_nen(gio, nen, ten):
             f'<text class="nhan-truc" x="{TRAI - 8}" y="{y(v) + 4:.1f}" text-anchor="end">{so(v)}</text>'
         )
         v += buoc
-    day_kl = TREN + NEN_CAO + 24 + KL_CAO
+    phan.append(f'<line class="truc" x1="{TRAI}" x2="{R - PHAI}" y1="{day_nen + 24:.1f}" y2="{day_nen + 24:.1f}"/>')
+    ngay_truoc = ""
     for i, g in enumerate(gio):
-        if i == 0 or g[:10] != gio[i - 1][:10]:  # vạch đầu mỗi phiên + nhãn ngày
-            xg = TRAI + i * rong
+        if g[:10] != ngay_truoc:  # vạch mờ đầu mỗi phiên + nhãn ngày
+            ngay_truoc, xg = g[:10], TRAI + i * rong
             phan.append(
-                f'<line class="luoi-ngang" x1="{xg:.1f}" x2="{xg:.1f}" y1="{TREN}" y2="{day_kl}"/>'
-                f'<text class="nhan-truc" x="{xg + 3:.1f}" y="{TREN + NEN_CAO + 16}">{g[8:10]}/{g[5:7]}</text>'
+                f'<line class="vach-phien" x1="{xg:.1f}" x2="{xg:.1f}" y1="{TREN}" y2="{day_kl}"/>'
+                f'<text class="nhan-truc" x="{xg + 3:.1f}" y="{day_nen + 16}">{g[8:10]}/{g[5:7]}</text>'
             )
         if g not in nen:
             continue
         o, h, l, c, kl = nen[g]
-        lop = "nen-tang" if c >= o else "nen-giam"
+        lop = "tang" if c >= o else "giam"
         tren, duoi = y(max(o, c)), y(min(o, c))
         phan.append(
-            f"<g><title>{g[8:10]}/{g[5:7]} {g[11:]} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}</title>"
-            f'<line class="{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
-            f'<rect class="{lop}" x="{x(i) - rong * 0.3:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" width="{rong * 0.6:.1f}"/>'
-            f'<rect class="kl-nen" x="{x(i) - rong * 0.3:.1f}" y="{day_kl - kl / kl_max * KL_CAO:.1f}" '
-            f'height="{kl / kl_max * KL_CAO:.1f}" width="{rong * 0.6:.1f}"/></g>'
+            f"<g><title>{g[8:10]}/{g[5:7]} buổi {buoi(g)} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}</title>"
+            f'<line class="nen-{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
+            f'<rect class="nen-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" '
+            f'width="{rong * 0.7:.1f}" rx="1"/>'
+            f'<rect class="kl-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{day_kl - kl / kl_max * KL_CAO:.1f}" '
+            f'height="{kl / kl_max * KL_CAO:.1f}" width="{rong * 0.7:.1f}"/></g>'
         )
-    mo_ta = f"{ten}: nến 1 giờ từ {gio[0]} đến {gio[-1]}, {len(co)} nến có khớp lệnh, thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
+    g_cuoi = max(g for g in gio if g in nen)
+    o_dau, dong = nen[min(g for g in gio if g in nen)][0], nen[g_cuoi][3]
+    lop_cuoi = "tang" if dong >= nen[g_cuoi][0] else "giam"
+    phan.append(
+        f'<line class="gia-cuoi" x1="{TRAI}" x2="{R - PHAI}" y1="{y(dong):.1f}" y2="{y(dong):.1f}"/>'
+        f'<rect class="nen-{lop_cuoi}" x="{R - PHAI + 4}" y="{y(dong) - 10:.1f}" width="{PHAI - 6}" height="20" rx="3"/>'
+        f'<text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" y="{y(dong) + 4:.1f}" text-anchor="middle">{so(dong)}</text>'
+    )
+    thay_doi = dong / o_dau - 1 if o_dau else 0.0
+    tom_tat = (
+        f'<p class="tom-nen">Đóng cuối <b>{so(dong)} đ</b> · <b class="{"gia-tang" if thay_doi >= 0 else "gia-giam"}">'
+        f"{so(thay_doi * 100, 1, True)}%</b> trong {len(gio)} nến · cao nhất {so(max(n[1] for n in co))} · thấp nhất {so(min(n[2] for n in co))}</p>"
+    )
+    mo_ta = (
+        f"{ten}: nến 4 giờ từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong)} đ, "
+        f"thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
+    )
     dong_bang = "".join(
-        f"<tr><td>{g[8:10]}/{g[5:7]} {g[11:]}</td>" + "".join(f'<td class="so">{so(x)}</td>' for x in nen[g]) + "</tr>"
+        f"<tr><td>{g[8:10]}/{g[5:7]} {buoi(g)}</td>" + "".join(f'<td class="so">{so(x)}</td>' for x in nen[g]) + "</tr>"
         for g in reversed(gio)
         if g in nen
     )
     return (
-        f'<div class="cuon-bieu-do"><svg viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">{"".join(phan)}</svg></div>'
+        f'{tom_tat}<div class="cuon-bieu-do"><svg class="bieu-do-nen" viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">'
+        f'{"".join(phan)}</svg></div>'
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
-        '<table><thead><tr><th>Giờ</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
+        '<table><thead><tr><th>Buổi</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
     )
 

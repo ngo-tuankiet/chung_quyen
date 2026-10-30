@@ -536,11 +536,33 @@ def test_nen_1h_doi_don_vi_va_chung_truc_gio():
     cs = W.nen_tu_df(
         _df_nen([(f"2026-10-{d} {h}:00", 66, 67, 65, 66.5, 1000) for d in (29, 30) for h in (10, 13)]), 1000
     )
-    gio = W.gio_nen_chung(cw, cs, so_phien=1)  # chỉ giữ phiên cuối 30/10, gộp giờ của cả 2 mã
+    gio = W.gio_nen_chung(cw, cs, so_nen=3)  # chỉ giữ 3 nến cuối, gộp giờ của cả 2 mã
     assert gio == ["2026-10-30 09:00", "2026-10-30 10:00", "2026-10-30 13:00"]
     html = W.bieu_do_nen(gio, cw, "CW")
-    assert html.count('<rect class="nen-') == 1  # 10:00 và 13:00 CW không khớp: để trống, không vẽ nến giả
-    assert "30/10 09:00" in html and "KL 100" in html
+    assert (
+        html.count('rx="1"') == 1
+    )  # 10:00 và 13:00 CW không khớp: để trống, không vẽ nến giả (nhãn giá cuối dùng rx="3")
+    assert "30/10 buổi sáng" in html and "KL 100" in html and ">1.100</text>" in html  # nhãn giá đóng cuối
+
+
+def test_gop_nen_h4_sang_chieu():
+    import web_chung as W
+
+    # Nến 1 giờ HOSE: 09, 10, 11 giờ (sáng) và 13, 14 giờ (chiều) -> 1 nến sáng mốc 09:00, 1 nến chiều mốc 13:00
+    # Sáng: mở = mở nến 9h (100), cao = max (115), thấp = min (95), đóng = đóng nến 11h (108), KL = 10 + 20 + 30 = 60
+    nen = {
+        "2026-10-30 09:00": (100, 105, 98, 102, 10),
+        "2026-10-30 10:00": (102, 115, 101, 110, 20),
+        "2026-10-30 11:00": (110, 111, 95, 108, 30),
+        "2026-10-30 13:00": (108, 109, 104, 105, 5),
+        "2026-10-30 14:00": (105, 107, 103, 106, 7),
+    }
+    assert W.nen_h4(nen) == {
+        "2026-10-30 09:00": (100, 115, 95, 108, 60),
+        "2026-10-30 13:00": (108, 109, 103, 106, 12),
+    }
+    # thứ tự khóa không ảnh hưởng (mở = nến sớm nhất, đóng = nến muộn nhất)
+    assert W.nen_h4(dict(reversed(list(nen.items())))) == W.nen_h4(nen)
 
 
 def test_bieu_do_nen_toa_do_tinh_tay():

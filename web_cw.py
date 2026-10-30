@@ -23,18 +23,20 @@ from web_chung import (
     trang,
 )
 
-SO_PHIEN_NEN_1H = 10  # trang chi tiết: nến 1 giờ của CW và CS trong 10 phiên gần nhất
-SO_NGAY_NEN_1H = 16  # ngày lịch cần tải để đủ 10 phiên (cuối tuần, nghỉ lễ ngắn)
+SO_NEN_H4 = 30  # trang chi tiết: 30 nến H4 (2 nến/phiên: sáng, chiều) ≈ 15 phiên gần nhất của CW và CS (người dùng chọn 30/10/2026)
+SO_NGAY_NEN_1H = 30  # ngày lịch nến 1 giờ cần tải để đủ 15 phiên (cuối tuần, nghỉ lễ); vnstock VCI trả ~1 tháng
 GIAY_NHO_NEN = 300  # nến đã tải dùng lại trong 5 phút
 SO_LENH_KHOP = 100  # bảng khớp lệnh: số lệnh gần nhất
 
 
 def nen_1h(ma, gia_hien_tai):
-    """Nến 1 giờ của 1 mã (giá đồng), nhớ GIAY_NHO_NEN giây. Đơn vị vnstock (nghìn đồng) suy từ giá hiện tại như mục IV."""
+    """Nến H4 của 1 mã (giá đồng), gộp từ nến 1 giờ vnstock, nhớ GIAY_NHO_NEN giây. Đơn vị (nghìn đồng) suy từ giá hiện tại."""
     luc, nen = W.BO_NHO_NEN.get(ma, (0.0, None))
     if nen is None or time.time() - luc > GIAY_NHO_NEN:
         df = cw_scanner.lay_gia_dong_cua(ma, SO_NGAY_NEN_1H, cw_scanner.NGUON_GIA_CW, interval="1H")
-        nen = W.nen_tu_df(df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1)
+        nen = W.nen_h4(
+            W.nen_tu_df(df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1)
+        )
         W.BO_NHO_NEN[ma] = (time.time(), nen)
     return nen
 
@@ -48,7 +50,7 @@ def khop_lenh(ma, ref, gia_hien_tai):
 
 
 def hang_nen(ma, gio, nen, bg):
-    """1 hàng: nến 1 giờ | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap hoặc None (mất mạng)."""
+    """1 hàng: nến H4 | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap hoặc None (mất mạng)."""
     if bg:
         ny, khop, so_lenh = bg
         try:
@@ -68,20 +70,21 @@ def hang_nen(ma, gio, nen, bg):
 
 
 def muc_nen_1h(ma, cs, P, S, bg_cw=None, bg_cs=None):
-    """Mục nến 1 giờ trải hết chiều ngang: mỗi mã (CW trên, CS dưới) 1 hàng nến | độ sâu | khớp lệnh; nến chung trục giờ."""
+    """Mục nến H4 trải hết chiều ngang: mỗi mã (CW trên, CS dưới) 1 hàng nến | độ sâu | khớp lệnh; nến chung trục."""
     try:
         cw, nen_cs = nen_1h(ma, P), nen_1h(cs, S)
     # lỗi mạng / hết lượt gọi: chỉ mục này trống, phần còn lại của trang vẫn dùng được
     except Exception as e:  # noqa: BLE001
         return (
-            f'<section class="the"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)}</h2>'
-            f"<p>Chưa tải được nến 1 giờ ({ESC(str(e)[:120])}). Mở lại trang sau ít phút.</p></section>"
+            f'<section class="the"><h2>Nến H4: {ESC(ma)} và {ESC(cs)}</h2>'
+            f"<p>Chưa tải được nến ({ESC(str(e)[:120])}). Mở lại trang sau ít phút.</p></section>"
         )
-    gio = W.gio_nen_chung(cw, nen_cs, so_phien=SO_PHIEN_NEN_1H)
+    gio = W.gio_nen_chung(cw, nen_cs, so_nen=SO_NEN_H4)
     return (
-        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến 1 giờ: {ESC(ma)} và {ESC(cs)} ({SO_PHIEN_NEN_1H} phiên)</h2>'
+        f'<section class="the" id="nen-1h"><div class="dau-trang"><h2>Nến H4: {ESC(ma)} và {ESC(cs)} ({len(gio)} nến)</h2>'
         '<button class="nut" type="button" data-toan-man-hinh="#nen-1h" style="padding:6px 14px">⛶ Toàn màn hình</button></div>'
-        f'<p class="phu">Hai biểu đồ nến chung trục giờ: cùng cột là cùng giờ; giờ {ESC(ma)} không khớp lệnh thì để trống. '
+        f'<p class="phu">Mỗi phiên 2 nến: buổi sáng (9:15–11:30) và buổi chiều (13:00–14:45). Hai biểu đồ chung trục: cùng cột là '
+        f"cùng buổi; buổi {ESC(ma)} không khớp lệnh thì để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. "
         "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
         "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức.</p>"
@@ -332,7 +335,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + o_so(
             "Giá mua / giá hợp lý",
             f"{so(P)} / {so(h['Giá hợp lý'])}",
-            '<a href="#cach-tinh" onclick="document.getElementById(\'cach-tinh\').open = true">Xem cách tính giá hợp lý ↓</a>',
+            "giá chào bán thấp nhất / giá Black-Scholes với HV 1 năm",
         )
         + o_so("So với giá hợp lý", f'<span class="{lop_dat_re}">{chu_dat_re}</span>', "Rẻ = giá mua thấp hơn mô hình")
         + o_so(
@@ -369,106 +372,9 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "</div>"
     )
 
-    # Giá hợp lý được tính thế nào: từng bước bằng số thật của mã này, nói bằng lời thường
-    m_cach_tinh = ""
-    if ngay_con_lai > 0:
-        N, bdd, kc = (
-            C.phan_phoi_chuan,
-            sigma_ls * math.sqrt(T),
-            math.log(S / K),
-        )  # bdd: biên độ dao động đến ngày đáo hạn
-        d1 = (kc + (r + sigma_ls**2 / 2) * T) / bdd
-        d2, ck = d1 - bdd, math.exp(-r * T)
-        nhan, tra = S * N(d1), K * ck * N(d2)
-        gia_cw_tinh, mo_phong = (nhan - tra) / ty_le, C.mo_phong_gia(S, K, T, r, sigma_ls) / ty_le
-        c = ESC(cs)
-        buoc = [
-            (
-                "Thu thập 5 con số",
-                (
-                    f"Giá {c} hôm nay <b>S = {so(S)} đ</b> · giá thực hiện <b>K = {so(K)} đ</b> · còn <b>{ngay_con_lai} ngày = {so(T, 3)} năm</b>"
-                    f" · {c} dao động khoảng <b>σ = {so(sigma_ls * 100, 1)}%/năm</b> (đo từ giá 1 năm qua) · lãi suất <b>r = {so(r * 100, 1)}%/năm</b>."
-                ),
-            ),
-            (
-                "Giá đang cách giá thực hiện bao xa?",
-                (
-                    f"ln(S ÷ K) = ln({so(S)} ÷ {so(K)}) = <b>{so(kc, 3)}</b> → giá {c} đang "
-                    f"{'cao' if kc >= 0 else 'thấp'} hơn giá thực hiện khoảng <b>{so(abs(kc) * 100, 1)}%</b>."
-                ),
-            ),
-            (
-                "Từ nay đến ngày đáo hạn, giá thường dao động bao nhiêu?",
-                (
-                    f"σ × √T = {so(sigma_ls * 100, 1)}% × √{so(T, 3)} = <b>{so(bdd * 100, 1)}%</b>"
-                    f" → trong {ngay_con_lai} ngày tới, giá {c} thường lên/xuống trong khoảng <b>±{so(bdd * 100, 0)}%</b>."
-                ),
-            ),
-            (
-                "Đổi khoảng cách thành “số bước dao động”",
-                (
-                    f"d1 = (khoảng cách + một chút cho lãi suất và dao động) ÷ biên độ = ({so(kc, 3)} + "
-                    f"{so((r + sigma_ls**2 / 2) * T, 3)}) ÷ {so(bdd, 3)} = <b>{so(d1, 2)}</b> · d2 = d1 − biên độ = <b>{so(d2, 2)}</b>."
-                    f" Hiểu đơn giản: giá đang {'trên' if d2 >= 0 else 'dưới'} giá thực hiện khoảng {so(abs(d2), 1)} bước dao động."
-                ),
-            ),
-            (
-                "Đổi “số bước” thành xác suất",
-                (
-                    f"Tra bảng phân phối chuẩn (Excel: hàm NORM.S.DIST): <b>N(d2) = {so(N(d2) * 100, 0)}%</b> = khả năng tới ngày đáo hạn "
-                    f"giá {c} vẫn trên {so(K)} đ (theo mô hình) · <b>N(d1) = {so(N(d1) * 100, 0)}%</b> – đây chính là <b>delta = {so(N(d1), 2)}</b>."
-                ),
-            ),
-            (
-                "Ráp vào công thức",
-                (
-                    f"Giá 1 quyền chọn = <b>phần nhận được − phần phải trả</b> = S × N(d1) − K × e<sup>−rT</sup> × N(d2) = "
-                    f"{so(S)} × {so(N(d1), 3)} − {so(K)} × {so(ck, 3)} × {so(N(d2), 3)} = {so(nhan)} − {so(tra)} = <b>{so(nhan - tra)} đ</b> (cho 1 cổ phiếu)."
-                ),
-            ),
-            (
-                "Chia cho tỷ lệ chuyển đổi",
-                f"{so(nhan - tra)} ÷ {so(ty_le, 4)} = <b>{so(gia_cw_tinh)} đ / 1 CW</b>. Giá mua là {so(P)} đ → <b>{chu_dat_re}</b> so với giá hợp lý."
-                + (
-                    f" <small class='phu'>(Bảng ghi {so(h['Giá hợp lý'])} đ: chênh vài đồng do mức dao động hiển thị đã làm tròn.)</small>"
-                    if round(gia_cw_tinh) != int(h["Giá hợp lý"])
-                    else ""
-                ),
-            ),
-        ]
-        m_cach_tinh = (
-            f'<details class="the" id="cach-tinh"><summary><h2 style="display:inline">📐 Giá hợp lý {so(h["Giá hợp lý"])} đ được tính thế nào?</h2>'
-            ' <span class="phu">(bấm để xem từng bước)</span></summary>'
-            f'<p class="tom-tat"><b>Ý tưởng:</b> tưởng tượng hàng nghìn kịch bản giá {c} có thể xảy ra đến ngày đáo hạn, với mức dao động như 1 năm qua. '
-            f"Mỗi kịch bản, CW trả một số tiền hoặc về 0. <b>Giá hợp lý = trung bình số tiền đó, quy về tiền hôm nay.</b> "
-            'Công thức Black-Scholes tính ra con số trung bình này chỉ bằng 7 bước:</p><ol class="cac-buoc">'
-            + "".join(
-                f"<li><b>Bước {k} – {t}{'' if t.endswith('?') else '.'}</b><br>{nd}</li>"
-                for k, (t, nd) in enumerate(buoc, 1)
-            )
-            + f'</ol><p class="ghi-chu-canh-bao" style="border-left-color: var(--xanh); background: color-mix(in srgb, var(--xanh) 8%, transparent)">'
-            f"<b>Kiểm chứng:</b> chương trình vừa thử <b>20.000 kịch bản</b> ngẫu nhiên cho giá {c} đến ngày đáo hạn. Trung bình CW trả "
-            f"<b>≈ {so(mo_phong)} đ</b> (quy về hôm nay), gần bằng kết quả công thức {so(gia_cw_tinh)} đ.</p>"
-            '<p class="phu">Nhớ: con số này dựa trên giả định cổ phiếu sẽ dao động như 1 năm qua. Nó là thước đo để so sánh, không phải dự báo giá.</p></details>'
-        )
-
-    # Biểu đồ giá cổ phiếu cơ sở
+    # Giá CS đã điều chỉnh quyền lúc quét (dùng cho IV theo thời gian, độ lệch so với CS)
     file_ls = C.THU_MUC_KET_QUA / f"lich_su_{ngay}.json"
     lich_su = json.loads(file_ls.read_text(encoding="utf-8")).get(cs) if file_ls.exists() else None
-    m_gia_cs = (
-        f'<section class="the"><h2>Giá {ESC(cs)} 1 năm qua</h2>'
-        f'<p class="phu">Muốn có lãi khi giữ đến đáo hạn, giá {ESC(cs)} phải nằm trên đường <b>hòa vốn</b>. Rê chuột lên biểu đồ để xem giá từng ngày.</p>'
-        + (
-            bieu_do(
-                lich_su,
-                [("Giá thực hiện", K, "tc-thuc-hien"), ("Hòa vốn (có phí, thuế)", hoa_von_phi, "tc-hoa-von")],
-                f"Giá {cs}",
-            )
-            if lich_su
-            else "<p>Chưa có dữ liệu biểu đồ. Bấm <b>Quét ngay</b> ở trang chính để tải.</p>"
-        )
-        + "</section>"
-    )
 
     # IV theo thời gian: giá CW từ vnstock (1 lượt gọi, nhớ trong ngày) + giá CS đã điều chỉnh quyền trong file lịch sử lúc quét
     bo_nho, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
@@ -597,13 +503,12 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "</dl></section>"
     )
     # bố cục (người dùng chọn 30/10/2026): số liệu chính -> tóm tắt + lãi/lỗ nếu giữ đến đáo hạn -> thị trường lúc này
-    # -> CW so với CS -> IV, cách tính -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
+    # -> CW so với CS | IV -> tham khảo. Hàng đôi: 2 mục cạnh nhau, màn hình < 1.100 px xếp 1 cột
     phan += [
         m_o_so,
         hang_doi(m_tom_tat, m_neu_giu),
         m_nen,
-        hang_doi(m_theo_kip, m_gia_cs),
-        hang_doi(m_iv, m_cach_tinh),
+        hang_doi(m_theo_kip, m_iv),
         m_cw_khac,
         m_dieu_khoan,
     ]
