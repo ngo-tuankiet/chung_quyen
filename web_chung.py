@@ -167,6 +167,7 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .truc { stroke: var(--truc); stroke-width: 1; }
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
+.nen-le { opacity: .3; } tr.khop-le td { opacity: .45; }
 .kl-tang { fill: var(--tot); opacity: .45; } .kl-giam { fill: var(--chu-am); opacity: .45; }
 .kl-tang-dam { fill: var(--tot); } .kl-giam-dam { fill: var(--chu-am); }
 .vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }
@@ -676,8 +677,11 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         o, h, l, c, kl = nen[g]
         lop = "tang" if c >= o else "giam"
         tren, duoi = y(max(o, c)), y(min(o, c))
+        le = c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU  # khớp lẻ: giá không đáng tin, vẽ mờ
+        lop_le = ' class="nen-le"' if le else ""
         phan.append(
-            f"<g><title>{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}</title>"
+            f"<g{lop_le}><title>{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}"
+            f"{' · khớp lẻ dưới 5 triệu đồng, giá không đáng tin' if le else ''}</title>"
             f'<line class="nen-{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
             f'<rect class="nen-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" '
             f'width="{rong * 0.7:.1f}" rx="1"/>'
@@ -791,8 +795,9 @@ def bang_khop_lenh(dong, kl_phien):
     if not dong:
         return '<p class="phu">Chưa có lệnh khớp.</p>'
     lop = lambda c: "gia-tang" if c > 0 else ("gia-giam" if c < 0 else "gia-dung")
+    le = lambda g, kl: ' class="khop-le"' if g * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU else ""  # khớp lẻ: vẽ mờ
     hang = "".join(
-        f'<tr><td>{gio}</td><td class="so">{so(kl)}</td><td class="so {lop(c)}">{so(g)}</td><td class="so {lop(c)}">{so(c, 0, True)}</td>'
+        f'<tr{le(g, kl)}><td>{gio}</td><td class="so">{so(kl)}</td><td class="so {lop(c)}">{so(g)}</td><td class="so {lop(c)}">{so(c, 0, True)}</td>'
         f'<td class="so {lop(c)}">{so(pt * 100, 1, True)}</td><td class="{"gia-tang" if m == "M" else "gia-giam"}">{m}</td></tr>'
         for gio, kl, g, c, pt, m in dong
     )

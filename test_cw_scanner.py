@@ -376,6 +376,10 @@ def test_lech_20_phien():
     assert moc == "2026-10-14" and [h[0] for h in hang] == ["2026-10-14", "2026-10-15", "2026-10-16"]
     assert all(abs(h[4]) < 1e-4 for h in hang) and abs(hang[-1][1] - (24500 / 24400 - 1)) < 1e-12
     assert lech_20_phien(gia_cw, {}, gia_cs, K, n, dh, r) == (None, [])  # không phiên nào đủ thanh khoản
+    # phiên 15/10 khớp lẻ: 100 CW × giá 1.779 đ ≈ 0,18 triệu < 5 triệu -> bỏ, giá đóng cửa không đáng tin
+    assert gia_cw["2026-10-15"] * 100 < 5_000_000 <= gia_cw["2026-10-16"] * 30_000
+    _, hang = lech_20_phien(gia_cw, {**kl, "2026-10-15": 100}, gia_cs, K, n, dh, r)
+    assert [h[0] for h in hang] == ["2026-10-14", "2026-10-16"]
 
 
 def test_lech_hien_tai_doi_don_vi_va_lay_phien_cuoi():
@@ -571,6 +575,9 @@ def test_bieu_do_nen_nhan_theo_khung():
     # D1: 30 nến ngày -> nhãn ngày thưa (≤ 10 nhãn) để không chồng chữ; tooltip chỉ có ngày
     ngay = [f"2026-{m:02d}-{d:02d} 00:00" for m, d in [(9, x) for x in range(1, 31)]]
     html = W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 1) for g in ngay}, "X", "d1")
+    # đóng 105 × KL 1 < 5 triệu: mọi nến khớp lẻ, vẽ mờ; KL 50.000 (5,25 triệu) thì không
+    assert html.count('<g class="nen-le">') == len(ngay) and "khớp lẻ dưới 5 triệu" in html
+    assert 'nen-le"' not in W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 50_000) for g in ngay}, "X", "d1")
     assert html.count('class="nhan-truc" x=') - html.count('text-anchor="end"') <= 10
     assert "<title>01/09 · mở" in html
     # H1: tooltip có giờ; H4 mặc định: buổi sáng/chiều
@@ -641,6 +648,9 @@ def test_khop_lenh_moi_nhat_truoc_va_chenh_lech():
     html = W.bang_khop_lenh(dong, 9100)
     assert "KL: 9.100" in html and "M: 9.000" in html and "B: 100" in html and "+12,2" in html
     assert W.bang_khop_lenh([], 0).count("Chưa có lệnh khớp") == 1
+    # khớp lẻ (giá × KL < 5 triệu) vẽ mờ: 9.000 × 460 = 4,14 triệu và 100 × 410 -> cả 2 mờ; 11.000 × 460 = 5,06 triệu -> rõ
+    assert html.count('<tr class="khop-le">') == 2
+    assert W.bang_khop_lenh([("10:49:54", 11_000, 460.0, 50.0, 0.12, "M")], 11_000).count("khop-le") == 0
 
 
 def test_khung_trang_hang_doi_va_giai_thich():

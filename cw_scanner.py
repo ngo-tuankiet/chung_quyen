@@ -59,6 +59,10 @@ PHI_GIAO_DICH = 0.0015
 THUE_BAN = 0.001
 MAX_TANG_DE_HOA_VON = 0.15  # cổ phiếu cơ sở chỉ cần tăng tối đa 15% là hòa vốn lúc đáo hạn
 MIN_KHOI_LUONG = 10_000  # khối lượng khớp trong phiên >= 10.000 CW (dễ mua, dễ bán)
+# Lệnh khớp (hoặc phiên/nến) giá trị dưới 5 triệu đồng là khớp lẻ: giá không mua lại được (CVNM2616 30/10/2026: khớp 100 CW
+# giá 120 = 12 nghìn đồng, bán 1 là 220). Cảnh báo giảm mạnh dùng giá bán 1; lịch sử IV/lệch bỏ phiên đó; nến, khớp lệnh vẽ mờ.
+# Người dùng chốt 30/10/2026
+GIA_TRI_KHOP_TOI_THIEU = 5_000_000
 KET_LUAN = ["NÊN XEM XÉT", "THEO DÕI", "BỎ QUA"]  # trượt 0 / 1 / từ 2 tiêu chí trở lên
 
 # Lướt sóng 2–5 phiên (trang "⚡ Lướt CW", báo cáo 14:00): chọn CW hiệu quả nhất khi BẠN đã chọn hướng cổ phiếu cơ sở.
@@ -346,8 +350,10 @@ SO_PHIEN_LECH = 20  # cột "Lệch 20 phiên" và mục "có theo kịp" ở tr
 def lech_20_phien(gia_cw, kl_cw, gia_cs, K, ty_le, dao_han, r, so_phien=SO_PHIEN_LECH):
     """Độ lệch so với CS qua `so_phien` phiên gần nhất. gia_cw, kl_cw, gia_cs: {ngày 'YYYY-MM-DD': giá VND / khối lượng}.
     Mốc = phiên đầu tiên khớp ≥ MIN_KHOI_LUONG (bỏ phiên mới lên sàn khớp rất ít, vd CHPG2638 29-30/09/2026).
+    Bỏ phiên khớp lẻ (giá đóng cửa × KL < GIA_TRI_KHOP_TOI_THIEU): giá đóng cửa của phiên đó không đáng tin.
     Trả về (mốc, [(ngày, CS %, CW thực tế %, CW lẽ ra %, lệch)]); mốc None nếu không có phiên đủ thanh khoản."""
     ngay_chung = [d for d in sorted(gia_cw) if d in gia_cs][-(so_phien + 1) :]
+    ngay_chung = [d for d in ngay_chung if gia_cw[d] * kl_cw.get(d, 0) >= GIA_TRI_KHOP_TOI_THIEU]
     moc = next((d for d in ngay_chung if kl_cw.get(d, 0) >= MIN_KHOI_LUONG), None)
     hang = []
     for d in [d for d in ngay_chung if moc and d >= moc]:

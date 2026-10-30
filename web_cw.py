@@ -402,8 +402,10 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
             gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
             kl_cw = {str(t)[:10]: float(v) for t, v in zip(df_cw["time"], df_cw["volume"])}
+            # phiên khớp lẻ: giá đóng cửa không mua được -> IV ngày đó giả, bỏ (như lech_20_phien)
+            gia_du = {d: g for d, g in gia_cw.items() if g * kl_cw[d] >= C.GIA_TRI_KHOP_TOI_THIEU}
             bo_nho = BO_NHO_IV[(ma, date.today())] = {
-                "iv": C.lich_su_iv(gia_cw, dict(lich_su), K, ty_le, ngay_dao_han, r),
+                "iv": C.lich_su_iv(gia_du, dict(lich_su), K, ty_le, ngay_dao_han, r),
                 "gia": gia_cw,
                 "kl": kl_cw,
             }
@@ -457,7 +459,8 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
                 "%",
                 "Lệch (%)",
             )
-            + '<div class="cuon"><table style="max-width:640px"><thead><tr><th>Ngày</th>'
+            + '<details style="margin-top:8px"><summary>Xem bảng CW thực tế so với lẽ ra</summary>'
+            '<div class="cuon"><table style="max-width:640px"><thead><tr><th>Ngày</th>'
             f'<th class="so">{ESC(cs)}</th><th class="so">CW thực tế</th><th class="so">CW lẽ ra</th><th class="so">Lệch</th></tr></thead><tbody>'
             + "".join(
                 f'<tr><td>{d[8:]}/{d[5:7]}</td><td class="so">{so(a * 100, 1, True)}%</td><td class="so">{so(b * 100, 1, True)}%</td>'
@@ -465,7 +468,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
                 f"<b>{so(e * 100, 1, True)}%</b></td></tr>"
                 for d, a, b, c, e in mau_bang
             )
-            + "</tbody></table></div>"
+            + "</tbody></table></div></details>"
             if len(lech_ls) >= 2
             else f'<p>{loi_iv or "Chưa đủ dữ liệu (cần ít nhất 2 phiên có giao dịch đủ thanh khoản)."}</p>'
         )
