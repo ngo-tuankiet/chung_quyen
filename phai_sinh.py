@@ -2,9 +2,11 @@
 phai_sinh.py - Hợp đồng tương lai chỉ số VN30 và VN100 (VN30F1M…F2Q, VN100F1M…F2Q): basis so với chỉ số, basis năm hóa so với lãi suất
 phi rủi ro, ký quỹ, lãi/lỗ nếu giữ đến đáo hạn sau phí và thuế. Chỉ đọc dữ liệu, dùng cho trang web /phai-sinh.
 
-Giá trị hợp lý của HĐ chỉ số theo cost-of-carry (Hull ch. 5): F = S·e^((r − q)T), q = tỷ suất cổ tức của VN30. Chưa có q
+Giá trị hợp lý của HĐ chỉ số theo cost-of-carry (Hull ch. 5): F = S·e^((r − q)T), q = tỷ suất cổ tức của rổ chỉ số. Chưa có q
 chắc chắn nên không tính "giá hợp lý": hiện basis và basis năm hóa ln(F/S)/T (= r − q ngầm định) đặt cạnh r để người dùng
-tự so (người dùng chọn 30/10/2026). HĐ thanh toán bằng tiền theo VN30 đóng cửa ngày giao dịch cuối, nên basis về 0 lúc đó.
+tự so (người dùng chọn 30/10/2026). HĐ thanh toán bằng tiền theo giá thanh toán cuối cùng = trung bình số học chỉ số trong 30 phút
+cuối ngày giao dịch cuối (15 phút liên tục + 15 phút ATC), bỏ 3 giá trị cao nhất và 3 thấp nhất của phiên liên tục (QĐ 61/QĐ-VSD,
+từ VN30F2206, 06/2022; VN100 chưa đối chiếu mẫu hợp đồng, giả định cùng cách), nên basis về gần 0 lúc đó.
 """
 
 import math
@@ -23,10 +25,14 @@ HOP_DONG = tuple(f"{cs}F{k}" for cs in CHI_SO_HD for k in ("1M", "2M", "1Q", "2Q
 MAU_MA_HD = re.compile(r"VN(30|100)F[12][MQ]")  # chỉ nhận mã đúng dạng (mã từ URL)
 HE_SO_NHAN = 100_000  # đồng / 1 điểm chỉ số (quy chuẩn HĐTL chỉ số VN30 và VN100 của HNX)
 # Phí, thuế, ký quỹ: người dùng chọn lấy 1 công ty lớn làm chuẩn (30/10/2026). Nguồn: biểu giá SSI cho TKGD phái sinh, hiệu lực
-# 01/01/2022 (khách có môi giới tư vấn, < 100 HĐ/ngày); VSDC; ví dụ thuế của Pinetree 11/07/2024. Kiểm tra lại với CTCK của bạn.
+# 01/01/2022 (khách có môi giới tư vấn, < 100 HĐ/ngày); phí Sở, phí bù trừ: QĐ 1541/QĐ-BTC 29/04/2025 (chưa gồm VAT); VSDC; ví dụ
+# thuế của Pinetree 11/07/2024. Kiểm tra lại với CTCK của bạn.
 PHI_CTCK_HD = 3_000  # đồng / HĐ / lần giao dịch (SSI thu cả khi đáo hạn)
-PHI_SO_HD = 2_700  # đồng / HĐ / giao dịch, trả HNX
-PHI_VI_THE_HD_NGAY = 2_550  # đồng / HĐ / ngày giữ vị thế, trả VSDC (tính theo phiên, chưa trừ ngày lễ)
+PHI_SO_HD = 2_700  # đồng / HĐ / lệnh khớp, trả HNX (QĐ 1541/QĐ-BTC phụ lục B mục II.1.1)
+PHI_BU_TRU_HD = (
+    2_550  # đồng / HĐ / lệnh khớp, trả VSDC (QĐ 1541/QĐ-BTC phụ lục B mục III.3), thay phí vị thế từ 05/05/2025 (KRX)
+)
+PHI_VI_THE_HD_NGAY = 0  # phí quản lý vị thế 2.550 đ/HĐ/ngày: bỏ từ 05/05/2025 (KRX); giữ tên vì canh_bao_gia dùng
 # Tỷ lệ ký quỹ ban đầu theo chỉ số: VSDC Phụ lục 4, hiệu lực 16/10/2026 (vsdc.vn/vi/ad/201361), cả 8 hợp đồng 41I1… (VN30) và
 # 41I2… (VN100) đều 0,17. VSDC công bố lại hằng tháng: đổi số thì sửa ở đây.
 TY_LE_KY_QUY_BAN_DAU = {"VN30": 0.17, "VN100": 0.17}
@@ -65,10 +71,11 @@ def thue_mot_lan(gia, chi_so="VN30"):
 
 def lai_lo_dao_han(F, S_T, chieu, so_phien_giu, chi_so="VN30"):
     """(lãi/lỗ gộp, lãi/lỗ ròng) đồng của 1 HĐ mở ở giá F, giữ đến đáo hạn (thanh toán theo chỉ số ngày GD cuối S_T);
-    chieu = +1 Long, −1 Short. Ròng trừ phí CTCK lúc mở và lúc đáo hạn, phí Sở lúc mở, phí vị thế mỗi phiên, thuế 2 lần.
+    chieu = +1 Long, −1 Short. Ròng trừ phí CTCK lúc mở và lúc đáo hạn, phí Sở và phí bù trừ lúc mở, thuế 2 lần. shortcut: lúc
+    đáo hạn không có lệnh khớp nên giả định không thu phí Sở, phí bù trừ (chưa xác nhận); có văn bản nói khác thì cộng thêm.
     """
     gop = chieu * (S_T - F) * HE_SO_NHAN
-    phi = 2 * PHI_CTCK_HD + PHI_SO_HD + PHI_VI_THE_HD_NGAY * so_phien_giu
+    phi = 2 * PHI_CTCK_HD + PHI_SO_HD + PHI_BU_TRU_HD + PHI_VI_THE_HD_NGAY * so_phien_giu
     phi += thue_mot_lan(F, chi_so) + thue_mot_lan(S_T, chi_so)
     return gop, gop - phi
 

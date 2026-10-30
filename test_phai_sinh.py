@@ -25,12 +25,13 @@ def test_ky_quy_va_thue():
 
 def test_lai_lo_giu_den_dao_han_tinh_tay():
     # Long 1 HĐ ở 1.858, VN30 ngày GD cuối 1.900, giữ 14 phiên: gộp (1.900 − 1.858) × 100.000 = 4.200.000 đ
-    # phí: CTCK 3.000 × 2 (mở + đáo hạn) + Sở 2.700 + vị thế 2.550 × 14 = 44.400; thuế 8,5 × (1.858 + 1.900) = 31.943
+    # phí: CTCK 3.000 × 2 (mở + đáo hạn) + Sở 2.700 + bù trừ 2.550 (lúc mở) = 11.250, không còn phí vị thế theo ngày từ
+    # 05/05/2025; thuế 8,5 × (1.858 + 1.900) = 31.943
     gop, rong = P.lai_lo_dao_han(1858, 1900, 1, 14)
-    assert math.isclose(gop, 4_200_000) and math.isclose(rong, 4_200_000 - 44_400 - 31_943)
+    assert math.isclose(gop, 4_200_000) and math.isclose(rong, 4_200_000 - 11_250 - 31_943)
     # Short cùng kịch bản: gộp −4.200.000, cùng chi phí
     gop, rong = P.lai_lo_dao_han(1858, 1900, -1, 14)
-    assert math.isclose(gop, -4_200_000) and math.isclose(rong, -4_200_000 - 44_400 - 31_943)
+    assert math.isclose(gop, -4_200_000) and math.isclose(rong, -4_200_000 - 11_250 - 31_943)
 
 
 def test_phien_giu_va_doc_ngay():

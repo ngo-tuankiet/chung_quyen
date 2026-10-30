@@ -48,8 +48,9 @@ def ghi_chu_ky_quy(cs):
 
 
 GIAI_THICH = (
-    "<b>Basis</b> = giá hợp đồng − chỉ số cơ sở (điểm). Hợp đồng thanh toán bằng tiền theo chỉ số đóng cửa ngày giao dịch cuối, "
-    "nên basis về 0 lúc đó. <b>Basis năm hóa</b> = ln(giá HĐ / chỉ số) / thời gian còn lại (năm): theo lý thuyết cost-of-carry "
+    "<b>Basis</b> = giá hợp đồng − chỉ số cơ sở (điểm). Hợp đồng thanh toán bằng tiền theo giá thanh toán cuối cùng: "
+    "trung bình chỉ số 30 phút cuối ngày giao dịch cuối, bỏ 3 giá trị cao nhất và 3 thấp nhất (VSD, từ 06/2022), nên basis về "
+    "gần 0 lúc đó. <b>Basis năm hóa</b> = ln(giá HĐ / chỉ số) / thời gian còn lại (năm): theo lý thuyết cost-of-carry "
     "(Hull ch. 5) bằng lãi suất phi rủi ro r trừ tỷ suất cổ tức q của rổ chỉ số. Basis năm hóa thấp hơn r nhiều = thị trường đang "
     "trả giá HĐ thấp (cổ tức sắp chia, tâm lý bi quan); cao hơn r = trả giá cao. Chưa có số q chắc chắn nên trang không tính giá "
     f"hợp lý. 1 điểm = {so(P.HE_SO_NHAN)} đ/hợp đồng. Hợp đồng ít giao dịch (KL phiên vài hợp đồng) thì giá đóng cửa có thể lệch "
@@ -168,7 +169,7 @@ def trang_phai_sinh_chi_tiet(ma):
         + o_so(
             "Ngày giao dịch cuối",
             f"{h['gd_cuoi']:%d/%m/%Y}",
-            f"còn {c['con_ngay']} ngày ({c['so_phien']} phiên); thanh toán theo {cs} đóng cửa ngày này"
+            f"còn {c['con_ngay']} ngày ({c['so_phien']} phiên); thanh toán theo trung bình {cs} 30 phút cuối ngày này"
             + (f", tiền về ngày {h['dao_han']:%d/%m}" if h["dao_han"] else ""),
         )
         + o_so("Giá trị 1 hợp đồng", f"{so(F * P.HE_SO_NHAN / 1e6, 1)} triệu đ", f"1 điểm = {so(P.HE_SO_NHAN)} đ")
@@ -185,7 +186,7 @@ def trang_phai_sinh_chi_tiet(ma):
         + o_so(
             "Phí + thuế nếu giữ đến đáo hạn",
             f"≈ {so(chi_phi)} đ/HĐ",
-            f"= {so(chi_phi / P.HE_SO_NHAN, 2)} điểm; phí CTCK, Sở, vị thế {c['so_phien']} phiên, thuế 2 lần",
+            f"= {so(chi_phi / P.HE_SO_NHAN, 2)} điểm; phí CTCK 2 lần, Sở, bù trừ, thuế 2 lần",
         )
         + "</div>"
     )
@@ -215,8 +216,8 @@ def trang_phai_sinh_chi_tiet(ma):
     )
     m_gia_dinh = (
         '<section class="the"><p class="phu" style="margin:0">Phí, thuế, ký quỹ theo 1 công ty lớn làm chuẩn: phí CTCK '
-        f"{so(P.PHI_CTCK_HD)} đ/HĐ/lần (biểu giá SSI hiệu lực 01/01/2022, < 100 HĐ/ngày), phí Sở HNX {so(P.PHI_SO_HD)} đ/HĐ, phí vị thế "
-        f"VSDC {so(P.PHI_VI_THE_HD_NGAY)} đ/HĐ/ngày, ký quỹ ban đầu {ghi_chu_ky_quy(cs)}, thuế {so(P.THUE_TNCN * 100, 1)}% × giá × "
+        f"{so(P.PHI_CTCK_HD)} đ/HĐ/lần (biểu giá SSI hiệu lực 01/01/2022, < 100 HĐ/ngày), phí Sở HNX {so(P.PHI_SO_HD)} đ/HĐ, phí bù trừ "
+        f"VSDC {so(P.PHI_BU_TRU_HD)} đ/HĐ mỗi lệnh khớp (QĐ 1541/QĐ-BTC; thay phí vị thế theo ngày từ 05/05/2025), ký quỹ ban đầu {ghi_chu_ky_quy(cs)}, thuế {so(P.THUE_TNCN * 100, 1)}% × giá × "
         f"{so(P.HE_SO_NHAN)} × tỷ lệ ký quỹ / 2 mỗi lần. Kiểm tra lại với công ty chứng khoán của bạn; chưa tính phí quản lý tài sản "
         "ký quỹ (theo tháng, theo tài khoản).</p></section>"
     )
@@ -234,7 +235,7 @@ def trang_phai_sinh_chi_tiet(ma):
         )
     m_neu_giu = (
         f'<section class="the"><h2>Nếu giữ 1 hợp đồng đến ngày GD cuối ({h["gd_cuoi"]:%d/%m/%Y})</h2>'
-        f'<p class="phu">Mở vị thế ở giá {so(F, 1)}, thanh toán theo {cs} ngày GD cuối; đã trừ phí, thuế. % tính trên tiền ký quỹ '
+        f'<p class="phu">Mở vị thế ở giá {so(F, 1)}, thanh toán theo giá thanh toán cuối cùng (≈ {cs} 30 phút cuối ngày GD cuối); đã trừ phí, thuế. % tính trên tiền ký quỹ '
         f'ban đầu {so(kq / 1e6, 1)} triệu đ.</p><div class="cuon"><table><thead><tr><th>{cs} thay đổi</th><th class="so">{cs} lúc đó</th>'
         '<th class="so">Long (đ)</th><th class="so">Long / ký quỹ</th><th class="so">Short (đ)</th><th class="so">Short / ký quỹ</th>'
         f'</tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
