@@ -546,7 +546,9 @@ def test_nen_1h_doi_don_vi_va_chung_truc_gio():
     assert (
         html.count('rx="1"') == 1
     )  # 10:00 và 13:00 CW không khớp: để trống, không vẽ nến giả (nhãn giá cuối dùng rx="3")
-    assert "30/10 buổi sáng" in html and "KL 100" in html and ">1.100</text>" in html  # nhãn giá đóng cuối
+    assert (
+        "<b>30/10 buổi sáng</b>" in html and "KL <b>100</b>" in html and ">1.100</text>" in html
+    )  # nhãn giá đóng cuối
 
 
 def test_gop_nen_h4_sang_chieu():
@@ -579,12 +581,12 @@ def test_bieu_do_nen_nhan_theo_khung():
     assert html.count('<g class="nen-le">') == len(ngay) and "khớp lẻ dưới 5 triệu" in html
     assert 'nen-le"' not in W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 50_000) for g in ngay}, "X", "d1")
     assert html.count('class="nhan-truc" x=') - html.count('text-anchor="end"') <= 10
-    assert "<title>01/09 · mở" in html
+    assert '<span data-i="0" hidden><b>01/09</b> Mở' in html
     # H1: tooltip có giờ; H4 mặc định: buổi sáng/chiều
     gio = ["2026-10-30 09:00", "2026-10-30 14:00"]
     nen = {g: (100, 110, 90, 105, 1) for g in gio}
-    assert "30/10 14:00 · mở" in W.bieu_do_nen(gio, nen, "X", "h1")
-    assert "30/10 buổi chiều · mở" in W.bieu_do_nen(gio, nen, "X")
+    assert "<b>30/10 14:00</b> Mở" in W.bieu_do_nen(gio, nen, "X", "h1")
+    assert "<b>30/10 buổi chiều</b> Mở" in W.bieu_do_nen(gio, nen, "X")
 
 
 def test_cot_khoi_luong_co_truc_va_so():
@@ -597,6 +599,18 @@ def test_cot_khoi_luong_co_truc_va_so():
     html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
     assert f'height="{W.KL_CAO:.1f}"' in html and f'height="{W.KL_CAO / 2:.1f}"' in html
     assert ">5</text>" in html and html.count(">10</text>") == 2
+
+
+def test_thanh_doc_dong_thong_so():
+    import web_chung as W
+
+    # 3 mốc, mốc giữa không khớp. Dòng thông số: mỗi mốc 1 dòng (chỉ dòng nến cuối hiện sẵn), % so với đóng cửa nến trước:
+    # nến cuối đóng 99 so với 110 -> −10,0%; mốc không khớp ghi rõ. Thanh dọc + vị trí trục (x0 = 56, rộng mỗi nến) cho JS.
+    gio = ["2026-10-29 09:00", "2026-10-29 13:00", "2026-10-30 09:00"]
+    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[2]: (110, 112, 95, 99, 10)}, "X")
+    assert '<span data-i="0" hidden>' in html and '<span data-i="2">' in html
+    assert "<b>29/10 buổi chiều</b> không khớp lệnh" in html and "−10,0%" in html.replace("-10,0%", "−10,0%")
+    assert 'class="vach-doc"' in html and 'data-x0="56"' in html and f'data-rong="{(900 - 56 - 76) / 3:.3f}"' in html
 
 
 def test_bieu_do_nen_toa_do_tinh_tay():

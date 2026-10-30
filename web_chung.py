@@ -177,6 +177,9 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .chon-khung { display: inline-flex; border: 1px solid var(--vien); border-radius: 8px; overflow: hidden; }
 .chon-khung button { border: 0; background: transparent; color: var(--chu); padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
 .chon-khung button[aria-pressed="true"] { background: var(--nut); color: #fff; }
+.nen-chu-giai { font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.5em; margin: 6px 0 2px; }
+.nen-chu-giai b { font-weight: 600; } .nen-tuong-tac svg { cursor: crosshair; touch-action: pan-y; }
+.vach-doc { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
 .tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
@@ -263,6 +266,30 @@ document.querySelectorAll("th button").forEach(nut => nut.addEventListener("clic
   bang.tBodies[0].append(...dong);
 }));
 // Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
+// biểu đồ nến: thanh dọc theo chuột / ngón tay (như TradingView) + dòng thông số của nến đang trỏ. Các biểu đồ cùng khung trong
+// 1 mục (CW và CS, chung trục) chạy cùng nhau. Rời chuột thì về nến cuối. Phím ← → khi biểu đồ được chọn.
+const nenCung = el => el.closest("section").querySelectorAll(`.khung-nen[data-khung="${el.closest(".khung-nen").dataset.khung}"] .nen-tuong-tac`);
+const chiNen = (el, i) => nenCung(el).forEach(k => {
+  const n = k.querySelectorAll(".nen-chu-giai > span"), cuoi = n.length - 1, j = i == null ? cuoi : Math.max(0, Math.min(cuoi, i));
+  n.forEach((s, m) => { s.hidden = m !== j; });
+  const v = k.querySelector(".vach-doc"), x = +k.dataset.x0 + (j + 0.5) * +k.dataset.rong;
+  v.setAttribute("x1", x); v.setAttribute("x2", x); v.setAttribute("visibility", i == null ? "hidden" : "visible");
+  k.dataset.i = i == null ? "" : j;
+});
+document.querySelectorAll(".nen-tuong-tac").forEach(k => {
+  const svg = k.querySelector("svg");
+  const viTri = e => { const r = svg.getBoundingClientRect(); return Math.floor(((e.clientX - r.left) / r.width * +k.dataset.r - +k.dataset.x0) / +k.dataset.rong); };
+  svg.addEventListener("pointermove", e => chiNen(k, viTri(e)));
+  svg.addEventListener("pointerdown", e => chiNen(k, viTri(e)));
+  svg.addEventListener("pointerleave", () => chiNen(k, null));
+  svg.addEventListener("keydown", e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const n = k.querySelectorAll(".nen-chu-giai > span").length, i = k.dataset.i === "" || k.dataset.i == null ? n - 1 : +k.dataset.i;
+    chiNen(k, i + (e.key === "ArrowLeft" ? -1 : 1));
+  });
+  svg.addEventListener("blur", () => chiNen(k, null));
+});
 // nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
 document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
   const muc = n.closest("section");
@@ -629,7 +656,8 @@ MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 n�
 
 def bieu_do_nen(gio, nen, ten, khung="h4"):
     """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
-    Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Rê chuột lên nến: <title> hiện buổi, mở/cao/thấp/đóng, KL.
+    Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Thanh dọc theo chuột/ngón tay (như TradingView, JS ở đầu trang) và dòng
+    thông số của nến đang trỏ: thời điểm, mở/cao/thấp/đóng, % so với đóng cửa nến trước, KL (mặc định là nến cuối).
     Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình."""
     co = [nen[g] for g in gio if g in nen]
     if not co:
@@ -649,7 +677,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
     buoi = lambda g: {"h1": g[11:16], "h4": "buổi " + ("sáng" if g[11:16] < "13:00" else "chiều"), "d1": ""}[khung]
     dau_phien = [i for i, g in enumerate(gio) if i == 0 or g[:10] != gio[i - 1][:10]]
     co_nhan = set(dau_phien[:: math.ceil(len(dau_phien) / MAX_NHAN_NGAY)])
-    phan = []
+    phan, chu_giai, dong_truoc = [], [], None
     buoc = buoc_dep((cao - thap) / 4)
     v = math.ceil(thap / buoc) * buoc
     while v <= cao:
@@ -672,16 +700,31 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
                 f'<line class="vach-phien" x1="{xg:.1f}" x2="{xg:.1f}" y1="{TREN}" y2="{day_kl}"/>'
                 f'<text class="nhan-truc" x="{xg + 3:.1f}" y="{day_nen + 16}">{g[8:10]}/{g[5:7]}</text>'
             )
+        nhan = f"{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''}"
+        an = "" if i == len(gio) - 1 else " hidden"
         if g not in nen:
+            chu_giai.append(f'<span data-i="{i}"{an}><b>{nhan}</b> không khớp lệnh</span>')
             continue
         o, h, l, c, kl = nen[g]
+        doi = c / (dong_truoc or o) - 1
+        lop_doi = "gia-tang" if doi > 0 else ("gia-giam" if doi < 0 else "")
+        chu_giai.append(
+            f'<span data-i="{i}"{an}><b>{nhan}</b> Mở <b>{so(o)}</b> Cao <b>{so(h)}</b> Thấp <b>{so(l)}</b> '
+            f'Đóng <b class="{lop_doi}">{so(c)}</b> <span class="{lop_doi}">{so(doi * 100, 1, True)}%</span> KL <b>{so(kl)}</b>'
+            + (
+                " · <i>khớp lẻ dưới 5 triệu đồng, giá không đáng tin</i>"
+                if c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU
+                else ""
+            )
+            + "</span>"
+        )
+        dong_truoc = c
         lop = "tang" if c >= o else "giam"
         tren, duoi = y(max(o, c)), y(min(o, c))
         le = c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU  # khớp lẻ: giá không đáng tin, vẽ mờ
         lop_le = ' class="nen-le"' if le else ""
         phan.append(
-            f"<g{lop_le}><title>{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''} · mở {so(o)} · cao {so(h)} · thấp {so(l)} · đóng {so(c)} · KL {so(kl)}"
-            f"{' · khớp lẻ dưới 5 triệu đồng, giá không đáng tin' if le else ''}</title>"
+            f"<g{lop_le}>"
             f'<line class="nen-{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
             f'<rect class="nen-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" '
             f'width="{rong * 0.7:.1f}" rx="1"/>'
@@ -717,8 +760,11 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         if g in nen
     )
     return (
-        f'{tom_tat}<div class="cuon-bieu-do"><svg class="bieu-do-nen" viewBox="0 0 {R} {C}" role="img" aria-label="{ESC(mo_ta)}">'
-        f'{"".join(phan)}</svg></div>'
+        f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}">'
+        f'<div class="nen-chu-giai">{"".join(chu_giai)}</div>'
+        f'<svg class="bieu-do-nen" viewBox="0 0 {R} {C}" tabindex="0" role="img" '
+        f'aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng nến.">{"".join(phan)}'
+        f'<line class="vach-doc" x1="0" x2="0" y1="{TREN}" y2="{day_kl}" visibility="hidden"/></svg></div>'
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
         '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
