@@ -41,6 +41,9 @@ NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # ... VÀ lệch so với mức lẽ ra theo CS ≤ −15%: giảm do CS × đòn bẩy là bình thường, không báo (người dùng chốt 30/10/2026,
 # sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.
 NGUONG_LECH_GIAM_MANH = 0.15
+# ... VÀ lệnh khớp gần nhất (giá × KL, đồng) ≥ 5 triệu: lệnh lẻ giá thấp không mua lại được ở giá đó (CVNM2616 30/10/2026:
+# khớp 100 CW giá 120 = 12 nghìn đồng, bán 1 là 220 -> báo nhầm −54%). Người dùng chốt 30/10/2026
+GIA_TRI_KHOP_TOI_THIEU = 5_000_000
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
@@ -561,7 +564,7 @@ def tai_bang_gia(ds_ma, df, cho=15):
 
 def cw_giam_manh(df, bang_gia, hom_nay):
     """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
-    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy). Mỗi CW: dict
+    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy), lệnh khớp gần nhất ≥ GIA_TRI_KHOP_TOI_THIEU đồng. Mỗi CW: dict
     ma, cs, giam, gia, ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy từ giá tham chiếu CW và CS;
     bỏ phần mất giá theo thời gian qua 1 đêm). Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
     if df is None or "Đánh giá" not in df:
@@ -575,6 +578,8 @@ def cw_giam_manh(df, bang_gia, hom_nay):
         ny, khop, _ = bang_gia[ma]
         gia, ref = khop.get("matchPrice") or 0, ny.get("refPrice") or 0
         if not gia or not ref or not khop.get("accumulatedVolume"):
+            continue
+        if gia * (khop.get("matchVol") or 0) < GIA_TRI_KHOP_TOI_THIEU:  # giá CW trên bảng Vietcap tính bằng đồng
             continue
         giam = gia / ref - 1
         if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.550 / 3.000 − 1 phải đúng bằng −15% (không báo)

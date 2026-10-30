@@ -603,11 +603,11 @@ if __name__ == "__main__":  # chạy không cần pytest
     print("OK - danh mục đúng")
 
 
-def _bang_giam(gia_cw, kl=50_000, ref_cw=3000, gia_cs=24000):
+def _bang_giam(gia_cw, kl=50_000, ref_cw=3000, gia_cs=24000, kl_cuoi=10_000):
     """Bảng giá 1 CW (K 20.000, 2:1, đáo hạn 17/02/2027) tham chiếu ref_cw, CS tham chiếu 25.000."""
     b = bang_gia_mau(None, 25000, HOM_NAY + timedelta(days=60))
     b["CVPB2615"][0]["refPrice"] = ref_cw
-    b["CVPB2615"][1].update(matchPrice=gia_cw, accumulatedVolume=kl)
+    b["CVPB2615"][1].update(matchPrice=gia_cw, accumulatedVolume=kl, matchVol=kl_cuoi)
     b["VPB"] = ({"refPrice": 25000}, {"matchPrice": gia_cs}, {})
     return b
 
@@ -624,6 +624,9 @@ def test_cw_giam_manh_bien_va_lech_tinh_tay():
     assert (
         giam(2520, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
     )  # chưa khớp lệnh nào: không có giá để so
+    # lệnh khớp gần nhất phải ≥ 5 triệu đồng: 2.000 × 2.500 = 5.000.000 -> báo; 2.000 × 2.499 = 4.998.000 -> không
+    # (lệnh lẻ như CVNM2616 30/10/2026: 120 × 100 = 12.000 đồng)
+    assert [g["ma"] for g in giam(2000, kl_cuoi=2500)] == ["CVPB2615"] and giam(2000, kl_cuoi=2499) == []
     # nhóm Bỏ qua thì không xét
     assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400, gia_cs=25000), HOM_NAY) == []
     # Lệch tính tay: IV từ giá tham chiếu (CW 3.000 × 2 = 6.000, S 25.000, K 20.000, 121 ngày, r 4%) = 50,0%;
