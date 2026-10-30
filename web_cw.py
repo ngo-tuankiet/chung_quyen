@@ -349,12 +349,6 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
                 else "bấm Quét ngay để lấy ngày này"
             ),
         )
-        + o_so(
-            "Hòa vốn có phí, thuế",
-            f"{so(rr['hoa_von_phi'])} đ",
-            f"{ESC(cs)} cần {so((rr['hoa_von_phi'] / S - 1) * 100, 1, True)}% (chưa tính phí: {so(hoa_von)} đ). "
-            f"Phí {phi_chu}% + thuế {thue_chu}% khi nhận tiền là giả định - kiểm tra với công ty chứng khoán của bạn",
-        )
         + "</div></section>"
     )
 
@@ -383,17 +377,17 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
             '<a href="#cach-tinh" onclick="document.getElementById(\'cach-tinh\').open = true">Xem cách tính giá hợp lý ↓</a>',
         )
         + o_so("So với giá hợp lý", f'<span class="{lop_dat_re}">{chu_dat_re}</span>', "Rẻ = giá mua thấp hơn mô hình")
-        + o_so("Điểm hòa vốn", f"{so(hoa_von)} đ", f"{ESC(cs)} cần {so(tang, 1, True)}% đến ngày đáo hạn")
+        + o_so(
+            "Hòa vốn (đã trừ phí, thuế)",
+            f"{so(rr['hoa_von_phi'])} đ",
+            f'{ESC(cs)} cần <b class="am">{so((rr["hoa_von_phi"] / S - 1) * 100, 1, True)}%</b> đến ngày đáo hạn. '
+            f"Phí {phi_chu}% + thuế {thue_chu}% là giả định - kiểm tra với công ty chứng khoán của bạn",
+        )
         + o_so(
             "Đòn bẩy", f"{so(h['Đòn bẩy'], 1)}x", f"{ESC(cs)} tăng/giảm 1% → CW tăng/giảm khoảng {so(h['Đòn bẩy'], 1)}%"
         )
         + o_so(
             "Delta", so(delta, 2), f"{ESC(cs)} tăng/giảm 1.000 đ → 1 CW tăng/giảm khoảng {so(delta / ty_le * 1000)} đ"
-        )
-        + o_so(
-            "Mất giá theo thời gian",
-            f"{so(mat_gia, 1 if mat_gia < 10 else 0)} đ/ngày",
-            f"≈ {so(mat_gia / P * 100, 2 if mat_gia / P < 0.001 else 1)}% giá CW mỗi ngày nếu {ESC(cs)} đứng yên",
         )
         + o_so(
             "Biến động ngầm định (IV)",
