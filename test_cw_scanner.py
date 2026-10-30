@@ -625,6 +625,18 @@ def test_thanh_ngang_va_thuoc_do():
     assert 'class="vach-ngang"' in html and 'class="nhan-con-tro"' in html and 'class="thuoc-do"' in html
 
 
+def test_bieu_do_nen_chi_so_tinh_bang_diem():
+    import web_chung as W
+
+    # chỉ số (trang ETF): đơn vị điểm, 2 số lẻ ở dòng tóm tắt, dòng thông số và nhãn giá cuối; JS đọc data-so-le / data-don-vi
+    gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
+    html = W.bieu_do_nen(
+        gio, {gio[0]: (1760.1, 1765, 1755, 1761.25, 9), gio[1]: (1761, 1764, 1758, 1762.5, 8)}, "VN100", "h4", "điểm", 2
+    )
+    assert "Đóng cuối <b>1.762,50 điểm</b>" in html and "Đóng <b" in html and ">1.762,50</text>" in html
+    assert 'data-so-le="2" data-don-vi="điểm"' in html
+
+
 def test_bieu_do_nen_toa_do_tinh_tay():
     import web_chung as W
 

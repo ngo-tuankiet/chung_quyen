@@ -7,6 +7,7 @@ import pandas as pd
 import chiet_khau
 import cw_scanner
 import etf
+import web_chung as W
 from web_chung import ESC, bieu_do, hang_doi, o_so, so, trang
 
 # ============ ETF ============
@@ -234,8 +235,20 @@ def doc_nav(ma):
     return None
 
 
+def muc_nen_etf(ma, cs, h, gia_cs):
+    """Mục nến H1/H4/D1 của quỹ và chỉ số mô phỏng (chung trục) + độ sâu, khớp lệnh của quỹ: như trang CW.
+    Bảng giá Vietcap trực tiếp (1 lượt); lỗi mạng thì nến vẫn vẽ theo giá lúc quét, ô sổ lệnh báo không lấy được."""
+    try:
+        bg = cw_scanner.lay_bang_gia([ma]).get(ma)
+    # lỗi mạng: không có sổ lệnh trực tiếp, mục nến vẫn dùng được
+    except Exception:  # noqa: BLE001
+        bg = None
+    P = cw_scanner.gia_hien_tai(*bg[:2]) if bg else h["Giá"]
+    return W.muc_nen(ma, cs, P, gia_cs, bg, chi_so=etf.TEN_TRONG_VNSTOCK.get(cs, cs))
+
+
 def trang_etf_chi_tiet(ma):
-    _, quy, ngay = doc_etf()
+    cac_cs, quy, ngay = doc_etf()
     if ngay is None or ma not in set(quy["Mã"]):  # chỉ nhận mã có trong file kết quả (chặn mã lạ từ URL)
         return None
     h = quy[quy["Mã"] == ma].iloc[0]
@@ -330,4 +343,6 @@ def trang_etf_chi_tiet(ma):
             f"{bd}</section>",
         )
     )
+    cs = h["Chỉ số"]
+    phan.append(muc_nen_etf(ma, cs, h, float(cac_cs.loc[cac_cs["Mã"] == cs, "Giá"].iloc[0])))
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")

@@ -317,7 +317,7 @@ document.querySelectorAll(".nen-tuong-tac").forEach(k => {
     l.setAttribute("visibility", hien); n.setAttribute("visibility", hien);
     if (hien === "hidden") return;
     dat(l, { y1: y, y2: y }); n.querySelector("rect").setAttribute("y", y - 10);
-    const ch = n.querySelector("text"); ch.setAttribute("y", y + 4); ch.textContent = soVN(giaTai(y));
+    const ch = n.querySelector("text"); ch.setAttribute("y", y + 4); ch.textContent = soVN(giaTai(y), +d.soLe);
   };
   const doDen = (x, y) => {
     y = kep(y);
@@ -327,7 +327,7 @@ document.querySelectorAll(".nen-tuong-tac").forEach(k => {
     dat(q(".duong-do"), { x1: dau.x, y1: dau.y, x2: x, y2: y });
     const ch = q(".chu-do"), xt = Math.min(x + 8, +d.r - 220);
     dat(ch, { x: xt, y: Math.max(+d.tren + 14, y + (y < dau.y ? -8 : 18)) });
-    ch.textContent = `${dau_}${soVN(Math.abs(pt), 2)}% (${dau_}${soVN(Math.abs(g1 - g0))} đ) · ${Math.abs(nenTai(x) - nenTai(dau.x))} nến`;
+    ch.textContent = `${dau_}${soVN(Math.abs(pt), 2)}% (${dau_}${soVN(Math.abs(g1 - g0), +d.soLe)} ${d.donVi}) · ${Math.abs(nenTai(x) - nenTai(dau.x))} nến`;
     td.setAttribute("visibility", "visible");
   };
   svg.addEventListener("pointerdown", e => {
@@ -713,7 +713,7 @@ def buoc_dep(tho):
 MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
 
 
-def bieu_do_nen(gio, nen, ten, khung="h4"):
+def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0):
     """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
     Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Thanh dọc theo chuột/ngón tay (như TradingView, JS ở đầu trang) và dòng
     thông số của nến đang trỏ: thời điểm, mở/cao/thấp/đóng, % so với đóng cửa nến trước, KL (mặc định là nến cuối).
@@ -768,8 +768,8 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         doi = c / (dong_truoc or o) - 1
         lop_doi = "gia-tang" if doi > 0 else ("gia-giam" if doi < 0 else "")
         chu_giai.append(
-            f'<span data-i="{i}"{an}><b>{nhan}</b> Mở <b>{so(o)}</b> Cao <b>{so(h)}</b> Thấp <b>{so(l)}</b> '
-            f'Đóng <b class="{lop_doi}">{so(c)}</b> <span class="{lop_doi}">{so(doi * 100, 1, True)}%</span> KL <b>{so(kl)}</b>'
+            f'<span data-i="{i}"{an}><b>{nhan}</b> Mở <b>{so(o, so_le)}</b> Cao <b>{so(h, so_le)}</b> Thấp <b>{so(l, so_le)}</b> '
+            f'Đóng <b class="{lop_doi}">{so(c, so_le)}</b> <span class="{lop_doi}">{so(doi * 100, 1, True)}%</span> KL <b>{so(kl)}</b>'
             + (
                 " · <i>khớp lẻ dưới 5 triệu đồng, giá không đáng tin</i>"
                 if c * kl < cw_scanner.GIA_TRI_KHOP_TOI_THIEU
@@ -796,7 +796,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
     phan.append(
         f'<line class="gia-cuoi" x1="{TRAI}" x2="{R - PHAI}" y1="{y(dong):.1f}" y2="{y(dong):.1f}"/>'
         f'<rect class="nen-{lop_cuoi}" x="{R - PHAI + 4}" y="{y(dong) - 10:.1f}" width="{PHAI - 6}" height="20" rx="3"/>'
-        f'<text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" y="{y(dong) + 4:.1f}" text-anchor="middle">{so(dong)}</text>'
+        f'<text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" y="{y(dong) + 4:.1f}" text-anchor="middle">{so(dong, so_le)}</text>'
     )
     kl_cuoi = nen[g_cuoi][4]
     phan.append(
@@ -806,21 +806,24 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
     )
     thay_doi = dong / o_dau - 1 if o_dau else 0.0
     tom_tat = (
-        f'<p class="tom-nen">Đóng cuối <b>{so(dong)} đ</b> · <b class="{"gia-tang" if thay_doi >= 0 else "gia-giam"}">'
+        f'<p class="tom-nen">Đóng cuối <b>{so(dong, so_le)} {don_vi}</b> · <b class="{"gia-tang" if thay_doi >= 0 else "gia-giam"}">'
         f"{so(thay_doi * 100, 1, True)}%</b> trong {len(gio)} nến · KL nến cuối {so(kl_cuoi)} · cao nhất {so(max(n[1] for n in co))} · thấp nhất {so(min(n[2] for n in co))}</p>"
     )
     mo_ta = (
-        f"{ten}: nến {TEN_KHUNG[khung]} từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong)} đ, "
+        f"{ten}: nến {TEN_KHUNG[khung]} từ {gio[0][:10]} đến {gio[-1][:10]}, {len(co)} nến có khớp lệnh, đóng cuối {so(dong, so_le)} {don_vi}, "
         f"thấp nhất {so(min(n[2] for n in co))} đ, cao nhất {so(max(n[1] for n in co))} đ"
     )
     dong_bang = "".join(
-        f"<tr><td>{g[8:10]}/{g[5:7]} {buoi(g)}</td>" + "".join(f'<td class="so">{so(x)}</td>' for x in nen[g]) + "</tr>"
+        f"<tr><td>{g[8:10]}/{g[5:7]} {buoi(g)}</td>"
+        + "".join(f'<td class="so">{so(x, so_le if j < 4 else 0)}</td>' for j, x in enumerate(nen[g]))
+        + "</tr>"
         for g in reversed(gio)
         if g in nen
     )
     return (
         f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}" data-c="{C}" '
-        f'data-tren="{TREN}" data-nen-cao="{NEN_CAO}" data-gia-cao="{round(cao, 6):g}" data-gia-thap="{round(thap, 6):g}">'
+        f'data-tren="{TREN}" data-nen-cao="{NEN_CAO}" data-gia-cao="{round(cao, 6):g}" data-gia-thap="{round(thap, 6):g}" '
+        f'data-so-le="{so_le}" data-don-vi="{ESC(don_vi)}">'
         f'<div class="nen-chu-giai">{"".join(chu_giai)}</div>'
         f'<svg class="bieu-do-nen" viewBox="0 0 {R} {C}" tabindex="0" role="img" '
         f'aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng nến.">{"".join(phan)}'
@@ -955,7 +958,7 @@ def khop_lenh(ma, ref, gia_hien_tai):
     return dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
 
 
-def hang_nen(ma, cac_gio, nen, bg):
+def hang_nen(ma, cac_gio, nen, bg):  # bg == "chi_so": nến tính bằng điểm, 2 số lẻ
     """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap,
     None (mất mạng) hoặc "chi_so" (chỉ số không giao dịch: không có sổ lệnh, khớp lệnh)."""
     if bg == "chi_so":
@@ -976,7 +979,7 @@ def hang_nen(ma, cac_gio, nen, bg):
         f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
         + "".join(
             f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
-            f"{bieu_do_nen(gio, nen[k], ma, k)}</div>"
+            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ()))}</div>"
             for k, gio in cac_gio.items()
         )
         + "</div>"
