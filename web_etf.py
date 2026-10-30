@@ -1,6 +1,7 @@
 """Trang ETF (/etf) và chi tiết từng quỹ (/etf/<mã>)."""
 
 import math
+from datetime import datetime
 
 import pandas as pd
 
@@ -247,102 +248,230 @@ def muc_nen_etf(ma, cs, h, gia_cs):
     return W.muc_nen(ma, cs, P, gia_cs, bg, chi_so=etf.TEN_TRONG_VNSTOCK.get(cs, cs))
 
 
+def so_lieu_truc_tiep(ma, h, ngay):
+    """Giá chào bán, KL chào bán, iNAV, NAV T-1, giá chờ mua, chiết khấu, lãi ròng nếu về NAV, mua được đạt ngưỡng của 1 quỹ theo
+    SSI iBoard lúc mở trang (1 lượt gọi cả rổ). Lỗi mạng / chưa có iNAV -> số lúc quét. Trả về (số liệu, mô tả nguồn, lỗi).
+    """
+    try:
+        bg = chiet_khau.lay_ssi().get(ma)
+        loi = "" if bg else "SSI không có quỹ này"
+    # ranh giới gọi mạng: trang vẫn dùng số lúc quét và báo rõ
+    except Exception as e:  # noqa: BLE001
+        bg, loi = None, f"{type(e).__name__}: {e}"[:150]
+    if bg and (bg.get("iNAV") or 0) > 0:
+        so_lieu = {**chiet_khau.danh_gia_quy(bg), "Giá chờ mua": bg.get("best1Bid") or math.nan}
+        return so_lieu, f"SSI iBoard lúc {datetime.now():%H:%M %d/%m/%Y}", ""
+    cot = ["iNAV", "NAV T-1", "Giá chào bán", "KL chào bán", "Chiết khấu mua được %", "Lãi ròng nếu về NAV %"]
+    cot += ["Mua được đạt ngưỡng (đ)", "CK 1 lệnh %"]
+    return (
+        {**{c: h[c] for c in cot}, "Giá chờ mua": math.nan},
+        f"số lúc quét ngày {ngay:%d/%m/%Y}",
+        loi or "SSI chưa có iNAV",
+    )
+
+
+def kich_ban_ban(gia, inav, gia_cho_mua, thuong_lech_pct):
+    """[(kịch bản, giá bán, lãi/lỗ 1 CCQ (đ), lãi ròng %)] nếu mua 1 CCQ ở giá chào bán `gia` rồi bán: ngay ở giá chờ mua, khi giá
+    về mức thường lệch (iNAV × (1 + trung vị chênh lệch 1 năm)), khi giá về đúng iNAV; iNAV giữ nguyên. Phí, thuế như
+    chiet_khau.lai_rong_neu_ve_nav. Thiếu số liệu thì bỏ dòng đó (không đoán)."""
+    phi, thue = cw_scanner.PHI_GIAO_DICH, cw_scanner.THUE_BAN
+    kb = [
+        ("Bán ngay ở giá chờ mua", gia_cho_mua),
+        ("Giá về mức thường lệch", inav * (1 + thuong_lech_pct / 100)),
+        ("Giá về đúng iNAV", inav),
+    ]
+    if not (math.isfinite(gia) and gia > 0):
+        return []
+    return [
+        (ten, b, b * (1 - phi - thue) - gia * (1 + phi), chiet_khau.lai_rong_neu_ve_nav(gia, b) * 100)
+        for ten, b in kb
+        if math.isfinite(b) and b > 0
+    ]
+
+
 def trang_etf_chi_tiet(ma):
     cac_cs, quy, ngay = doc_etf()
     if ngay is None or ma not in set(quy["Mã"]):  # chỉ nhận mã có trong file kết quả (chặn mã lạ từ URL)
         return None
     h = quy[quy["Mã"] == ma].iloc[0]
+    cs = h["Chỉ số"]
     o = lambda c, le=1, dau=True, hau_to="%": so(h[c], le, dau) + (hau_to if math.isfinite(h[c]) else "")
-    phan = [
-        (
-            f'<p><a href="/etf">← Tất cả quỹ ETF</a></p><h1>{ESC(ma)}</h1>'
-            f'<p class="phu">Mô phỏng {ESC(h["Chỉ số"])} · dữ liệu ngày {ngay:%d/%m/%Y}</p>'
-        )
-    ]
+    pt_ = lambda v, le=1: so(v, le, True) + "%" if math.isfinite(v) else "—"
+    lop = lambda v, tot_khi_am=False: (
+        "" if not math.isfinite(v) or v == 0 else ("duong" if (v < 0) == tot_khi_am else "am")
+    )  # xanh / đỏ
+    lt, nguon, loi = so_lieu_truc_tiep(ma, h, ngay)
+    gia, inav, ck, lr = lt["Giá chào bán"], lt["iNAV"], lt["Chiết khấu mua được %"], lt["Lãi ròng nếu về NAV %"]
+    tv, md = h["CL NAV trung vị 1N %"], lt["Mua được đạt ngưỡng (đ)"]
+    phi_chu, thue_chu = so(cw_scanner.PHI_GIAO_DICH * 100, 2), so(cw_scanner.THUE_BAN * 100, 1)
+    phan = [f'<p><a href="/etf">← Tất cả quỹ ETF</a></p><h1>{ESC(ma)}</h1>']
+    if loi:  # không lấy được giá trực tiếp: báo ở đầu trang cho dễ thấy
+        phan.append(f'<p class="loi" role="alert">Không lấy được iNAV trực tiếp ({ESC(loi)}), đang dùng {nguon}.</p>')
     if h["Cảnh báo"]:
         phan.append(f'<p class="ghi-chu-canh-bao">⚠ {ESC(h["Cảnh báo"])}</p>')
+
+    # Hàng ô đầu trang (người dùng chọn 30/10/2026: gọn như trang CW)
     phan.append(
         '<div class="luoi-o">'
         + o_so(
+            "Giá chào bán / iNAV",
+            f"{so(gia)} / {so(inav)}",
+            "giá mua được ngay / giá trị tài sản ước tính trong phiên",
+        )
+        + o_so(
             "Chiết khấu mua được",
-            o("Chiết khấu mua được %"),
-            f"chào bán {so(h['Giá chào bán'])} × {so(h['KL chào bán'])} CCQ so với iNAV {so(h['iNAV'])} · "
-            f"lãi ròng nếu về NAV {o('Lãi ròng nếu về NAV %')}",
+            f'<span class="{lop(ck, True)}">{pt_(ck, 2)}</span>',
+            f"âm = giá chào bán thấp hơn iNAV · ở giá đó có {so(lt['KL chào bán'])} CCQ"
+            + (f" ≈ {so(gia * lt['KL chào bán'] / 1e6, 1)} triệu đ" if math.isfinite(gia) else ""),
+        )
+        + o_so(
+            "Lãi ròng nếu về iNAV",
+            f'<span class="{lop(lr)}">{pt_(lr, 2)}</span>',
+            f"đã trừ phí {phi_chu}% × 2 + thuế {thue_chu}% · ngưỡng ≥ {so(chiet_khau.NGUONG_LAI_RONG * 100, 0)}%",
         )
         + o_so(
             "Thường lệch NAV (1 năm)",
-            o("CL NAV trung vị 1N %"),
+            pt_(tv),
             f"trung vị giá đóng cửa / NAV − 1; sâu nhất {o('CL NAV thấp nhất 1N %')}",
         )
         + o_so(
-            "NAV so với chỉ số (1 năm)", o("NAV so CS 1N", hau_to=" điểm"), f"NAV đến {ESC(h['Ngày NAV cuối']) or '—'}"
+            "Bám chỉ số (1 năm)",
+            o("NAV so CS 1N", hau_to=" điểm"),
+            f"lợi nhuận NAV − lợi nhuận {ESC(cs)}; âm nhiều = quỹ bám kém",
         )
-        + o_so("Giá", f"{so(h['Giá'])} đ", f"phiên khớp cuối {ESC(h['Ngày giá cuối'])}")
-        + o_so("Lợi nhuận 1 năm", o("1N %"), f"1T {o('1T %')} · 3T {o('3T %')} · 6T {o('6T %')}")
-        + o_so(
-            f"So với {ESC(h['Chỉ số'])} (1 năm)",
-            o("so CS", hau_to=" điểm"),
-            GIAI_THICH_SO_CS,
-        )
-        + o_so("Xu hướng", ESC(h["Xu hướng"]) or "—", f"MA50 {so(h['MA50'])} · MA200 {so(h['MA200'])}")
-        + o_so("RSI14", so(h["RSI14"], 0), "trên 70 tăng nóng · dưới 30 bị bán quá mức")
-        + o_so("Biến động năm", o("Biến động năm %", dau=False), f"giảm sâu nhất 1 năm {o('Giảm sâu nhất 1N %')}")
-        + o_so("Cách đỉnh 1 năm", o("Cách đỉnh 1N %"))
         + o_so(
             "Giá trị giao dịch TB 20 phiên",
             f"{so(h['GTGD TB20 (tỷ)'], 2)} tỷ",
             f"{so(h['Phiên khớp 1N'])} phiên có khớp lệnh trong 1 năm",
         )
-        + o_so("Khối ngoại ròng trong phiên", f"{so(h['Khối ngoại ròng (tỷ)'], 2, True)} tỷ")
+        + o_so("NAV phiên trước", f"{so(lt['NAV T-1'])} đ", f"lịch sử NAV Vietcap đến {ESC(h['Ngày NAV cuối']) or '—'}")
         + o_so("Chứng chỉ quỹ lưu hành", so(h["CCQ lưu hành"]), "tăng = có tiền góp thêm vào quỹ")
         + "</div>"
     )
+
+    # Tóm tắt + tiêu chí
+    if math.isfinite(gia):
+        cau = (
+            f"Bạn trả <b>{so(gia)} đ</b> cho 1 CCQ (giá chào bán thấp nhất), iNAV là {so(inav)} đ: giá đang "
+            + ("thấp hơn" if ck < 0 else "cao hơn")
+            + f" iNAV <b>{so(abs(ck), 2)}%</b>. Nếu giá về đúng iNAV (iNAV giữ nguyên), lãi ròng sau phí, thuế là "
+            f'<b class="{lop(lr)}">{pt_(lr, 2)}</b>.'
+        )
+    else:
+        cau = f"Hiện không có ai chào bán {ESC(ma)}: chưa mua được ngay."
+    if math.isfinite(tv):
+        cau += f" Quỹ này thường lệch <b>{pt_(tv)}</b> so với NAV (trung vị 1 năm)" + (
+            f", nên giá hiện tại {'rẻ hơn' if ck < tv else 'đắt hơn'} mức thường {so(abs(ck - tv), 1)} điểm."
+            if math.isfinite(ck)
+            else "."
+        )
+    tieu_chi = [
+        (
+            math.isfinite(lr) and lr >= chiet_khau.NGUONG_LAI_RONG * 100,
+            f"Lãi ròng nếu về iNAV {pt_(lr, 2)}",
+            f"cần ≥ {so(chiet_khau.NGUONG_LAI_RONG * 100, 0)}%",
+        ),
+        (
+            md >= chiet_khau.MIN_GIA_TRI_CHAO_BAN,
+            f"Mua được {so(md / 1e6, 1)} triệu đ ở các mức giá đạt ngưỡng",
+            f"cần ≥ {so(chiet_khau.MIN_GIA_TRI_CHAO_BAN / 1e6)} triệu",
+        ),
+        (
+            math.isfinite(ck) and math.isfinite(tv) and ck < tv,
+            f"Chiết khấu {pt_(ck, 2)} so với mức thường lệch {pt_(tv)}",
+            "cần sâu hơn mức thường",
+        ),
+    ]
+    dong_tc = "".join(
+        f'<li><b class="{"duong" if dat else "am"}" aria-label="{"Đạt" if dat else "Không đạt"}">{"✓" if dat else "✕"}</b>'
+        f"<span>{nd} <small>({yc})</small></span></li>"
+        for dat, nd, yc in tieu_chi
+    )
+    m_tom_tat = (
+        f'<section class="the"><h2>Tóm tắt</h2><p class="tom-tat">{cau}</p><ul class="tieu-chi">{dong_tc}</ul>'
+        '<p class="phu">Kiểm chứng 2 năm (KE_HOACH Phần 8): mua ở phiên sau khi đạt ngưỡng thì phần lãi nhờ chiết khấu thu hẹp '
+        "≈ 0 sau phí; chỉ có lời khi mua được đúng lúc trong phiên, ở giá chào bán thật (xem mục giá so với iNAV trong phiên).</p></section>"
+    )
+    m_thong_tin = (
+        f'<section class="the"><p class="phu" style="margin:0">Quỹ ETF mô phỏng <b>{ESC(cs)}</b> · phí quản lý '
+        f"{o('Phí quản lý %', 2, False)}/năm · dữ liệu quét ngày {ngay:%d/%m/%Y}</p>"
+        f'<p class="phu" style="margin:6px 0 0">Giá chào bán, iNAV theo {nguon}.</p></section>'
+    )
+    kb = kich_ban_ban(gia, inav, lt["Giá chờ mua"], tv)
+    lenh = chiet_khau.GIA_TRI_LENH
+    m_neu = (
+        '<section class="the"><h2>Nếu mua bây giờ rồi bán</h2>'
+        f'<p class="phu">Mua 1 CCQ ở giá chào bán {so(gia)} đ (+ phí {phi_chu}%), bán trừ phí {phi_chu}% và thuế {thue_chu}%; '
+        "giả định iNAV giữ nguyên (chỉ số đứng yên). Lệnh lớn ăn vào các mức chào bán cao hơn: chiết khấu cho 1 lệnh "
+        f"{so(lenh / 1e6)} triệu là {pt_(lt['CK 1 lệnh %'], 2)}.</p>"
+        + (
+            '<div class="cuon"><table><thead><tr><th>Kịch bản</th><th class="so">Giá bán (đ)</th>'
+            '<th class="so">Lãi/lỗ 1 CCQ (đ)</th><th class="so">Lãi ròng</th>'
+            f'<th class="so">Với {so(lenh / 1e6)} triệu (đ)</th></tr></thead><tbody>'
+            + "".join(
+                f'<tr><td>{ten}</td><td class="so">{so(b)}</td><td class="so {lop(d)}">{so(d, 0, True)}</td>'
+                f'<td class="so {lop(p)}">{so(p, 2, True)}%</td><td class="so {lop(p)}">{so(p / 100 * lenh, 0, True)}</td></tr>'
+                for ten, b, d, p in kb
+            )
+            + "</tbody></table></div>"
+            if kb
+            else "<p>Không có người chào bán nên chưa tính được.</p>"
+        )
+        + "</section>"
+    )
+
+    # Chênh lệch giá / NAV 1 năm (giá đóng cửa vnstock + NAV Vietcap đã làm sạch)
     bd_cl = "<p>Chưa có lịch sử NAV của quỹ này.</p>"
     try:  # 1 lượt gọi vnstock mỗi lần mở trang
         ls = cw_scanner.lay_gia_dong_cua(ma, etf.SO_NGAY_LICH_SU, "VCI")
-        gia = etf.chuoi_gia(ls, 10 ** round(math.log10(h["Giá"] / float(ls["close"].iloc[-1]))))[
+        gia_ls = etf.chuoi_gia(ls, 10 ** round(math.log10(h["Giá"] / float(ls["close"].iloc[-1]))))[
             0
         ]  # nghìn đồng -> đồng
-        trong_1_nam = gia.index > gia.index[-1] - pd.DateOffset(years=1)
-        lich_su = [[str(d.date()), float(g)] for d, g in gia[trong_1_nam].items()]
-        phu = [
-            (f"MA{n}", [None if math.isnan(v) else float(v) for v in gia.rolling(n).mean()[trong_1_nam]], lop)
-            for n, lop in ((etf.MA_NGAN, "ma-ngan"), (etf.MA_DAI, "ma-dai"))
-        ]
-        bd = (
-            bieu_do(lich_su, [], f"Giá {ma}", duong_phu=phu)
-            if len(lich_su) > 1
-            else "<p>Quá ít phiên có khớp lệnh trong 1 năm để vẽ biểu đồ.</p>"
-        )
-    except Exception as e:  # mất mạng / vnstock lỗi: báo rõ trên trang  # noqa: BLE001
-        gia, bd = None, f'<p class="loi" role="alert">Không tải được lịch sử giá: {ESC(str(e)[:200])}</p>'
-    if gia is not None:
-        try:  # file NAV hỏng không được làm mất biểu đồ giá
-            nav = doc_nav(ma)
-            cl = ((gia / nav).dropna() - 1) * 100 if nav is not None else pd.Series(dtype=float)  # chỉ phiên có khớp
-            cl = cl[cl.index > cl.index[-1] - pd.DateOffset(years=1)] if len(cl) else cl
-            if len(cl) > 1:
-                bd_cl = bieu_do(
-                    [[str(d.date()), round(float(v), 2)] for d, v in cl.items()],
-                    [("Trung vị", float(cl.median()), "tc-thuc-hien"), ("Ngang NAV", 0.0, "tc-hoa-von")],
-                    f"Chênh lệch giá/NAV {ma}",
-                    don_vi="%",
-                    ten_cot="Giá / NAV − 1 (%)",
-                    so_le=1,
-                )
-        except Exception as e:  # noqa: BLE001
-            bd_cl = f'<p class="loi" role="alert">Không đọc được lịch sử NAV: {ESC(str(e)[:200])}</p>'
-    phan.append(
-        hang_doi(
-            '<section class="the"><h2>Chênh lệch giá / NAV 1 năm</h2>'
-            '<p class="phu">Giá đóng cửa các phiên có khớp chia NAV cùng ngày − 1. Dưới 0 = chiết khấu. Giá đóng cửa của quỹ ít '
-            "giao dịch thường là 1 lô nhỏ nên đường này nhiễu; đường xám là trung vị, đường cam là ngang NAV.</p>"
-            f"{bd_cl}</section>",
-            '<section class="the"><h2>Giá 1 năm, MA50 và MA200</h2>'
-            '<p class="phu">MA50 (cam) / MA200 (xám, nét đứt): trung bình giá đóng cửa 50 / 200 phiên có khớp lệnh.</p>'
-            f"{bd}</section>",
-        )
+        nav = doc_nav(ma)
+        cl = ((gia_ls / nav).dropna() - 1) * 100 if nav is not None else pd.Series(dtype=float)  # chỉ phiên có khớp
+        cl = cl[cl.index > cl.index[-1] - pd.DateOffset(years=1)] if len(cl) else cl
+        if len(cl) > 1:
+            bd_cl = bieu_do(
+                [[str(d.date()), round(float(v), 2)] for d, v in cl.items()],
+                [("Trung vị", float(cl.median()), "tc-thuc-hien"), ("Ngang NAV", 0.0, "tc-hoa-von")],
+                f"Chênh lệch giá/NAV {ma}",
+                don_vi="%",
+                ten_cot="Giá / NAV − 1 (%)",
+                so_le=1,
+            )
+    # mất mạng / vnstock lỗi / file NAV hỏng: báo rõ trên trang, phần còn lại vẫn dùng được
+    except Exception as e:  # noqa: BLE001
+        bd_cl = f'<p class="loi" role="alert">Không vẽ được chênh lệch giá/NAV: {ESC(str(e)[:200])}</p>'
+    m_cl = (
+        '<section class="the"><h2>Chênh lệch giá / NAV 1 năm</h2>'
+        '<p class="phu">Giá đóng cửa các phiên có khớp chia NAV cùng ngày − 1. Dưới 0 = chiết khấu. Giá đóng cửa của quỹ ít '
+        "giao dịch thường là 1 lô nhỏ nên đường này nhiễu; đường xám là trung vị (mức thường lệch), đường cam là ngang NAV.</p>"
+        f"{bd_cl}</section>"
     )
-    cs = h["Chỉ số"]
-    phan.append(muc_nen_etf(ma, cs, h, float(cac_cs.loc[cac_cs["Mã"] == cs, "Giá"].iloc[0])))
+
+    # Số liệu khác (tham khảo)
+    dk = [
+        ("Giá khớp cuối", f"{so(h['Giá'])} đ (phiên {ESC(h['Ngày giá cuối'])})"),
+        ("Lợi nhuận 1T / 3T / 6T / 1N", f"{o('1T %')} / {o('3T %')} / {o('6T %')} / {o('1N %')}"),
+        (f"Giá so với {ESC(cs)} (1 năm)", o("so CS", hau_to=" điểm")),
+        ("Xu hướng", f"{ESC(h['Xu hướng']) or '—'} (MA50 {so(h['MA50'])} · MA200 {so(h['MA200'])})"),
+        ("RSI14", so(h["RSI14"], 0)),
+        ("Biến động năm", o("Biến động năm %", dau=False)),
+        ("Giảm sâu nhất / cách đỉnh 1 năm", f"{o('Giảm sâu nhất 1N %')} / {o('Cách đỉnh 1N %')}"),
+        ("Khối ngoại ròng trong phiên", f"{so(h['Khối ngoại ròng (tỷ)'], 2, True)} tỷ"),
+        ("Phiên chưa khớp", so(h["Phiên chưa khớp"])),
+    ]
+    m_so_lieu = (
+        '<section class="the"><h2>Số liệu khác</h2><p class="phu">'
+        + GIAI_THICH_SO_CS
+        + '.</p><dl class="dieu-khoan">'
+        + "".join(f"<div><dt>{a}</dt><dd>{b}</dd></div>" for a, b in dk)
+        + "</dl></section>"
+    )
+    phan += [
+        hang_doi(f'<div class="cot-doc">{m_tom_tat}{m_thong_tin}</div>', m_neu),
+        muc_nen_etf(ma, cs, h, float(cac_cs.loc[cac_cs["Mã"] == cs, "Giá"].iloc[0])),
+        m_cl,
+        m_so_lieu,
+    ]
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")

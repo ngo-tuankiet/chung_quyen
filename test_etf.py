@@ -286,12 +286,20 @@ def test_luu_doc_lai_va_trang_web():
         assert "Cảnh báo dữ liệu (3)" in trang  # VNDIAMOND (chỉ số lỗi), FUEBFVND (lỗi dữ liệu), FUEVN50G (chưa ánh xạ)
         assert web_etf.trang_etf_chi_tiet("ZZZ") is None  # mã không có trong file kết quả: 404
         assert 'data-href="/etf/E1VFVN30"' in trang
-        with mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=RuntimeError("mất mạng")):
+        with (
+            mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=RuntimeError("mất mạng")),
+            mock.patch.object(E.CK, "lay_ssi", side_effect=RuntimeError("mất mạng")),
+            mock.patch.object(cw_scanner, "lay_bang_gia", side_effect=RuntimeError("mất mạng")),
+            mock.patch.dict(web_chung.BO_NHO_NEN, clear=True),
+        ):
             ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
-        assert "26.000 đ" in ct and "Không tải được lịch sử giá: mất mạng" in ct
+        # mất mạng: số lúc quét (giá khớp cuối 26.000 đ), báo rõ ở đầu trang; từng mục báo lỗi riêng, trang vẫn mở được
+        assert "26.000 đ" in ct and "Không lấy được iNAV trực tiếp (RuntimeError: mất mạng)" in ct
+        assert "Không vẽ được chênh lệch giá/NAV: mất mạng" in ct and "Chưa tải được nến (mất mạng)" in ct
 
 
 def test_web_bang_chiet_khau_va_bieu_do_nav():
+    import web_chung
     import web_etf
 
     df, _ = E.lap_bang(*du_lieu_chiet_khau())
@@ -306,14 +314,18 @@ def test_web_bang_chiet_khau_va_bieu_do_nav():
             Path(tmp) / "nav_etf_2026-10-22.csv.gz", index=False, compression="gzip"
         )
         gia = mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df_vnstock([20.0] * 40))
-        with gia:
+        khong_mang = [  # SSI, bảng giá: không gọi mạng thật trong test
+            mock.patch.object(E.CK, "lay_ssi", side_effect=RuntimeError("mất mạng")),
+            mock.patch.object(cw_scanner, "lay_bang_gia", side_effect=RuntimeError("mất mạng")),
+        ]
+        with gia, khong_mang[0], khong_mang[1], mock.patch.dict(web_chung.BO_NHO_NEN, clear=True):
             ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
         # file mới nhất rỗng -> lấy file hôm trước; 20.000 / 21.000 − 1 = −4,76% -> "-4,8"
         assert "Chênh lệch giá/NAV E1VFVN30" in ct and '<td class="so">-4,8</td>' in ct
         (Path(tmp) / "nav_etf_2026-10-23.csv.gz").write_bytes(b"\x1f\x8b hong")  # file ghi dở / hỏng
-        with gia:
+        with gia, khong_mang[0], khong_mang[1], mock.patch.dict(web_chung.BO_NHO_NEN, clear=True):
             ct = web_etf.trang_etf_chi_tiet("E1VFVN30")
-        assert "Không đọc được lịch sử NAV" in ct and "Giá E1VFVN30" in ct  # biểu đồ giá vẫn còn
+        assert "Không vẽ được chênh lệch giá/NAV" in ct and "Nếu mua bây giờ rồi bán" in ct  # phần còn lại vẫn có
 
 
 def test_gia_dinh_etf_ghi_du_nguong():
@@ -322,6 +334,24 @@ def test_gia_dinh_etf_ghi_du_nguong():
     gd = E.gia_dinh_etf(datetime(2026, 10, 26, 9, 40))
     assert json.loads(json.dumps(gd, ensure_ascii=False))["chiet_khau"]["NGUONG_LAI_RONG"] == E.CK.NGUONG_LAI_RONG
     assert gd["xep_hang"]["NAV_CS_TOI_THIEU"] == E.NAV_CS_TOI_THIEU and gd["PHI_QUAN_LY"] == E.PHI_QUAN_LY
+
+
+def test_kich_ban_ban_tinh_tay():
+    import web_etf as W
+
+    # Mua 10.000 (giá chào bán) + phí 0,15% = 10.015; bán trừ phí 0,15% + thuế 0,1% (× 0,9975). iNAV 10.300, chờ mua 9.990,
+    # thường lệch −1% -> mức thường lệch 10.300 × 0,99 = 10.197
+    k = {ten: (g, d, p) for ten, g, d, p in W.kich_ban_ban(10_000, 10_300, 9_990, -1.0)}
+    g, d, p = k["Bán ngay ở giá chờ mua"]
+    assert (
+        g == 9_990 and math.isclose(d, 9_990 * 0.9975 - 10_015) and math.isclose(p, -0.4990, abs_tol=1e-4)
+    )  # −49,975 đ
+    g, d, p = k["Giá về mức thường lệch"]
+    assert math.isclose(g, 10_197) and math.isclose(p, 1.5627, abs_tol=1e-4)  # +156,5 đ
+    g, d, p = k["Giá về đúng iNAV"]
+    assert g == 10_300 and math.isclose(d, 259.25) and math.isclose(p, 2.5886, abs_tol=1e-4)
+    # thiếu giá chờ mua / thường lệch: bỏ dòng đó, không bịa số
+    assert [ten for ten, *_ in W.kich_ban_ban(10_000, 10_300, math.nan, math.nan)] == ["Giá về đúng iNAV"]
 
 
 if __name__ == "__main__":  # chạy không cần pytest
