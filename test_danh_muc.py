@@ -624,9 +624,15 @@ def test_cw_giam_manh_bien_va_lech_tinh_tay():
     assert (
         giam(2520, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
     )  # chưa khớp lệnh nào: không có giá để so
-    # lệnh khớp gần nhất phải ≥ 5 triệu đồng: 2.000 × 2.500 = 5.000.000 -> báo; 2.000 × 2.499 = 4.998.000 -> không
-    # (lệnh lẻ như CVNM2616 30/10/2026: 120 × 100 = 12.000 đồng)
-    assert [g["ma"] for g in giam(2000, kl_cuoi=2500)] == ["CVPB2615"] and giam(2000, kl_cuoi=2499) == []
+    # lệnh khớp gần nhất ≥ 5 triệu đồng thì dùng giá khớp: 2.000 × 2.500 = 5.000.000 -> báo theo 2.000;
+    # dưới (2.000 × 2.499 = 4.998.000, lệnh lẻ như CVNM2616 30/10/2026: 120 × 100) thì dùng giá mua 1, không có lệnh mua -> bỏ qua
+    assert [g["gia"] for g in giam(2000, kl_cuoi=2500)] == [2000] and giam(2000, kl_cuoi=2499) == []
+    b = _bang_giam(2000, kl_cuoi=2499)
+    b["CVPB2615"][2]["bidPrices"] = [{"price": 2100, "volume": 1000}]
+    g = D.cw_giam_manh(DF_NHOM, b, HOM_NAY)[0]  # mua 1 2.100: −30%, lệch 2.100 / 2.593 − 1 = −19,0% -> báo theo 2.100
+    assert g["gia"] == 2100 and math.isclose(g["giam"], -0.3) and abs(g["lech"] - (2100 / 2592.867 - 1)) < 1e-4
+    b["CVPB2615"][2]["bidPrices"] = [{"price": 2700, "volume": 1000}]
+    assert D.cw_giam_manh(DF_NHOM, b, HOM_NAY) == []  # mua 1 2.700: −10% -> không báo
     # nhóm Bỏ qua thì không xét
     assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400, gia_cs=25000), HOM_NAY) == []
     # Lệch tính tay: IV từ giá tham chiếu (CW 3.000 × 2 = 6.000, S 25.000, K 20.000, 121 ngày, r 4%) = 50,0%;
