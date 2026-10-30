@@ -354,6 +354,30 @@ def test_kich_ban_ban_tinh_tay():
     assert [ten for ten, *_ in W.kich_ban_ban(10_000, 10_300, math.nan, math.nan)] == ["Giá về đúng iNAV"]
 
 
+def test_inav_trong_phien_tinh_tay():
+    import web_etf as W
+
+    # Ngưỡng: lãi ròng nếu về iNAV = 2% <=> giá chào bán / iNAV − 1 = 0,9975 / (1,0015 × 1,02) − 1 = −2,352%
+    assert math.isclose(W.ck_dat_nguong(), (0.9975 / (1.0015 * 1.02) - 1) * 100) and math.isclose(
+        W.ck_dat_nguong(), -2.352, abs_tol=1e-3
+    )
+    with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cw_scanner, "THU_MUC_KET_QUA", Path(tmp)):
+        pd.DataFrame(
+            {
+                "Giờ": ["09:15:35", "10:00:00", "11:00:00", "14:45:00", "09:15:35"],
+                "Mã": ["X", "X", "X", "X", "Y"],
+                "iNAV": [10_000, 10_000, 0, 10_100, 5_000],  # iNAV 0 (chưa có) -> bỏ dòng
+                "Giá chào bán": [10_100, 9_700, 9_000, None, 5_000],  # không ai bán lúc 14:45 -> không có điểm
+                "Giá chờ mua": [10_000, 9_650, 8_900, 10_000, 4_990],
+            }
+        ).to_csv(Path(tmp) / "inav_2026-10-30.csv", index=False, encoding="utf-8-sig")
+        ngay = W.doc_inav_trong_phien("X")
+    # 09:15 +1,0%; 10:00 9.700 / 10.000 − 1 = −3,0% (thấp nhất); trung vị (+1, −3) = −1,0%; cuối phiên = điểm có giá cuối (10:00)
+    d = ngay["2026-10-30"]
+    assert d["diem"] == [["09:15", 1.0], ["10:00", -3.0]]
+    assert d["thap_nhat"] == ("10:00", -3.0) and math.isclose(d["trung_vi"], -1.0) and d["cuoi"] == ("10:00", -3.0)
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

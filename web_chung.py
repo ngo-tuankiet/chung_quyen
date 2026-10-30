@@ -580,9 +580,10 @@ def bang(df, ma_dang_xem="", id_bang=""):
     return f'<table{f" id={id_bang}" if id_bang else ""}><thead><tr>{dau}</tr></thead><tbody>{"".join(dong)}</tbody></table>'
 
 
-def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)", duong_phu=(), so_le=0):
+def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)", duong_phu=(), so_le=0, truc_gio=False):
     """SVG một chuỗi số theo ngày [[ngày, giá trị]] + đường tham chiếu [(nhãn, giá trị, lớp)], kèm bảng dữ liệu cho người không xem được hình.
     duong_phu [(nhãn, [giá trị từng ngày hoặc None], lớp)]: đường vẽ cùng trục (vd MA50), nhãn ở mép phải. so_le: số lẻ khi hiện số.
+    truc_gio: mốc là giờ "HH:MM" trong 1 phiên thay vì ngày "YYYY-MM-DD".
     """
     R, C, TRAI, PHAI, TREN, DUOI = 900, 320, 60, 150, 16, 30
     gia = [g for _, g in lich_su]
@@ -608,7 +609,7 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
     for i in sorted({0, len(gia) // 4, len(gia) // 2, 3 * len(gia) // 4, len(gia) - 1}):
         neo = "start" if i == 0 else ("end" if i == len(gia) - 1 else "middle")
         phan.append(
-            f'<text class="nhan-truc" x="{x(i):.1f}" y="{C - 8}" text-anchor="{neo}">{lich_su[i][0][5:7]}/{lich_su[i][0][:4]}</text>'
+            f'<text class="nhan-truc" x="{x(i):.1f}" y="{C - 8}" text-anchor="{neo}">{lich_su[i][0][:5] if truc_gio else f"{lich_su[i][0][5:7]}/{lich_su[i][0][:4]}"}</text>'
         )
     # đường tham chiếu + nhãn bên phải; nhãn gần nhau thì đẩy ra và nối bằng đường dẫn (không chồng chữ)
     vi_tri = sorted(
@@ -642,7 +643,8 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
         f"hiện tại {so(gia[-1], so_le)} {don_vi}"
     )
     dong_bang = "".join(
-        f'<tr><td>{d[8:]}/{d[5:7]}/{d[:4]}</td><td class="so">{so(g, so_le)}</td></tr>' for d, g in reversed(lich_su)
+        f'<tr><td>{d[:5] if truc_gio else f"{d[8:]}/{d[5:7]}/{d[:4]}"}</td><td class="so">{so(g, so_le)}</td></tr>'
+        for d, g in reversed(lich_su)
     )
     return (
         f'<div class="cuon-bieu-do"><div class="bieu-do" data-don-vi="{ESC(don_vi)}"><svg viewBox="0 0 {R} {C}" tabindex="0" role="img" aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng ngày.">'

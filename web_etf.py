@@ -248,6 +248,79 @@ def muc_nen_etf(ma, cs, h, gia_cs):
     return W.muc_nen(ma, cs, P, gia_cs, bg, chi_so=etf.TEN_TRONG_VNSTOCK.get(cs, cs))
 
 
+SO_NGAY_INAV = 5  # mục giá so với iNAV trong phiên: số ngày gần nhất (file ket_qua/inav_*.csv) được chọn xem
+
+
+def ck_dat_nguong():
+    """Giá chào bán / iNAV − 1 (%) mà lãi ròng nếu về iNAV vừa đúng NGUONG_LAI_RONG (suy ngược lai_rong_neu_ve_nav):
+    (1 − phí − thuế) / ((1 + phí) × (1 + ngưỡng)) − 1."""
+    phi, thue = cw_scanner.PHI_GIAO_DICH, cw_scanner.THUE_BAN
+    return ((1 - phi - thue) / ((1 + phi) * (1 + chiet_khau.NGUONG_LAI_RONG)) - 1) * 100
+
+
+def doc_inav_trong_phien(ma, so_ngay=SO_NGAY_INAV):
+    """{'YYYY-MM-DD': {diem: [[HH:MM, giá chào bán / iNAV − 1 (%)]], thap_nhat: (giờ, %), trung_vi: %, cuoi: (giờ, %)}} của
+    `so_ngay` file ket_qua/inav_*.csv gần nhất (chiet_khau.py ghi 5 phút/lần trong giờ khớp lệnh từ 23/10/2026).
+    Bỏ dòng chưa có iNAV hoặc không có ai chào bán (không có giá mua được thì không có chiết khấu thật)."""
+    kq = {}
+    for tep in sorted(cw_scanner.THU_MUC_KET_QUA.glob("inav_*.csv"))[-so_ngay:]:
+        d = pd.read_csv(tep, encoding="utf-8-sig")
+        d = d[(d["Mã"] == ma) & (d["iNAV"] > 0) & (d["Giá chào bán"] > 0)]
+        if not len(d):
+            continue
+        ck = ((d["Giá chào bán"] / d["iNAV"] - 1) * 100).round(2)
+        diem = [[str(g)[:5], float(v)] for g, v in zip(d["Giờ"], ck)]
+        kq[tep.stem[5:]] = {
+            "diem": diem,
+            "thap_nhat": tuple(diem[int(ck.to_numpy().argmin())]),
+            "trung_vi": float(ck.median()),
+            "cuoi": tuple(diem[-1]),
+        }
+    return kq
+
+
+def muc_inav_trong_phien(ma, thuong_lech):
+    """Mục "Giá so với iNAV trong phiên": mỗi ngày 1 biểu đồ giá chào bán / iNAV − 1 theo giờ (nút chọn ngày), kèm mốc ngang
+    iNAV, ngưỡng lãi ròng và mức thường lệch; dòng tóm tắt: lúc rẻ nhất, trung vị, cuối phiên, số lần đạt ngưỡng."""
+    dau = '<section class="the"><h2>Giá so với iNAV trong phiên</h2>'
+    try:
+        cac_ngay = doc_inav_trong_phien(ma)
+    # file ghi dở / hỏng: chỉ mục này báo lỗi
+    except Exception as e:  # noqa: BLE001
+        return f'{dau}<p class="loi" role="alert">Không đọc được file iNAV: {ESC(str(e)[:150])}</p></section>'
+    if not cac_ngay:
+        return f"{dau}<p>Chưa có dữ liệu iNAV trong phiên của {ESC(ma)} (lưu 5 phút/lần từ 23/10/2026).</p></section>"
+    nguong = ck_dat_nguong()
+    ke = [
+        ("Ngang iNAV", 0.0, "tc-thuc-hien"),
+        (f"Ngưỡng lãi {so(chiet_khau.NGUONG_LAI_RONG * 100, 0)}%", nguong, "tc-hoa-von"),
+    ]
+    ke += [("Thường lệch", float(thuong_lech), "ma-dai")] if math.isfinite(thuong_lech) else []
+    cuoi = list(cac_ngay)[-1]
+    nut = "".join(
+        f'<button type="button" data-chon-khung="{d}" aria-pressed="{str(d == cuoi).lower()}">{d[8:]}/{d[5:7]}</button>'
+        for d in cac_ngay
+    )
+    khung = "".join(
+        f'<div class="khung-nen" data-khung="{d}"{"" if d == cuoi else " hidden"}><p class="tom-nen">Rẻ nhất '
+        f"<b>{so(v['thap_nhat'][1], 2, True)}%</b> lúc {v['thap_nhat'][0]} · trung vị {so(v['trung_vi'], 2, True)}% · cuối "
+        f"{so(v['cuoi'][1], 2, True)}% lúc {v['cuoi'][0]} · đạt ngưỡng {sum(p <= nguong for _, p in v['diem'])}/{len(v['diem'])} lần đo</p>"
+        + bieu_do(
+            v["diem"], ke, f"Giá chào bán / iNAV {ma} ngày {d}", "%", "Chào bán / iNAV − 1 (%)", so_le=2, truc_gio=True
+        )
+        + "</div>"
+        for d, v in cac_ngay.items()
+    )
+    return (
+        f'{dau}<div class="chon-khung" role="group" aria-label="Chọn ngày">{nut}</div>'
+        '<p class="phu">Giá chào bán thấp nhất (giá mua được ngay) so với iNAV, đo 5 phút/lần trong giờ khớp lệnh (SSI iBoard). '
+        f"Dưới 0 = rẻ hơn giá trị tài sản; dưới đường cam ({so(nguong, 2, True)}%) thì lãi ròng nếu giá về iNAV ≥ "
+        f"{so(chiet_khau.NGUONG_LAI_RONG * 100, 0)}% sau phí, thuế; nét đứt là mức thường lệch 1 năm của quỹ. Lúc không ai chào bán "
+        "thì không có điểm. iNAV của SSI là số ước tính, có lúc cập nhật chậm.</p>"
+        f"{khung}</section>"
+    )
+
+
 def so_lieu_truc_tiep(ma, h, ngay):
     """Giá chào bán, KL chào bán, iNAV, NAV T-1, giá chờ mua, chiết khấu, lãi ròng nếu về NAV, mua được đạt ngưỡng của 1 quỹ theo
     SSI iBoard lúc mở trang (1 lượt gọi cả rổ). Lỗi mạng / chưa có iNAV -> số lúc quét. Trả về (số liệu, mô tả nguồn, lỗi).
@@ -471,7 +544,7 @@ def trang_etf_chi_tiet(ma):
     phan += [
         hang_doi(f'<div class="cot-doc">{m_tom_tat}{m_thong_tin}</div>', m_neu),
         muc_nen_etf(ma, cs, h, float(cac_cs.loc[cac_cs["Mã"] == cs, "Giá"].iloc[0])),
-        m_cl,
+        hang_doi(muc_inav_trong_phien(ma, tv), m_cl),
         m_so_lieu,
     ]
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")
