@@ -219,7 +219,10 @@ def trang_huong_dan():
         f"<li>Bảng <b>Chiết khấu so với NAV</b>: 🟢 = lãi ròng nếu mua ở giá chào bán rồi bán đúng NAV ≥ "
         f"{chiet_khau.NGUONG_LAI_RONG:.0%} (sau phí, thuế) và mua được ≥ {so(chiet_khau.MIN_GIA_TRI_CHAO_BAN / 1e6)} triệu.</li>"
         "<li>Xem cột <b>Thường lệch</b>: quỹ ít giao dịch có thể chiết khấu rất lâu, giá không chắc quay về NAV. Đó không phải món hời.</li>"
-        "<li>Dữ liệu tự cập nhật 9:40 thứ Hai–Sáu. Bấm vào một quỹ để xem biểu đồ giá và chênh lệch so với NAV.</li></ul></section>"
+        "<li>Dữ liệu tự cập nhật 9:40 thứ Hai–Sáu. <b>Bấm vào một quỹ</b> để xem trang chi tiết (giống trang CW): giá chào bán / "
+        "iNAV trực tiếp lúc mở trang, Tóm tắt kèm 3 tiêu chí, bảng <b>Nếu mua bây giờ rồi bán</b> (bán ngay, giá về mức thường lệch, "
+        "giá về iNAV), nến H1/H4/D1 của quỹ và chỉ số (thanh dọc/ngang, thước đo, độ sâu, khớp lệnh), <b>giá so với iNAV trong "
+        "phiên</b> (5 phút/lần, chọn ngày: lúc nào rẻ nhất), chênh lệch giá/NAV 1 năm và <b>quỹ có theo kịp chỉ số không</b>.</li></ul></section>"
     )
     phan.append(
         '<section class="the" id="hoi-dap"><h2>10. Câu hỏi thường gặp</h2>'

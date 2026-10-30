@@ -321,6 +321,53 @@ def muc_inav_trong_phien(ma, thuong_lech):
     )
 
 
+def nav_so_voi_chi_so(nav, cs):
+    """NAV và chỉ số (Series theo ngày) -> ([[ngày, % NAV từ mốc]], [% chỉ số cùng ngày], % NAV cả kỳ, % chỉ số cả kỳ).
+    Chỉ lấy ngày cả hai cùng có, mốc = ngày chung đầu tiên (cùng mốc thì mới so được)."""
+    nav, cs = nav.align(cs, join="inner")
+    nav_pt, cs_pt = (nav / nav.iloc[0] - 1) * 100, (cs / cs.iloc[0] - 1) * 100
+    diem = [[str(d.date()), float(v)] for d, v in nav_pt.items()]
+    return diem, [float(v) for v in cs_pt], float(nav_pt.iloc[-1]), float(cs_pt.iloc[-1])
+
+
+def muc_theo_kip_chi_so(ma, cs):
+    """Mục "ETF có theo kịp chỉ số không": % NAV so với % chỉ số mô phỏng trong 1 năm tới ngày NAV cuối (1 lượt vnstock cho
+    chỉ số, floating=6 vì điểm chia 1.000)."""
+    dau = f'<section class="the"><h2>{ESC(ma)} có theo kịp {ESC(cs)} không?</h2>'
+    try:
+        nav = doc_nav(ma)
+        if nav is None or len(nav) < 2:
+            return f"{dau}<p>Chưa có lịch sử NAV của quỹ này.</p></section>"
+        df = cw_scanner.lay_gia_dong_cua(etf.TEN_TRONG_VNSTOCK.get(cs, cs), etf.SO_NGAY_LICH_SU, "VCI", floating=6)
+        gia_cs = etf.chuoi_gia(df, etf.HE_SO_CHI_SO)[0]
+        nav = nav[nav.index > nav.index[-1] - pd.DateOffset(years=1)]
+        diem, duong_cs, nav_tong, cs_tong = nav_so_voi_chi_so(nav, gia_cs)
+    # mất mạng / file NAV hỏng: chỉ mục này báo lỗi
+    except Exception as e:  # noqa: BLE001
+        return f'{dau}<p class="loi" role="alert">Không vẽ được: {ESC(str(e)[:150])}</p></section>'
+    if len(diem) < 2:
+        return f"{dau}<p>Chưa đủ ngày có cả NAV và điểm {ESC(cs)} để so.</p></section>"
+    chenh = nav_tong - cs_tong
+    return (
+        dau + f'<p class="tom-nen">Từ {diem[0][0][8:]}/{diem[0][0][5:7]}/{diem[0][0][:4]} đến {diem[-1][0][8:]}/'
+        f"{diem[-1][0][5:7]}/{diem[-1][0][:4]}: NAV <b>{so(nav_tong, 1, True)}%</b>, {ESC(cs)} <b>{so(cs_tong, 1, True)}%</b> → "
+        f'NAV − chỉ số <b class="{"gia-tang" if chenh >= 0 else "gia-giam"}">{so(chenh, 1, True)} điểm</b></p>'
+        '<p class="phu">Đường xanh: % thay đổi NAV của quỹ; đường cam: % thay đổi điểm chỉ số, cùng mốc ngày đầu. Chỉ số là chỉ số '
+        "giá (chưa cộng cổ tức) còn NAV có cổ tức nên quỹ bám tốt thường cao hơn chỉ số một chút; thấp hơn nhiều = quỹ bám kém "
+        "(phí, tiền mặt, sai số mô phỏng). Đây là bám chỉ số của NAV; giá có thể lệch thêm khỏi NAV (xem chênh lệch giá/NAV).</p>"
+        + bieu_do(
+            diem,
+            [("0%", 0.0, "tc-thuc-hien")],
+            f"NAV {ma} so với {cs}",
+            "%",
+            "NAV từ mốc (%)",
+            [(cs, duong_cs, "ma-ngan")],
+            1,
+        )
+        + "</section>"
+    )
+
+
 def so_lieu_truc_tiep(ma, h, ngay):
     """Giá chào bán, KL chào bán, iNAV, NAV T-1, giá chờ mua, chiết khấu, lãi ròng nếu về NAV, mua được đạt ngưỡng của 1 quỹ theo
     SSI iBoard lúc mở trang (1 lượt gọi cả rổ). Lỗi mạng / chưa có iNAV -> số lúc quét. Trả về (số liệu, mô tả nguồn, lỗi).
@@ -545,6 +592,7 @@ def trang_etf_chi_tiet(ma):
         hang_doi(f'<div class="cot-doc">{m_tom_tat}{m_thong_tin}</div>', m_neu),
         muc_nen_etf(ma, cs, h, float(cac_cs.loc[cac_cs["Mã"] == cs, "Giá"].iloc[0])),
         hang_doi(muc_inav_trong_phien(ma, tv), m_cl),
+        muc_theo_kip_chi_so(ma, cs),
         m_so_lieu,
     ]
     return trang(f"{ma} - Quỹ ETF", "".join(phan), "/etf")

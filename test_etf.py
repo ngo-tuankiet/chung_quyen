@@ -378,6 +378,19 @@ def test_inav_trong_phien_tinh_tay():
     assert d["thap_nhat"] == ("10:00", -3.0) and math.isclose(d["trung_vi"], -1.0) and d["cuoi"] == ("10:00", -3.0)
 
 
+def test_nav_so_voi_chi_so_tinh_tay():
+    import web_etf as W
+
+    # NAV 100 -> 105 -> 110 (+10%), chỉ số 1.000 -> 1.050 (+5%); ngày chỉ số không có (03/10) thì bỏ, mốc chung là ngày đầu
+    # cả hai cùng có. NAV − chỉ số = +5 điểm.
+    nav = chuoi([("2026-10-01", 100), ("2026-10-02", 105), ("2026-10-03", 107), ("2026-10-05", 110)])
+    cs = chuoi([("2026-09-30", 990), ("2026-10-01", 1000), ("2026-10-02", 1020), ("2026-10-05", 1050)])
+    diem, duong_cs, nav_tong, cs_tong = W.nav_so_voi_chi_so(nav, cs)
+    assert [d for d, _ in diem] == ["2026-10-01", "2026-10-02", "2026-10-05"]
+    assert [round(v, 2) for _, v in diem] == [0.0, 5.0, 10.0] and [round(v, 2) for v in duong_cs] == [0.0, 2.0, 5.0]
+    assert math.isclose(nav_tong, 10.0) and math.isclose(cs_tong, 5.0)
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):

@@ -566,8 +566,15 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
   Lần chạy 5 phút giữ máy thức (`caffeinate -i`, `GIU_MAY_THUC` 9:00–14:45 thứ Hai–Sáu, cả nghỉ trưa, mỗi lần 6 phút): chỉ có tác dụng khi máy
   đang thức lúc 9:00 — không đánh thức được máy đã ngủ, gập nắp vẫn ngủ, tốn pin; ngày lễ trong tuần vẫn giữ thức. Muốn máy tự thức trước phiên,
   bạn tự chạy trong Terminal (lệnh hệ thống, cần mật khẩu): `sudo pmset repeat wakeorpoweron MTWRF 08:55:00`.
-- Web: trang **📊 ETF** (`/etf`): bảng chiết khấu (xếp theo lãi ròng), bảng chỉ số, bảng toàn bộ quỹ; bấm một quỹ để xem chênh lệch giá/NAV 1 năm
-  và giá + MA50/MA200.
+- Web: trang **📊 ETF** (`/etf`): bảng chiết khấu (xếp theo lãi ròng), bảng chỉ số, bảng toàn bộ quỹ. Trang chi tiết `/etf/<mã>` (30/10/2026,
+  làm giống trang CW, người dùng duyệt plan): iNAV / giá chào bán / giá chờ mua trực tiếp SSI lúc mở trang (lỗi: số lúc quét, báo đỏ);
+  8 ô (giá chào bán/iNAV, chiết khấu mua được, lãi ròng nếu về iNAV, thường lệch, bám chỉ số, GTGD TB20, NAV phiên trước, CCQ lưu hành);
+  Tóm tắt + 3 tiêu chí; bảng **Nếu mua bây giờ rồi bán** (`kich_ban_ban`: bán ngay ở giá chờ mua / về mức thường lệch / về iNAV, iNAV giữ
+  nguyên, cùng phí thuế với `lai_rong_neu_ve_nav`); nến H1/H4/D1 quỹ + chỉ số (dùng chung `muc_nen` với trang CW; chỉ số vnstock
+  `floating=6`, đơn vị điểm) kèm độ sâu, khớp lệnh của quỹ; **giá so với iNAV trong phiên** (`inav_*.csv`, 5 ngày gần nhất, mốc ngưỡng
+  `ck_dat_nguong` = (1 − phí − thuế) / ((1 + phí)(1 + ngưỡng)) − 1 = −2,35%); chênh lệch giá/NAV 1 năm; **NAV theo kịp chỉ số** 1 năm
+  (`nav_so_voi_chi_so`, cùng mốc; vd FUEVN100 29/10/2025–28/10/2026: NAV −2,6%, VN100 −3,4%, +0,8 điểm, khớp ô bám chỉ số); bảng Số liệu
+  khác. Biểu đồ giá 1 năm + MA đã bỏ (nến D1 thay). Mỗi lần mở: SSI 1, bảng giá 1, vnstock ~7 lượt (nến nhớ 5 phút).
 
 **Nguồn dữ liệu** (đều là API không chính thức; nguồn từng quỹ, giờ công bố NAV: `ket_qua/bao_cao_nguon_nav_etf_2026-10-22.md`)
 - **SSI iBoard** (`iboard-query.ssi.com.vn`, 1 lần gọi cả rổ): iNAV (NAV ước tính trong phiên), NAV T-1 chính thức (`prevINAV`), 3 bước giá mua/bán.
