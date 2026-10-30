@@ -94,7 +94,7 @@ def so_hd_phong_ho(gia_tri, F, beta=1.0):
 
 def chi_phi_hd_den_dao_han(F, so_phien_giu, chi_so):
     """Chi phí (đồng) của 1 HĐ mở ở giá F rồi giữ đến đáo hạn, đúng cách tính của phai_sinh.lai_lo_dao_han (phí công ty, Sở,
-    vị thế mỗi phiên, thuế 2 lần): lãi gộp − lãi ròng khi chỉ số lúc đáo hạn = F."""
+    bù trừ VSDC, thuế 2 lần): lãi gộp − lãi ròng khi chỉ số lúc đáo hạn = F."""
     gop, rong = P.lai_lo_dao_han(F, F, -1, so_phien_giu, chi_so)
     return gop - rong
 
