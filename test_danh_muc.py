@@ -617,17 +617,31 @@ DF_NHOM = DF.assign(**{"Đánh giá": ["THEO DÕI"]})
 
 def test_cw_giam_manh_bien_va_lech_tinh_tay():
     giam = lambda gia, **k: D.cw_giam_manh(DF_NHOM, _bang_giam(gia, **k), HOM_NAY)
-    # tham chiếu 3.000: khớp 2.520 (−16%) -> báo; 2.580 (−14%) -> không; đúng 2.550 (−15%) -> không ("trên 15%")
-    assert [g["ma"] for g in giam(2520)] == ["CVPB2615"] and giam(2580) == [] and giam(2550) == []
-    assert giam(2520, kl=0) == [] and giam(0) == []  # hôm nay chưa khớp lệnh nào: không có giá để so
+    # CS đứng yên 25.000 nên lệch = mức giảm. Tham chiếu 3.000: khớp 2.520 (−16%, lệch −16%) -> báo;
+    # 2.580 (−14%) -> không; đúng 2.550 (−15%) -> không ("trên 15%")
+    assert [g["ma"] for g in giam(2520, gia_cs=25000)] == ["CVPB2615"]
+    assert giam(2580, gia_cs=25000) == [] and giam(2550, gia_cs=25000) == []
+    assert (
+        giam(2520, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
+    )  # chưa khớp lệnh nào: không có giá để so
     # nhóm Bỏ qua thì không xét
-    assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400), HOM_NAY) == []
+    assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400, gia_cs=25000), HOM_NAY) == []
     # Lệch tính tay: IV từ giá tham chiếu (CW 3.000 × 2 = 6.000, S 25.000, K 20.000, 121 ngày, r 4%) = 50,0%;
     # giá lẽ ra với S 24.000: d1 = 0,8233, d2 = 0,5354 -> call = 24.000 × 0,7948 − 20.000 × e^(−0,0133) × 0,7038 = 5.186 -> 2.593/CW
-    # lệch = 2.400 / 2.593 − 1 = −7,4%: phần lớn mức giảm 20% là do CS −4% nhân đòn bẩy, riêng CW chỉ thấp hơn 7,4%
-    g = giam(2400)[0]
-    assert math.isclose(g["giam"], -0.2) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
-    assert abs(g["lech"] - (-0.07438)) < 1e-4 and g["cs"] == "VPB"
+    # lệch = 2.400 / 2.593 − 1 = −7,4%: phần lớn mức giảm 20% là do CS −4% nhân đòn bẩy -> KHÔNG báo
+    # (người dùng chốt 30/10/2026: chỉ báo khi lệch ≤ −15%, giảm do đòn bẩy là bình thường)
+    assert giam(2400) == []
+    assert (
+        abs(
+            cw_scanner.lech_theo_cs(3000, 25000, HOM_NAY, 2400, 24000, HOM_NAY, 20000, 2, date(2027, 2, 17), 0.04)[0]
+            + 0.07438
+        )
+        < 1e-4
+    )
+    # khớp 2.000 (−33,3%) với CS 24.000: lệch = 2.000 / 2.593 − 1 = −22,9% -> báo
+    g = giam(2000)[0]
+    assert math.isclose(g["giam"], -1 / 3) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
+    assert abs(g["lech"] - (2000 / 2592.867 - 1)) < 1e-4 and g["cs"] == "VPB"
 
 
 def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
@@ -649,7 +663,7 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
         mock.patch.object(
             cw_scanner,
             "lay_bang_gia",
-            side_effect=lambda ds, cho=30: {m: v for m, v in _bang_giam(2400).items() if m in ds},
+            side_effect=lambda ds, cho=30: {m: v for m, v in _bang_giam(2000).items() if m in ds},
         ),
         mock.patch.object(D, "gui_discord") as gui,
         mock.patch("sys.stdout", new=io.StringIO()),
@@ -658,7 +672,10 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
         assert [l for _, l, _ in D.kiem_tra(luc=luc)] == ["giam_manh"]
         noi_dung = gui.call_args[0][0]
         assert (
-            "CW giảm mạnh" in noi_dung and "CVPB2615" in noi_dung and "-20,0%" in noi_dung and "lệch -7,4%" in noi_dung
+            "CW giảm bất thường" in noi_dung
+            and "CVPB2615" in noi_dung
+            and "-33,3%" in noi_dung
+            and "lệch -22,9%" in noi_dung
         )
         assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # mỗi mã tối đa 1 tin/ngày
         # file cho trang web: còn giữ mã đã báo trong ngày
@@ -666,5 +683,5 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
         import web_cw
 
         html = web_cw.muc_giam_manh(D.doc_giam_manh(HOM_NAY))
-        assert "CVPB2615" in html and "-20,0%" in html and "-7,4%" in html and "10:00" in html
+        assert "CVPB2615" in html and "-33,3%" in html and "-22,9%" in html and "10:00" in html
     assert web_cw.muc_giam_manh({}) == ""

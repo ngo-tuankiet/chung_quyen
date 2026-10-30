@@ -84,9 +84,10 @@ def muc_giam_manh(ds):
     )
     return (
         f'<section class="the" role="alert"><h2>⚠ CW giảm mạnh hôm nay ({len(ds)})</h2>'
-        f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với tham chiếu '
-        "(kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất). <b>Lệch</b> = giá CW / mức lẽ ra theo cổ phiếu cơ sở − 1: "
-        "gần 0 là CW giảm vì CS giảm (đúng đòn bẩy); âm sâu là riêng CW bị bán mạnh - đáng theo dõi. KL nhỏ thì giá khớp có thể chỉ do 1 lệnh lẻ.</p>"
+        f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với giá tham chiếu '
+        f"(= giá đóng cửa phiên trước) <b>và</b> lệch ≤ −{danh_muc.NGUONG_LECH_GIAM_MANH:.0%} so với mức lẽ ra theo cổ phiếu cơ sở, "
+        "tức riêng CW bị bán chứ không phải do CS giảm × đòn bẩy. Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất. "
+        "KL nhỏ thì giá khớp có thể chỉ do 1 lệnh lẻ.</p>"
         '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
         '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th><th>Báo lúc</th></tr></thead>'
         f"<tbody>{dong}</tbody></table></div></section>"

@@ -38,6 +38,9 @@ NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15
 # CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 15% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026)
 NGUONG_GIAM_MANH = 0.15
 NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
+# ... VÀ lệch so với mức lẽ ra theo CS ≤ −15%: giảm do CS × đòn bẩy là bình thường, không báo (người dùng chốt 30/10/2026,
+# sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.
+NGUONG_LECH_GIAM_MANH = 0.15
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
@@ -557,7 +560,8 @@ def tai_bang_gia(ds_ma, df, cho=15):
 
 
 def cw_giam_manh(df, bang_gia, hom_nay):
-    """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu. Mỗi CW: dict
+    """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
+    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy). Mỗi CW: dict
     ma, cs, giam, gia, ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy từ giá tham chiếu CW và CS;
     bỏ phần mất giá theo thời gian qua 1 đêm). Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
     if df is None or "Đánh giá" not in df:
@@ -586,6 +590,8 @@ def cw_giam_manh(df, bang_gia, hom_nay):
             lech = C.lech_theo_cs(
                 ref, S0, hom_nay, gia, S, hom_nay, ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"]), dao_han, r
             )[0]
+        if round(lech, 9) > -NGUONG_LECH_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo
+            continue
         ket_qua.append(
             {
                 "ma": ma,
@@ -656,8 +662,8 @@ def noi_dung_discord(moi, luc):
     )
     if gm:
         phan.append(
-            f"**📉 CW giảm mạnh** (nhóm Nên xem xét / Theo dõi, giảm quá {pt(NGUONG_GIAM_MANH, dau=False)} so với tham chiếu; "
-            f"lệch gần 0 = do CS, âm sâu = riêng CW bị bán) ({luc:%H:%M %d/%m})\n"
+            f"**📉 CW giảm bất thường** (nhóm Nên xem xét / Theo dõi, giảm quá {pt(NGUONG_GIAM_MANH, dau=False)} so với tham chiếu "
+            f"và lệch ≤ −{pt(NGUONG_LECH_GIAM_MANH, dau=False)} so với mức lẽ ra theo CS) ({luc:%H:%M %d/%m})\n"
             + "\n".join(f"📉 **{ma}**: {nd}" for ma, _, nd in gm)
         )
     return "\n\n".join(phan)
