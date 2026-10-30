@@ -42,7 +42,8 @@ NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.
 NGUONG_LECH_GIAM_MANH = 0.15
 # Lệnh khớp gần nhất (giá × KL, đồng) dưới 5 triệu là lệnh lẻ, giá không đáng tin (CVNM2616 30/10/2026: khớp 100 CW giá 120
-# = 12 nghìn đồng, bán 1 là 220 -> báo nhầm −54%) -> dùng giá mua 1 thay giá khớp. Người dùng chốt 30/10/2026
+# = 12 nghìn đồng, bán 1 là 220 -> báo nhầm −54%) -> dùng giá bán 1 (giá phải trả để mua được) thay giá khớp.
+# Người dùng chốt 30/10/2026
 GIA_TRI_KHOP_TOI_THIEU = 5_000_000
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
@@ -564,7 +565,7 @@ def tai_bang_gia(ds_ma, df, cho=15):
 
 def cw_giam_manh(df, bang_gia, hom_nay):
     """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
-    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy), lệnh khớp gần nhất dưới GIA_TRI_KHOP_TOI_THIEU đồng thì dùng giá mua 1. Mỗi CW: dict
+    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy), lệnh khớp gần nhất dưới GIA_TRI_KHOP_TOI_THIEU đồng thì dùng giá bán 1. Mỗi CW: dict
     ma, cs, giam, gia, ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy từ giá tham chiếu CW và CS;
     bỏ phần mất giá theo thời gian qua 1 đêm). Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
     if df is None or "Đánh giá" not in df:
@@ -580,9 +581,9 @@ def cw_giam_manh(df, bang_gia, hom_nay):
         if not gia or not ref or not khop.get("accumulatedVolume"):
             continue
         if gia * (khop.get("matchVol") or 0) < GIA_TRI_KHOP_TOI_THIEU:  # giá CW trên bảng Vietcap tính bằng đồng
-            mua = (so_lenh or {}).get("bidPrices") or []
-            gia = mua[0].get("price") or 0 if mua else 0
-            if not gia:  # không có lệnh đặt mua: không có giá đáng tin để so
+            ban = (so_lenh or {}).get("askPrices") or []
+            gia = ban[0].get("price") or 0 if ban else 0
+            if not gia:  # không có lệnh đặt bán: không có giá mua được để so
                 continue
         giam = gia / ref - 1
         if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.550 / 3.000 − 1 phải đúng bằng −15% (không báo)

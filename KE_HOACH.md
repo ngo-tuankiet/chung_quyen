@@ -325,7 +325,7 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   không xét) **và** lệch ≤ −15% (`NGUONG_LECH_GIAM_MANH`, thêm 30/10/2026: sáng đó 13/13 mã báo theo mức giảm đều khớp biểu đồ,
   do TCB −2,2%, VIC −2,9% nhân đòn bẩy 7–15; lọc lệch còn 1 mã). Kèm % CS hôm nay và **lệch** = giá CW / mức lẽ ra theo CS − 1 (IV giải từ giá tham chiếu CW và CS, bỏ mất giá 1 đêm): gần 0 là do
   CS × đòn bẩy, âm sâu là riêng CW bị bán. Lệnh lẻ (thêm 30/10/2026): lệnh khớp gần nhất (giá × KL) dưới 5 triệu đồng
-  (`GIA_TRI_KHOP_TOI_THIEU`) thì tính theo giá mua 1 thay giá khớp, không có lệnh mua thì bỏ qua; CVNM2616 bị báo −54% chỉ vì khớp 100 CW giá 120
+  (`GIA_TRI_KHOP_TOI_THIEU`) thì tính theo giá bán 1 (giá phải trả để mua được) thay giá khớp, không có lệnh bán thì bỏ qua; CVNM2616 bị báo −54% chỉ vì khớp 100 CW giá 120
   trong khi giá bán 1 là 220. Hiện ở mục ⚠ trang chính
   (`ket_qua/giam_manh_<ngày>.json`, giữ mã đã báo dù giá hồi). Discord (1 tin/mã/ngày): bật từ 30/10/2026 (`GUI_DISCORD_GIAM_MANH`).
   Ngày 30/10/2026 lúc 12:13 có 13/79 CW bị báo; đa số lệch −7…+1% (TCB −2,2%, VIC −2,9%), CSTB2621 lệch −15% nhưng chỉ khớp 100 CW.
