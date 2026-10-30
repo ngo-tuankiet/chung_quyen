@@ -178,8 +178,15 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .chon-khung button { border: 0; background: transparent; color: var(--chu); padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
 .chon-khung button[aria-pressed="true"] { background: var(--nut); color: #fff; }
 .nen-chu-giai { font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.5em; margin: 6px 0 2px; }
-.nen-chu-giai b { font-weight: 600; } .nen-tuong-tac svg { cursor: crosshair; touch-action: pan-y; }
-.vach-doc { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.nen-chu-giai b { font-weight: 600; } .nen-tuong-tac svg { cursor: crosshair; touch-action: none; user-select: none; }
+@media (pointer: coarse) { .nen-tuong-tac svg { touch-action: pan-y; } }  /* điện thoại: vuốt dọc vẫn cuộn trang */
+.vach-doc, .vach-ngang { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.nhan-con-tro rect { fill: var(--chu-mo); } .nhan-con-tro text { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.thuoc-do { pointer-events: none; } .vung-do { fill: var(--tot); fill-opacity: .14; stroke: var(--tot); stroke-width: 1; }
+.thuoc-do.giam .vung-do { fill: var(--chu-am); stroke: var(--chu-am); } .duong-do { stroke: var(--tot); stroke-width: 1.5; }
+.thuoc-do.giam .duong-do { stroke: var(--chu-am); }
+.chu-do { font-size: 14px; font-weight: 700; fill: var(--chu-duong); paint-order: stroke; stroke: var(--be-mat); stroke-width: 4px; }
+.thuoc-do.giam .chu-do { fill: var(--chu-am); }
 .tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
@@ -290,6 +297,57 @@ document.querySelectorAll(".nen-tuong-tac").forEach(k => {
     chiNen(k, i + (e.key === "ArrowLeft" ? -1 : 1));
   });
   svg.addEventListener("blur", () => chiNen(k, null));
+});
+// thanh ngang + thước đo: trong vùng giá, đường ngang và nhãn giá tại con trỏ (bên phải); giữ chuột / ngón tay kéo -> vùng đo
+// từ điểm bắt đầu tới con trỏ: % thay đổi, chênh lệch giá (đ), số nến (như công cụ đo của TradingView). Thả ra vẫn giữ
+// vùng đo; bấm (không kéo) hoặc Esc để xóa.
+const soVN = (v, le = 0) => v.toLocaleString("vi-VN", { minimumFractionDigits: le, maximumFractionDigits: le });
+document.querySelectorAll(".nen-tuong-tac").forEach(k => {
+  const svg = k.querySelector("svg"), d = k.dataset, q = s => svg.querySelector(s), td = q(".thuoc-do");
+  const toaDo = e => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * +d.r, (e.clientY - r.top) / r.height * +d.c]; };
+  const kep = y => Math.max(+d.tren, Math.min(+d.tren + +d.nenCao, y));
+  const giaTai = y => +d.giaCao - (kep(y) - +d.tren) / +d.nenCao * (+d.giaCao - +d.giaThap);
+  const trongGia = y => y >= +d.tren && y <= +d.tren + +d.nenCao;
+  const nenTai = x => Math.floor((x - +d.x0) / +d.rong);
+  const dat = (el, o) => Object.entries(o).forEach(([a, v]) => el.setAttribute(a, v));
+  let dau = null;
+  const ngang = y => {
+    const l = q(".vach-ngang"), n = q(".nhan-con-tro"), hien = trongGia(y) ? "visible" : "hidden";
+    l.setAttribute("visibility", hien); n.setAttribute("visibility", hien);
+    if (hien === "hidden") return;
+    dat(l, { y1: y, y2: y }); n.querySelector("rect").setAttribute("y", y - 10);
+    const ch = n.querySelector("text"); ch.setAttribute("y", y + 4); ch.textContent = soVN(giaTai(y));
+  };
+  const doDen = (x, y) => {
+    y = kep(y);
+    const g0 = giaTai(dau.y), g1 = giaTai(y), pt = (g1 / g0 - 1) * 100, dau_ = pt >= 0 ? "+" : "−";
+    td.classList.toggle("giam", pt < 0);
+    dat(q(".vung-do"), { x: Math.min(dau.x, x), y: Math.min(dau.y, y), width: Math.abs(x - dau.x), height: Math.abs(y - dau.y) });
+    dat(q(".duong-do"), { x1: dau.x, y1: dau.y, x2: x, y2: y });
+    const ch = q(".chu-do"), xt = Math.min(x + 8, +d.r - 220);
+    dat(ch, { x: xt, y: Math.max(+d.tren + 14, y + (y < dau.y ? -8 : 18)) });
+    ch.textContent = `${dau_}${soVN(Math.abs(pt), 2)}% (${dau_}${soVN(Math.abs(g1 - g0))} đ) · ${Math.abs(nenTai(x) - nenTai(dau.x))} nến`;
+    td.setAttribute("visibility", "visible");
+  };
+  svg.addEventListener("pointerdown", e => {
+    const [x, y] = toaDo(e);
+    td.setAttribute("visibility", "hidden");
+    if (!trongGia(y)) return;
+    dau = { x, y, keo: false };
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener("pointermove", e => {
+    const [x, y] = toaDo(e);
+    ngang(y);
+    if (!dau) return;
+    if (Math.abs(x - dau.x) + Math.abs(y - dau.y) > 4) dau.keo = true;
+    if (dau.keo) doDen(x, y);
+  });
+  svg.addEventListener("pointerup", () => { dau = null; });
+  svg.addEventListener("pointerleave", () => { if (!dau) ngang(-1); });
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.querySelectorAll(".thuoc-do").forEach(g => g.setAttribute("visibility", "hidden"));
 });
 // nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
 document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
@@ -761,11 +819,16 @@ def bieu_do_nen(gio, nen, ten, khung="h4"):
         if g in nen
     )
     return (
-        f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}">'
+        f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}" data-c="{C}" '
+        f'data-tren="{TREN}" data-nen-cao="{NEN_CAO}" data-gia-cao="{round(cao, 6):g}" data-gia-thap="{round(thap, 6):g}">'
         f'<div class="nen-chu-giai">{"".join(chu_giai)}</div>'
         f'<svg class="bieu-do-nen" viewBox="0 0 {R} {C}" tabindex="0" role="img" '
         f'aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng nến.">{"".join(phan)}'
-        f'<line class="vach-doc" x1="0" x2="0" y1="{TREN}" y2="{day_kl}" visibility="hidden"/></svg></div>'
+        f'<g class="thuoc-do" visibility="hidden"><rect class="vung-do"/><line class="duong-do"/><text class="chu-do"/></g>'
+        f'<line class="vach-doc" x1="0" x2="0" y1="{TREN}" y2="{day_kl}" visibility="hidden"/>'
+        f'<line class="vach-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="0" y2="0" visibility="hidden"/>'
+        f'<g class="nhan-con-tro" visibility="hidden"><rect x="{R - PHAI + 4}" y="0" width="{PHAI - 6}" height="20" rx="3"/>'
+        f'<text x="{R - PHAI / 2 + 1:.1f}" y="0" text-anchor="middle"></text></g></svg></div>'
         f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
         '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'

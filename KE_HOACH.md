@@ -410,7 +410,7 @@ nhất, đóng = nến muộn nhất, KL cộng dồn. Kèm cột khối lượn
 cao/thấp); buổi CW không khớp để trống. Biểu đồ giá CS 1 năm và mục "Giá hợp lý được tính thế nào" đã bỏ khỏi trang (người dùng chọn).
 Giá chưa
 điều chỉnh cổ tức. Dùng để so CW với CS mà không cần mở SSI/Vietcap (vd CSTB2621 30/10: 1 nến, KL 100 trong khi STB đi ngang).
-Nút ⛶ toàn màn hình đã bỏ (người dùng chọn). Từ 30/10/2026 mục này trải hết chiều ngang, mỗi mã 1 hàng 3 cột như bảng điện:
+Rê chuột: thanh dọc (đồng bộ CW và CS) + thanh ngang có nhãn giá tại con trỏ; dòng thông số nến đang trỏ (mở/cao/thấp/đóng, % so với đóng nến trước, KL). Giữ chuột kéo: thước đo % thay đổi, chênh lệch giá, số nến từ điểm bắt đầu (giá đổi từ tọa độ bằng `data-gia-cao`/`data-gia-thap` của trục); bấm hoặc Esc để xóa; điện thoại vẫn vuốt dọc để cuộn trang. Nút ⛶ toàn màn hình đã bỏ (người dùng chọn). Từ 30/10/2026 mục này trải hết chiều ngang, mỗi mã 1 hàng 3 cột như bảng điện:
 nến | **độ sâu thị trường** (3 mức giá mua/bán Vietcap lúc mở trang, dư mua/dư bán, biểu đồ bậc KL cộng dồn từ giá tốt nhất ra ngoài:
 bậc nhảy lớn là tường) | **khớp lệnh** (vnstock `intraday`, 100 lệnh gần nhất, mới nhất trước; M = mua chủ động, B = bán chủ động;
 M/B cộng trên các lệnh đang hiện vì Vietcap không trả tổng cả phiên). Không tự làm mới: tải lại trang. Bỏ các đường tường vẽ trên nến.

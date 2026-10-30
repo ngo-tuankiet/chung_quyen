@@ -613,6 +613,18 @@ def test_thanh_doc_dong_thong_so():
     assert 'class="vach-doc"' in html and 'data-x0="56"' in html and f'data-rong="{(900 - 56 - 76) / 3:.3f}"' in html
 
 
+def test_thanh_ngang_va_thuoc_do():
+    import web_chung as W
+
+    # Khoảng giá 90–120, đệm 6% -> trục 88,2–121,8 trên vùng nến y = 10 … 10 + NEN_CAO: JS đổi y con trỏ ra giá bằng
+    # giá = 121,8 − (y − 10) / NEN_CAO × 33,6 (vd y = 10 + 140 -> 105). Có sẵn thanh ngang, nhãn giá, vùng đo (ẩn).
+    gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
+    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
+    assert 'data-gia-cao="121.8"' in html and 'data-gia-thap="88.2"' in html
+    assert f'data-tren="10" data-nen-cao="{W.NEN_CAO}"' in html
+    assert 'class="vach-ngang"' in html and 'class="nhan-con-tro"' in html and 'class="thuoc-do"' in html
+
+
 def test_bieu_do_nen_toa_do_tinh_tay():
     import web_chung as W
 
