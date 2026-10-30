@@ -601,3 +601,70 @@ if __name__ == "__main__":  # chạy không cần pytest
         if ten.startswith("test_"):
             ham()
     print("OK - danh mục đúng")
+
+
+def _bang_giam(gia_cw, kl=50_000, ref_cw=3000, gia_cs=24000):
+    """Bảng giá 1 CW (K 20.000, 2:1, đáo hạn 17/02/2027) tham chiếu ref_cw, CS tham chiếu 25.000."""
+    b = bang_gia_mau(None, 25000, HOM_NAY + timedelta(days=60))
+    b["CVPB2615"][0]["refPrice"] = ref_cw
+    b["CVPB2615"][1].update(matchPrice=gia_cw, accumulatedVolume=kl)
+    b["VPB"] = ({"refPrice": 25000}, {"matchPrice": gia_cs}, {})
+    return b
+
+
+DF_NHOM = DF.assign(**{"Đánh giá": ["THEO DÕI"]})
+
+
+def test_cw_giam_manh_bien_va_lech_tinh_tay():
+    giam = lambda gia, **k: D.cw_giam_manh(DF_NHOM, _bang_giam(gia, **k), HOM_NAY)
+    # tham chiếu 3.000: khớp 2.520 (−16%) -> báo; 2.580 (−14%) -> không; đúng 2.550 (−15%) -> không ("trên 15%")
+    assert [g["ma"] for g in giam(2520)] == ["CVPB2615"] and giam(2580) == [] and giam(2550) == []
+    assert giam(2520, kl=0) == [] and giam(0) == []  # hôm nay chưa khớp lệnh nào: không có giá để so
+    # nhóm Bỏ qua thì không xét
+    assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400), HOM_NAY) == []
+    # Lệch tính tay: IV từ giá tham chiếu (CW 3.000 × 2 = 6.000, S 25.000, K 20.000, 121 ngày, r 4%) = 50,0%;
+    # giá lẽ ra với S 24.000: d1 = 0,8233, d2 = 0,5354 -> call = 24.000 × 0,7948 − 20.000 × e^(−0,0133) × 0,7038 = 5.186 -> 2.593/CW
+    # lệch = 2.400 / 2.593 − 1 = −7,4%: phần lớn mức giảm 20% là do CS −4% nhân đòn bẩy, riêng CW chỉ thấp hơn 7,4%
+    g = giam(2400)[0]
+    assert math.isclose(g["giam"], -0.2) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
+    assert abs(g["lech"] - (-0.07438)) < 1e-4 and g["cs"] == "VPB"
+
+
+def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
+    import web_chung
+
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        mock.patch.multiple(
+            D,
+            FILE_DANH_MUC=Path(tmp) / "dm.csv",
+            FILE_TRANG_THAI=Path(tmp) / "tt.json",
+            THU_MUC_GIAM_MANH=Path(tmp),
+            GUI_DISCORD_GIAM_MANH=True,
+        ),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF_NHOM, HOM_NAY)),
+        mock.patch.object(
+            cw_scanner, "doc_env", return_value={"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/abc"}
+        ),
+        mock.patch.object(
+            cw_scanner,
+            "lay_bang_gia",
+            side_effect=lambda ds, cho=30: {m: v for m, v in _bang_giam(2400).items() if m in ds},
+        ),
+        mock.patch.object(D, "gui_discord") as gui,
+        mock.patch("sys.stdout", new=io.StringIO()),
+    ):
+        luc = datetime(2026, 10, 19, 10, 0)
+        assert [l for _, l, _ in D.kiem_tra(luc=luc)] == ["giam_manh"]
+        noi_dung = gui.call_args[0][0]
+        assert (
+            "CW giảm mạnh" in noi_dung and "CVPB2615" in noi_dung and "-20,0%" in noi_dung and "lệch -7,4%" in noi_dung
+        )
+        assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # mỗi mã tối đa 1 tin/ngày
+        # file cho trang web: còn giữ mã đã báo trong ngày
+        assert list(D.doc_giam_manh(HOM_NAY)) == ["CVPB2615"]
+        import web_cw
+
+        html = web_cw.muc_giam_manh(D.doc_giam_manh(HOM_NAY))
+        assert "CVPB2615" in html and "-20,0%" in html and "-7,4%" in html and "10:00" in html
+    assert web_cw.muc_giam_manh({}) == ""

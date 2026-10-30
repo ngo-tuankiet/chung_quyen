@@ -35,6 +35,10 @@ CANH_BAO_PHIEN_GD_CUOI_GAP = 2
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15 VÀ IV (theo giá chờ mua) > trung vị IV CW cùng mã
+# CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 15% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026)
+NGUONG_GIAM_MANH = 0.15
+NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
+GUI_DISCORD_GIAM_MANH = False  # tắt: chỉ hiện trên web, chờ người dùng cho phép gửi Discord
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
 MUC_KHONG, MUC_CAN_NHAC, MUC_NEN_BAN = 0, 1, 2
@@ -72,6 +76,7 @@ URL_DISCORD_HOP_LE = ("https://discord.com/api/webhooks/", "https://discordapp.c
 
 FILE_DANH_MUC = C.THU_MUC / "danh_muc.csv"
 FILE_TRANG_THAI = C.THU_MUC / "canh_bao_da_gui.json"
+THU_MUC_GIAM_MANH = C.THU_MUC_KET_QUA  # giam_manh_<ngày>.json: các CW đã báo giảm mạnh trong ngày, trang web đọc
 COT = ["id", "ngay", "ma_cw", "loai", "so_luong", "gia", "chot_loi", "cat_lo", "ghi_chu"]
 MAU_MA_CW = re.compile(r"C[A-Z]{3}\d{4}")
 
@@ -551,6 +556,74 @@ def tai_bang_gia(ds_ma, df, cho=15):
     return {**bang, **C.lay_bang_gia(sorted(thieu), cho=cho)} if thieu else bang
 
 
+def cw_giam_manh(df, bang_gia, hom_nay):
+    """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu. Mỗi CW: dict
+    ma, cs, giam, gia, ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy từ giá tham chiếu CW và CS;
+    bỏ phần mất giá theo thời gian qua 1 đêm). Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
+    if df is None or "Đánh giá" not in df:
+        return []
+    nhom = df[df["Đánh giá"].isin(NHOM_THEO_DOI_GIAM)]
+    ket_qua = []
+    for _, h in nhom.iterrows():
+        ma = h["Mã CW"]
+        if ma not in bang_gia:
+            continue
+        ny, khop, _ = bang_gia[ma]
+        gia, ref = khop.get("matchPrice") or 0, ny.get("refPrice") or 0
+        if not gia or not ref or not khop.get("accumulatedVolume"):
+            continue
+        giam = gia / ref - 1
+        if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.550 / 3.000 − 1 phải đúng bằng −15% (không báo)
+            continue
+        cs = ny["underlyingSymbol"]
+        cs_ny, cs_khop, _ = bang_gia.get(cs, ({}, {}, {}))
+        S0, S = cs_ny.get("refPrice"), C.gia_hien_tai(cs_ny, cs_khop) if cs_ny else None
+        md = ny.get("maturityDate") or ""
+        dao_han = date(int(md[:4]), int(md[4:6]), int(md[6:])) if md else None
+        r = float(h["r %"]) / 100 if "r %" in h and not pd.isna(h["r %"]) else C.LAI_SUAT_PHI_RUI_RO
+        lech = math.nan
+        if S0 and S and dao_han:
+            lech = C.lech_theo_cs(
+                ref, S0, hom_nay, gia, S, hom_nay, ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"]), dao_han, r
+            )[0]
+        ket_qua.append(
+            {
+                "ma": ma,
+                "cs": cs,
+                "giam": giam,
+                "gia": gia,
+                "ref": ref,
+                "kl": khop["accumulatedVolume"],
+                "cs_pt": S / S0 - 1 if S0 and S else math.nan,
+                "lech": lech,
+            }
+        )
+    return ket_qua
+
+
+def noi_dung_giam_manh(g):
+    """1 dòng cảnh báo giảm mạnh (giá, KL khớp là dữ liệu thị trường công khai, không phải vị thế của người dùng)."""
+    lech = f" · lệch {pt(g['lech'], 1)} so với mức lẽ ra theo CS" if not math.isnan(g["lech"]) else ""
+    cs = f" · {g['cs']} {pt(g['cs_pt'], 1)}" if not math.isnan(g["cs_pt"]) else ""
+    return f"{pt(g['giam'], 1)} ({so(g['gia'])} so với tham chiếu {so(g['ref'])}), KL {so(g['kl'])}{cs}{lech}"
+
+
+def doc_giam_manh(ngay):
+    """{mã: thông tin giảm mạnh mới nhất + 'luc' lần đầu báo} trong ngày `ngay`; chưa có -> {}."""
+    file = THU_MUC_GIAM_MANH / f"giam_manh_{ngay}.json"
+    return json.loads(file.read_text(encoding="utf-8")) if file.exists() else {}
+
+
+def ghi_giam_manh(ngay, ds, luc):
+    """Gộp các CW giảm mạnh lần này vào file trong ngày (mã đã báo vẫn giữ dù giá hồi lại). Ghi tạm rồi đổi tên."""
+    cu = doc_giam_manh(ngay)
+    for g in ds:
+        cu[g["ma"]] = {**g, "luc": cu.get(g["ma"], {}).get("luc", f"{luc:%H:%M}"), "cap_nhat": f"{luc:%H:%M}"}
+    tam = THU_MUC_GIAM_MANH / f"giam_manh_{ngay}.tmp"
+    tam.write_text(json.dumps(cu, ensure_ascii=False), encoding="utf-8")  # NaN ghi thành NaN, json đọc lại được
+    tam.replace(THU_MUC_GIAM_MANH / f"giam_manh_{ngay}.json")
+
+
 def chon_canh_bao_moi(canh_bao, dang_bao):
     """Chỉ gửi cảnh báo VỪA xuất hiện (chưa có trong dang_bao). Trả về (cảnh báo mới, danh sách đang báo mới)."""
     khoa = lambda cb: f"{cb[0]}|{cb[1]}"
@@ -575,7 +648,19 @@ def gui_discord(noi_dung, url):
 
 
 def noi_dung_discord(moi, luc):
-    return f"**Cảnh báo danh mục CW** ({luc:%H:%M %d/%m})\n" + "\n".join(f"⚠ **{ma}**: {nd}" for ma, _, nd in moi)
+    dm, gm = [cb for cb in moi if cb[1] != "giam_manh"], [cb for cb in moi if cb[1] == "giam_manh"]
+    phan = (
+        [f"**Cảnh báo danh mục CW** ({luc:%H:%M %d/%m})\n" + "\n".join(f"⚠ **{ma}**: {nd}" for ma, _, nd in dm)]
+        if dm
+        else []
+    )
+    if gm:
+        phan.append(
+            f"**📉 CW giảm mạnh** (nhóm Nên xem xét / Theo dõi, giảm quá {pt(NGUONG_GIAM_MANH, dau=False)} so với tham chiếu; "
+            f"lệch gần 0 = do CS, âm sâu = riêng CW bị bán) ({luc:%H:%M %d/%m})\n"
+            + "\n".join(f"📉 **{ma}**: {nd}" for ma, _, nd in gm)
+        )
+    return "\n\n".join(phan)
 
 
 def chia_tin(noi_dung, toi_da=1900):
@@ -687,23 +772,30 @@ def kiem_tra(luon=False, luc=None):
     if not luon and not trong_gio_khop_lenh(luc):
         return []
     vt = {ma: v for ma, v in tinh_vi_the(doc_lenh()).items() if v["so_luong"] > 0}
-    if not vt:
-        return []
     from web_chung import doc_ket_qua  # nhập ở đây để tránh vòng lặp import (web_chung.py dùng danh_muc.py)
 
     df, ngay_quet = doc_ket_qua()
     df = (
         df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])
     )  # chưa quét lần nào: bỏ phần IV, đòn bẩy
-    bang_gia = tai_bang_gia(list(vt), df)
+    theo_doi = list(df.loc[df["Đánh giá"].isin(NHOM_THEO_DOI_GIAM), "Mã CW"]) if "Đánh giá" in df else []
+    if not vt and not theo_doi:
+        return []
+    bang_gia = tai_bang_gia(sorted(set(vt) | set(theo_doi)), df)
     hom_nay = str(luc.date())
     if not any(ny.get("tradingDate") == hom_nay for ny, *_ in bang_gia.values()):
         return []  # ngày nghỉ lễ / Tết: bảng giá vẫn là phiên trước, không có gì mới để báo
     trang_thai = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
-    dong, canh_bao, kl_moi = danh_gia_danh_muc(
-        vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), doc_lich_su(ngay_quet)
+    dong, canh_bao, kl_moi = (
+        danh_gia_danh_muc(vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), doc_lich_su(ngay_quet))
+        if vt
+        else ([], [], trang_thai.get("kl_niem_yet", {}))
     )
-    moi, dang_bao = chon_canh_bao_moi(bat_thuong(dong, canh_bao), trang_thai.get("dang_bao", []))
+    giam = cw_giam_manh(df, bang_gia, luc.date())
+    if giam:
+        ghi_giam_manh(hom_nay, giam, luc)
+    canh_bao_giam = [(g["ma"], "giam_manh", noi_dung_giam_manh(g)) for g in giam] if GUI_DISCORD_GIAM_MANH else []
+    moi, dang_bao = chon_canh_bao_moi(bat_thuong(dong, canh_bao) + canh_bao_giam, trang_thai.get("dang_bao", []))
     # mỗi loại cảnh báo của mỗi mã tối đa 1 tin/ngày: giá dao động quanh ngưỡng thì không gửi lặp (lỗi thật 22/10/2026)
     da_gui = {k: ngay for k, ngay in trang_thai.get("da_gui", {}).items() if ngay == hom_nay}
     moi = [cb for cb in moi if f"{cb[0]}|{cb[1]}" not in da_gui]
@@ -712,7 +804,8 @@ def kiem_tra(luon=False, luc=None):
         if not url:
             print(f"{luc:%d/%m %H:%M} [!] Có {len(moi)} cảnh báo mới nhưng chưa có DISCORD_WEBHOOK_URL trong .env")
             return []  # không lưu trạng thái: có webhook rồi thì lần sau vẫn gửi
-        gui_discord(noi_dung_discord(moi, luc), url)
+        for tin in chia_tin(noi_dung_discord(moi, luc)):  # ngày thị trường giảm mạnh có thể nhiều mã: chia nhiều tin
+            gui_discord(tin, url)
         print(f"{luc:%d/%m %H:%M} Đã gửi {len(moi)} cảnh báo lên Discord: " + ", ".join(f"{m} {l}" for m, l, _ in moi))
     # lưu sau khi gửi thành công: gửi lỗi thì lần kiểm tra sau gửi lại
     FILE_TRANG_THAI.write_text(

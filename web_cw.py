@@ -53,6 +53,7 @@ def trang_chinh():
         " Bấm vào một mã để xem phân tích chi tiết, rê chuột lên tiêu đề cột để xem giải thích."
         ' Chưa rõ cách dùng? Đọc <a href="/huong-dan">Hướng dẫn sử dụng</a>.</p>'
     )
+    phan.append(muc_giam_manh(danh_muc.doc_giam_manh(date.today())))
     if len(moi):
         phan.append(
             f'<section class="the"><h2>CW mới phát hành ({len(moi)})</h2><div class="cuon">{bang(moi)}</div></section>'
@@ -68,6 +69,28 @@ def trang_chinh():
         f'<div class="cuon cao">{bang(df, id_bang="bang-tat-ca")}</div></section>'
     )
     return trang("Quét chứng quyền", "".join(phan), "/")
+
+
+def muc_giam_manh(ds):
+    """Mục ⚠ các CW (nhóm Nên xem xét / Theo dõi) đã giảm quá ngưỡng so với giá tham chiếu hôm nay; không có thì rỗng."""
+    if not ds:
+        return ""
+    pt = lambda x: f"{so(x * 100, 1, True)}%"
+    dong = "".join(
+        f'<tr><td><a href="/cw/{ESC(ma)}">{ESC(ma)}</a></td><td>{ESC(g["cs"])}</td><td class="so"><b>{pt(g["giam"])}</b></td>'
+        f'<td class="so">{so(g["gia"])} / {so(g["ref"])}</td><td class="so">{so(g["kl"])}</td><td class="so">{pt(g["cs_pt"])}</td>'
+        f'<td class="so">{pt(g["lech"])}</td><td>{ESC(g["luc"])}</td></tr>'
+        for ma, g in sorted(ds.items(), key=lambda x: x[1]["giam"])
+    )
+    return (
+        f'<section class="the" role="alert"><h2>⚠ CW giảm mạnh hôm nay ({len(ds)})</h2>'
+        f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với tham chiếu '
+        "(kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất). <b>Lệch</b> = giá CW / mức lẽ ra theo cổ phiếu cơ sở − 1: "
+        "gần 0 là CW giảm vì CS giảm (đúng đòn bẩy); âm sâu là riêng CW bị bán mạnh - đáng theo dõi. KL nhỏ thì giá khớp có thể chỉ do 1 lệnh lẻ.</p>"
+        '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
+        '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th><th>Báo lúc</th></tr></thead>'
+        f"<tbody>{dong}</tbody></table></div></section>"
+    )
 
 
 # ============ TRANG CHI TIẾT ============

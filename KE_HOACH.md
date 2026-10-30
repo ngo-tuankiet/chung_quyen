@@ -320,6 +320,12 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   ngày GD cuối, còn ≤ 2 phiên tới ngày GD cuối (`gd_cuoi_gap`), đang trong 5 phiên tính giá thanh toán (`ky_thanh_toan`, 26/10/2026),
   TCPH phát hành thêm, không có người mua, mã không còn trên bảng giá. CS gần giá thực hiện, IV bất thường, CW lệch so với
   CS chỉ hiện trên web (cột Trạng thái).
+- **CW giảm mạnh** (30/10/2026, `cw_giam_manh`): cùng lịch 5 phút, kể cả khi không nắm vị thế nào. CW thuộc nhóm Nên xem xét / Theo dõi của
+  lần quét gần nhất có giá khớp hôm nay giảm **quá** 15% so với tham chiếu (`NGUONG_GIAM_MANH`; đúng −15% không báo; chưa khớp lệnh nào thì
+  không xét). Kèm % CS hôm nay và **lệch** = giá CW / mức lẽ ra theo CS − 1 (IV giải từ giá tham chiếu CW và CS, bỏ mất giá 1 đêm): gần 0 là do
+  CS × đòn bẩy, âm sâu là riêng CW bị bán. Không lọc lệnh lẻ: KL khớp ghi kèm để tự đánh giá. Hiện ở mục ⚠ trang chính
+  (`ket_qua/giam_manh_<ngày>.json`, giữ mã đã báo dù giá hồi). Discord (1 tin/mã/ngày) bật bằng `GUI_DISCORD_GIAM_MANH`.
+  Ngày 30/10/2026 lúc 12:13 có 13/79 CW bị báo; đa số lệch −7…+1% (TCB −2,2%, VIC −2,9%), CSTB2621 lệch −15% nhưng chỉ khớp 100 CW.
 
 **Khi nào bán: trạng thái mỗi vị thế** (lát 1a, 23/10/2026; chỉ hiện ở cột *Trạng thái* trang 💼, **không gửi Discord**, không đổi cảnh báo cũ)
 - 🔴 **Nên bán**: chạm chốt lời / cắt lỗ **do bạn tự đặt** ở lệnh mua; **CW đắt** (cảnh báo `cw_dat`); **mất giá theo thời gian ≥ 2%/ngày**
