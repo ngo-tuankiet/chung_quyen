@@ -24,7 +24,6 @@ from web_cw import trang_chi_tiet, trang_chinh, trang_sap_ra_mat
 from web_danh_muc import trang_danh_muc
 from web_etf import trang_etf, trang_etf_chi_tiet
 from web_huong_dan import trang_huong_dan
-from web_luot import trang_luot
 
 
 def nguon_hop_le(headers):
@@ -37,31 +36,32 @@ def nguon_hop_le(headers):
 class XuLy(BaseHTTPRequestHandler):
     def do_GET(self):
         duong_dan = self.path.split("?")[0]
+        if duong_dan == "/luot-cw":  # tab Lướt cũ đã gộp vào trang Chứng quyền (30/10/2026): giữ link cũ dùng được
+            self.send_response(301)
+            self.send_header("Location", "/#luot")
+            self.end_headers()
+            return
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
         noi_dung = (
-            trang_luot()
-            if duong_dan == "/luot-cw"
+            trang_etf()
+            if duong_dan == "/etf"
             else (
-                trang_etf()
-                if duong_dan == "/etf"
+                trang_etf_chi_tiet(m_etf.group(1))
+                if m_etf
                 else (
-                    trang_etf_chi_tiet(m_etf.group(1))
-                    if m_etf
+                    trang_chinh()
+                    if duong_dan == "/"
                     else (
-                        trang_chinh()
-                        if duong_dan == "/"
+                        trang_huong_dan()
+                        if duong_dan == "/huong-dan"
                         else (
-                            trang_huong_dan()
-                            if duong_dan == "/huong-dan"
+                            trang_danh_muc()
+                            if duong_dan == "/danh-muc"
                             else (
-                                trang_danh_muc()
-                                if duong_dan == "/danh-muc"
-                                else (
-                                    trang_sap_ra_mat("tai_moi=1" in self.path)
-                                    if duong_dan == "/sap-ra-mat"
-                                    else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
-                                )
+                                trang_sap_ra_mat("tai_moi=1" in self.path)
+                                if duong_dan == "/sap-ra-mat"
+                                else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
                             )
                         )
                     )

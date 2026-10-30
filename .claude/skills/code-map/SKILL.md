@@ -18,7 +18,7 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 | `web.py` | Máy chủ web localhost:8000: định tuyến GET/POST, chặn CSRF (`nguon_hop_le`) | `XuLy` |
 | `web_chung.py` | Phần chung của web: CSS/JS, `trang` (khung + menu; trải hết chiều ngang, tự thu `p.phu` > 160 ký tự vào "ℹ Giải thích" trừ /huong-dan), `hang_doi` (2 mục cạnh nhau, < 1.100 px xếp 1 cột), `bieu_do_nen` + `bang_khop_lenh` (khớp lẻ < `cw_scanner.GIA_TRI_KHOP_TOI_THIEU` vẽ mờ), `do_sau_thi_truong`, `so`, `bang` (bảng CW, cột `COT`), `bieu_do`, `doc_ket_qua`, trạng thái `LOI`/`NHAT_KY`/`LOI_DANH_MUC` | |
 | `web_cw.py` | `/` danh sách CW (+ mục ⚠ giảm mạnh), `/cw/<mã>` chi tiết (+ nến H1/H4/D1 CW/CS), `/sap-ra-mat` | `trang_chinh`, `muc_giam_manh`, `trang_chi_tiet`, `muc_nen_1h`, `trang_sap_ra_mat` |
-| `web_luot.py` | `/luot-cw` bảng ⚡ Lướt (cột `COT_LUOT`) | `trang_luot` |
+| `web_luot.py` | Mục ⚡ Lướt trên trang chính (`/#luot`, cột `COT_LUOT`; `/luot-cw` chuyển hướng 301) | `muc_luot` |
 | `web_etf.py` | `/etf`, `/etf/<mã>` | `trang_etf`, `trang_etf_chi_tiet`, `bang_etf` |
 | `web_danh_muc.py`, `web_huong_dan.py` | `/danh-muc`, `/huong-dan` | `trang_danh_muc`, `trang_huong_dan` |
 | `kiem_chung_luot.py` | Backtest thứ tự xếp hạng lướt; tải dữ liệu CW kể cả đã hết hạn (cache `.pkl`) | `lay_du_lieu`, `dieu_khoan`, `chay` |

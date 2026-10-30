@@ -184,7 +184,7 @@ Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
   ý nghĩa từng cột, cách đọc trang phân tích, 5 câu tự hỏi trước khi mua, câu hỏi thường gặp). Rê chuột lên tiêu đề cột để xem giải thích ngắn.
 - Trang **CW sắp ra mắt** (`/sap-ra-mat`): các CW HOSE đã chấp thuận niêm yết nhưng chưa giao dịch (lấy từ hsx.vn, lưu lại mỗi lần quét),
   kèm giá hợp lý dự kiến để so sánh khi CW lên sàn. **Bỏ khỏi menu 24/10/2026** (người dùng thấy không cần); trang và dữ liệu vẫn còn.
-- **Điện thoại (màn hình ≤ 640px):** menu thành thanh cố định dưới cùng như app (📈 Chứng quyền, 💼 Danh mục, ⚡ Lướt CW, 📊 ETF, ❓ Hướng dẫn);
+- **Điện thoại (màn hình ≤ 640px):** menu thành thanh cố định dưới cùng như app (📈 Chứng quyền, 📊 ETF, 💼 Danh mục, ❓ Hướng dẫn; ⚡ Lướt CW gộp vào trang Chứng quyền từ 30/10/2026);
   bảng chữ nhỏ hơn, cột mã đứng yên khi vuốt ngang.
 - **Bấm vào một mã CW** để mở trang phân tích: tóm tắt dễ hiểu, 4 tiêu chí đạt/không đạt, giá trị nội tại / thời gian,
   biểu đồ giá cổ phiếu cơ sở 1 năm kèm đường giá thực hiện và hòa vốn (rê chuột xem giá từng ngày), bảng **lãi/lỗ khi đáo hạn**
@@ -369,7 +369,7 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 
 ---
 
-## Phần 7b. Lướt CW 2–5 phiên (trang **⚡ Lướt CW**)
+## Phần 7b. Lướt CW 2–5 phiên (mục **⚡ Lướt CW** trên trang Chứng quyền, sau Nên xem xét; link cũ `/luot-cw` chuyển về `/#luot`)
 
 Mục đích: bạn tự nhận định cổ phiếu cơ sở nào sắp tăng; công cụ chỉ ra **CW nào rẻ và hiệu quả nhất** để đặt cược đó trong 2–5 phiên,
 lệnh dưới 20 triệu. **Python không đoán hướng cổ phiếu** — CW không tạo ra lợi thế, nó khuếch đại biến động của cổ phiếu theo cả 2 chiều,

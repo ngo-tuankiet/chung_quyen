@@ -694,3 +694,27 @@ def test_khung_trang_hang_doi_va_giai_thich():
     assert html.count('<details class="giai-thich">') == 1 and ngan in html
     # trang Hướng dẫn là trang để đọc: không thu gọn
     assert "<details" not in W.trang("T", dai, "/huong-dan")
+
+
+def test_tab_luot_gop_vao_trang_chung_quyen():
+    # 30/10/2026: bỏ tab ⚡ Lướt CW khỏi menu, link cũ /luot-cw chuyển về mục #luot của trang Chứng quyền
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+    from unittest import mock
+
+    import web
+    import web_chung
+
+    assert all(d != "/luot-cw" for d, *_ in web_chung.MENU)
+    may_chu = HTTPServer(("127.0.0.1", 0), web.XuLy)
+    threading.Thread(target=may_chu.serve_forever, daemon=True).start()
+    try:
+        with mock.patch.object(urllib.request.HTTPRedirectHandler, "redirect_request", return_value=None):
+            urllib.request.urlopen(f"http://127.0.0.1:{may_chu.server_port}/luot-cw", timeout=5)
+        assert False, "phải chuyển hướng"
+    except urllib.error.HTTPError as e:
+        assert e.code == 301 and e.headers["Location"] == "/#luot"
+    finally:
+        may_chu.shutdown()

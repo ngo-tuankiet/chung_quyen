@@ -1,8 +1,7 @@
-"""Trang ⚡ Lướt CW (/luot)."""
+"""Mục ⚡ Lướt CW trên trang Chứng quyền (/#luot; gộp tab riêng vào trang chính 30/10/2026)."""
 
 import cw_scanner
-import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
-from web_chung import ESC, GIAI_THICH_LECH, so, trang
+from web_chung import ESC, GIAI_THICH_LECH, so
 from web_etf import bang_etf
 
 # ============ LƯỚT CW ============
@@ -77,14 +76,9 @@ COT_LUOT = [
 ]
 
 
-def trang_luot():
-    df, ngay = W.doc_ket_qua()
-    phan = ["<h1>⚡ Lướt CW 2–5 phiên</h1>"]
-    if df is None:
-        phan.append(
-            '<div class="the"><p>Chưa có kết quả quét. Bấm <b>Quét ngay</b> ở <a href="/">trang chính</a>.</p></div>'
-        )
-        return trang("Lướt CW", "".join(phan), "/luot-cw")
+def muc_luot(df, ngay):
+    """HTML mục ⚡ Lướt CW 2–5 phiên (bảng lướt được + bị loại) từ kết quả quét `df` ngày `ngay`."""
+    phan = ['<h2 id="luot" style="margin-top:28px">⚡ Lướt CW 2–5 phiên</h2>']
     dat, loai = cw_scanner.chon_luot(df, ngay)
     C = cw_scanner
     tep_he_so, beta = C.doc_he_so_iv()
@@ -115,15 +109,15 @@ def trang_luot():
         f'<p class="phu">{he_so}</p></details></details>'
     )
     if dat["Lướt: CS cần tăng %"].isna().all() and loai["Lướt: CS cần tăng %"].isna().all():
-        phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở trang chính.</p>')
+        phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở đầu trang.</p>')
     phan.append(
-        f'<section class="the"><h2>Lướt được ({len(dat)} CW)</h2>'
+        f'<section class="the"><h2>⚡ Lướt được ({len(dat)} CW)</h2>'
         '<input type="search" data-loc="#bang-luot" placeholder="Lọc theo mã cổ phiếu hoặc mã CW (vd: VPB, HPG)" '
         'aria-label="Lọc CW theo mã">'
         f'<div class="cuon cao">{bang_etf(dat, COT_LUOT, True, "bang-luot", "Mã CW", "/cw/", "Mã CW")}</div></section>'
     )
     phan.append(
-        f'<details class="the"><summary>Bị loại ({len(loai)} CW) và lý do</summary><div class="cuon cao">'
+        f'<details class="the"><summary>Bị loại khỏi lướt ({len(loai)} CW) và lý do</summary><div class="cuon cao">'
         + bang_etf(
             loai,
             [("Mã CS", "Mã CS", None, False, "", "Cổ phiếu cơ sở"), ("Lý do loại lướt", "Lý do", None, False, "", "")],
@@ -135,4 +129,4 @@ def trang_luot():
         )
         + "</div></details>"
     )
-    return trang("Lướt CW", "".join(phan), "/luot-cw")
+    return "".join(phan)

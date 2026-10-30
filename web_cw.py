@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 import cw_scanner
 import danh_muc
 import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
+import web_luot
 from web_chung import (
     BO_NHO_IV,
     ESC,
@@ -163,6 +164,7 @@ def trang_chinh():
         + (f'<div class="cuon">{bang(tot)}</div>' if len(tot) else "<p>Hôm nay không có CW nào đạt cả 4 tiêu chí.</p>")
         + "</section>"
     )
+    phan.append(web_luot.muc_luot(df, ngay))
     phan.append(
         f'<section class="the"><h2>Tất cả {len(df)} CW</h2>'
         '<input type="search" data-loc="#bang-tat-ca" placeholder="Tìm theo mã CW, mã cổ phiếu hoặc TCPH (vd: VPB, SSI)" aria-label="Tìm chứng quyền">'

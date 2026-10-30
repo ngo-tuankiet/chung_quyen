@@ -424,7 +424,6 @@ def o_so(nhan, gia_tri, goi_y=""):
 # nhưng bỏ khỏi menu theo yêu cầu người dùng 24/10/2026
 MENU = (
     ("/", "📈", "Chứng quyền"),
-    ("/luot-cw", "⚡", "Lướt CW"),
     ("/etf", "📊", "ETF"),
     ("/danh-muc", "💼", "Danh mục"),
     ("/huong-dan", "❓", "Hướng dẫn"),
