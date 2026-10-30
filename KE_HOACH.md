@@ -684,12 +684,14 @@ lệnh còn lại sau ATC (chênh lệch giá mua–bán có thể rộng hơn t
 Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
 (dữ liệu trước 2024 có dấu hiệu lookahead).
 
-## Phần 9. Hợp đồng tương lai VN30 (`phai_sinh.py`, trang **📉 Phái sinh** `/phai-sinh`)
+## Phần 9. Hợp đồng tương lai VN30, VN100 (`phai_sinh.py`, trang **📉 Phái sinh** `/phai-sinh`)
 
-Thêm 30/10/2026 theo yêu cầu người dùng ("logic tương tự các tab kia"); chỉ web, chưa có báo cáo / cảnh báo Discord.
+Thêm 30/10/2026 theo yêu cầu người dùng ("logic tương tự các tab kia"); VN100 thêm 31/10/2026 ("thêm hợp đồng vn100 nữa"). Chỉ web,
+chưa có báo cáo / cảnh báo Discord.
 
-- **Hợp đồng**: VN30F1M, VN30F2M, VN30F1Q, VN30F2Q (mã liên tục của vnstock và bảng giá Vietcap; tên trên bảng giá
-  "VN30 Index Futures 112026" -> T11/2026). Thanh toán bằng tiền theo VN30 đóng cửa ngày giao dịch cuối, nên basis về 0 lúc đó.
+- **Hợp đồng**: VN30F1M, VN30F2M, VN30F1Q, VN30F2Q và VN100F1M … VN100F2Q (`CHI_SO_HD`, mã liên tục của vnstock và bảng giá Vietcap; tên trên bảng giá
+  "VN30 Index Futures 112026" -> T11/2026). Hai chỉ số cùng hệ số nhân 100.000 đ/điểm, cùng ngày GD cuối (thứ Năm thứ 3 của tháng).
+  Thanh toán bằng tiền theo chỉ số cơ sở đóng cửa ngày giao dịch cuối, nên basis về 0 lúc đó.
 - **Dữ liệu**: giá hợp đồng và VN30 cùng lấy nến ngày vnstock VCI `floating=6` (điểm chia 1.000, mặc định làm tròn 2 số lẻ làm sai
   giá: 1.880,8 -> 1,88); nến hôm nay cập nhật trong phiên nên là giá mới nhất, hai giá cùng ngày (khác ngày thì cảnh báo). Bảng giá
   Vietcap chỉ để lấy ngày giao dịch cuối / đáo hạn (dạng `dd/mm/yyyy`, khác CW) và sổ lệnh; ngoài giờ giá khớp, sổ lệnh trống; bản ghi
@@ -697,15 +699,19 @@ Thêm 30/10/2026 theo yêu cầu người dùng ("logic tương tự các tab ki
 - **Tính toán** (người dùng chọn): không đoán tỷ suất cổ tức VN30 (q) nên không tính giá hợp lý F = S·e^((r − q)T) (Hull ch. 5);
   hiện **basis** F − S (điểm, %) và **basis năm hóa** ln(F/S)/T (= r − q ngầm định, T = ngày lịch tới ngày GD cuối / 365) đặt cạnh
   r = `LAI_SUAT_PHI_RUI_RO`. Ví dụ 30/10/2026: VN30 1.855,04; F1M 1.858,0 -> +2,96 điểm, +2,91%/năm; F2Q −1,64 điểm.
+  VN100 1.761,77; VN100F1M 1.769,4 -> +7,63 điểm.
 - **Phí, thuế, ký quỹ** (người dùng: lấy 1 công ty lớn làm chuẩn; hằng số đầu `phai_sinh.py`): phí CTCK 3.000 đ/HĐ/lần (biểu giá SSI
   hiệu lực 01/01/2022, < 100 HĐ/ngày, thu cả khi đáo hạn), Sở HNX 2.700 đ/HĐ, vị thế VSDC 2.550 đ/HĐ/ngày (tính theo phiên, chưa trừ
-  ngày lễ), ký quỹ ban đầu 17% (VSDC hiệu lực 22/11/2024; có thông báo hiệu lực 16/10/2026 chưa đọc được số), thuế 0,1% × giá ×
+  ngày lễ), ký quỹ ban đầu 17% (`TY_LE_KY_QUY_BAN_DAU` theo chỉ số; VN30: VSDC hiệu lực 22/11/2024; có thông báo hiệu lực 16/10/2026
+  chưa đọc được số; **VN100 chưa xác nhận**, tạm 17% như VN30, trang ghi rõ — `KY_QUY_CHUA_XAC_NHAN`), thuế 0,1% × giá ×
   100.000 × 17% / 2 mỗi lần (ví dụ Pinetree 11/07/2024, chưa đối chiếu văn bản BTC). Chưa tính phí quản lý tài sản ký quỹ.
 - **Lãi/lỗ giữ đến ngày GD cuối** (`lai_lo_dao_han`): gộp = ±(VN30 lúc đó − giá mở) × 100.000; ròng trừ CTCK × 2, Sở, vị thế × số
   phiên, thuế 2 lần. Tính tay: Long 1.858 -> 1.900, 14 phiên: 4.200.000 − 44.400 − 31.943. Bảng trang chi tiết: VN30 −10% … +10%,
   Long / Short, % trên tiền ký quỹ.
-- **Trang**: danh sách (basis, năm hóa, ngày GD cuối, ký quỹ 1 HĐ); chi tiết: 8 ô, Tóm tắt, giả định, bảng lãi/lỗ, nến H1/H4/D1
-  hợp đồng + VN30 (dùng chung `muc_nen` với `nhan=HE_SO_NHAN`: điểm, 1 số lẻ, khớp lẻ xét theo giá trị), basis theo ngày (mã liên tục
+- **Trang**: danh sách chia 2 mục VN30 / VN100 (basis, năm hóa, ngày GD cuối, KL phiên, ký quỹ 1 HĐ); chi tiết: 8 ô, Tóm tắt, giả định, bảng lãi/lỗ, nến H1/H4/D1
+  hợp đồng + chỉ số cơ sở (dùng chung `muc_nen` với `nhan=HE_SO_NHAN`: điểm, 1 số lẻ, khớp lẻ xét theo giá trị), basis theo ngày (mã liên tục
   nên nhảy bậc ở ngày chuyển hợp đồng).
+- **VN100**: thanh khoản rất mỏng (vài chục HĐ/phiên, 30/10/2026 VN100F1M 15 HĐ) nên giá đóng cửa có thể lệch xa giá thật, basis
+  nhiễu; Tóm tắt trang chi tiết cảnh báo khi KL phiên < `KL_MONG` (100 HĐ, chỉ cảnh báo, không lọc).
 - **Giới hạn**: chưa có OI; dữ liệu là API không chính thức; phí thật tùy công ty chứng khoán; chưa trừ ngày lễ khi đếm phiên.
 
