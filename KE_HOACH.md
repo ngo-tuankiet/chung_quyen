@@ -349,7 +349,13 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   ngày 30/10. Mốc đúng 28/10 (CW 870, STB 68.000, IV 37%) ra −0,2% lúc 13:30 và +4,5% lúc đóng cửa: CW chạy theo STB. Thứ Hai, phần
   mất giá cuối tuần bị bỏ đẩy CHPG2636 từ −13,8% lên −19,1% và CSTB2622 từ −12,6% lên −15,9%. CHPG2636 còn bị xét ở giá bán 1 là
   150 × 100 CW (15 nghìn đồng). Lúc đóng cửa 02/11, trong 75 CW nhóm theo dõi, cách mới chỉ báo CVHM2604 (khớp thật 11.300 CW giá 1.960,
-  lệch −26,7%). Test tính tay: `test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian`. Hiện ở mục ⚠ trang chính
+  lệch −26,7%). Test tính tay: `test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian`.
+  **Thêm 2 cột 02/11/2026 (người dùng yêu cầu):** *Đắt/rẻ* = giá lúc báo / giá hợp lý − 1, giá hợp lý = Black-Scholes với HV 1 năm
+  của CS (cùng công thức cột Đắt/rẻ % của lần quét, `C.dinh_gia`) nhưng ở giá CW và giá CS lúc báo; *Lệch 20p* = Lệch 20 phiên ở giá
+  lúc báo (mốc như cột của danh sách: phiên đầu khớp ≥ 10.000 CW trong 20 phiên trước hôm nay). Hai số này có thể khác danh sách
+  (tính lúc quét). Trang Cảnh báo cho mục này trải ngang (bảng 10 cột không vừa nửa trang). 4 mã còn lại ngày 02/11 đều vẫn
+  **đắt** hơn giá hợp lý theo HV sau khi giảm (CVPB2617 +9,5%, CHPG2637 +24,9%, CHPG2642 +33,2%, CHPG2636 +37,0%); file ngày đó
+  được bổ sung 2 số này (và lệch theo cách mới) bằng đúng `cw_giam_manh` ở giá + giá CS đã lưu lúc báo. Hiện ở mục ⚠ trang chính
   (`ket_qua/giam_manh_<ngày>.json`, giữ mã đã báo dù giá hồi). Discord (1 tin/mã/ngày): bật từ 30/10/2026 (`GUI_DISCORD_GIAM_MANH`).
   Ngày 30/10/2026 lúc 12:13 có 13/79 CW bị báo; đa số lệch −7…+1% (TCB −2,2%, VIC −2,9%), CSTB2621 lệch −15% nhưng chỉ khớp 100 CW.
 

@@ -588,7 +588,8 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
     ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy). Giá = giá khớp gần nhất; lệnh đó dưới
     C.GIA_TRI_KHOP_TOI_THIEU đồng (khớp lẻ) thì giá phải trả để mua đủ số tiền đó (gia_ban_du). Mỗi CW: dict ma, cs, giam, gia,
     ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy ở ngày moc_lech, tính cả mất giá theo thời gian
-    tới hôm nay), moc ('' nếu không tính được lệch). lich_su: giá CS đã điều chỉnh lúc quét (doc_lich_su).
+    tới hôm nay), moc ('' nếu không tính được lệch), dat_re (giá / giá hợp lý theo HV − 1) và lech_20 (Lệch 20 phiên), cả hai
+    tính ở giá và giá CS lúc báo. lich_su: giá CS đã điều chỉnh lúc quét (doc_lich_su).
     Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
     if df is None or "Đánh giá" not in df:
         return []
@@ -615,7 +616,8 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
         md = ny.get("maturityDate") or ""
         dao_han = date(int(md[:4]), int(md[4:6]), int(md[6:])) if md else None
         r = float(h["r %"]) / 100 if "r %" in h and not pd.isna(h["r %"]) else C.LAI_SUAT_PHI_RUI_RO
-        lech, moc = math.nan, None
+        K, ty_le = ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"])
+        lech, moc, lech_20 = math.nan, None, math.nan
         if S and dao_han and cs in lich_su:
             try:
                 gia_cw, kl_cw = BO_NHO_LICH_SU_CW.get((ma, hom_nay)) or C.lich_su_cw(ma, gia)
@@ -629,19 +631,24 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
             moc = moc_lech(gia_cw, kl_cw, gia_cs, str(hom_nay))
             if moc:
                 lech = C.lech_theo_cs(
-                    gia_cw[moc],
-                    gia_cs[moc],
-                    date.fromisoformat(moc),
-                    gia,
-                    S,
-                    hom_nay,
-                    ny["exercisePrice"],
-                    C.doc_ty_le(ny["exerciseRatio"]),
-                    dao_han,
-                    r,
+                    gia_cw[moc], gia_cs[moc], date.fromisoformat(moc), gia, S, hom_nay, K, ty_le, dao_han, r
+                )[0]
+            # Lệch 20 phiên ở giá lúc báo: mốc như cột "Lệch 20 phiên" (20 phiên trước hôm nay + hôm nay = 21 điểm, như lúc quét)
+            truoc = {d: g for d, g in gia_cw.items() if d < str(hom_nay)}
+            moc_20 = C.lech_20_phien(truoc, kl_cw, gia_cs, K, ty_le, dao_han, r, C.SO_PHIEN_LECH - 1)[0]
+            if moc_20:
+                lech_20 = C.lech_theo_cs(
+                    gia_cw[moc_20], gia_cs[moc_20], date.fromisoformat(moc_20), gia, S, hom_nay, K, ty_le, dao_han, r
                 )[0]
         if round(lech, 9) > -NGUONG_LECH_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo
             continue
+        # Đắt/rẻ ở giá lúc báo, cùng công thức cột "Đắt/rẻ %" của lần quét (C.dinh_gia): giá hợp lý theo HV 1 năm của CS
+        hv, dat_re = h.get("Biến động %/năm"), math.nan
+        if S and dao_han and pd.notna(hv):
+            hop_ly = (
+                C.black_scholes_call(S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, float(hv) / 100)[0] / ty_le
+            )
+            dat_re = gia / hop_ly - 1 if hop_ly > 0 else math.inf
         ket_qua.append(
             {
                 "ma": ma,
@@ -653,6 +660,8 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
                 "cs_pt": S / S0 - 1 if S0 and S else math.nan,
                 "lech": lech,
                 "moc": moc if not math.isnan(lech) else "",
+                "dat_re": dat_re,
+                "lech_20": lech_20,
             }
         )
     return ket_qua

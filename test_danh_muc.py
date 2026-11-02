@@ -685,6 +685,10 @@ def test_cw_giam_manh_bien_va_lech_tinh_tay():
     g = giam(2000)[0]
     assert math.isclose(g["giam"], -1 / 3) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
     assert abs(g["lech"] - (2000 / 2592.496 - 1)) < 1e-5 and g["cs"] == "VPB" and g["moc"] == "2026-10-16"
+    # Đắt/rẻ ở giá lúc báo (như cột Đắt/rẻ của danh sách): giá hợp lý theo HV 30%, VPB 24.000, 121 ngày: d1 = 1,2187, d2 = 1,0459
+    # -> call = 24.000 × 0,8885 − 20.000 × 0,98683 × 0,8522 = 4.504,6 -> 2.252,3/CW; 2.000 / 2.252,4 − 1 = −11,2% (rẻ)
+    assert abs(g["dat_re"] - (2000 / 2252.385 - 1)) < 1e-5
+    assert g["lech_20"] == g["lech"]  # chỉ 1 phiên trước hôm nay: mốc 20 phiên trùng mốc lệch
 
 
 def test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian():
@@ -693,8 +697,11 @@ def test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian():
     # d1 = 1,4550, d2 = 1,2823 -> call = 25.000 × 0,92717 − 20.000 × 0,98683 × 0,90013 = 5.413,8 -> 2.706,9/CW (4 ngày mất giá −0,3%).
     # Cách cũ (mốc = tham chiếu CW + CS, cùng ngày, bỏ mất giá) ra lệch = 2.710 / 3.260 − 1 = −16,9% -> báo sai.
     p15 = cw_scanner.black_scholes_call(25000, 20000, 125 / 365, 0.04, 0.30)[0] / 2
+    p14 = (
+        cw_scanner.black_scholes_call(25500, 20000, 126 / 365, 0.04, 0.40)[0] / 2
+    )  # 3.069,9: TCPH yết IV 40% ngày 14/10
     lich_cw = {
-        "2026-10-14": (2900, 50_000),
+        "2026-10-14": (p14, 50_000),
         "2026-10-15": (p15, 50_000),
         "2026-10-16": (3260, 100),
         "2026-10-19": (2710, 1),
@@ -707,6 +714,12 @@ def test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian():
     g = giam_manh(_bang_giam(2170, ref_cw=3260, gia_cs=25000), lich_cw, ls)[0]
     assert abs(g["lech"] - (2170 / 2706.878 - 1)) < 1e-5 and g["moc"] == "2026-10-15"
     assert "lệch -19,8% so với mức lẽ ra theo CS từ phiên 15/10" in D.noi_dung_giam_manh(g)
+    # Lệch 20 phiên ở giá lúc báo: mốc = phiên đầu khớp ≥ 10.000 CW trong 20 phiên là 14/10 (IV 40%, VPB 25.500); lẽ ra hôm nay
+    # = BS(25.000, 121 ngày, 40%) / 2: d1 = 1,1416, d2 = 0,9113 -> 25.000 × 0,8732 − 20.000 × 0,98683 × 0,8189 = 5.667 -> 2.833,5/CW
+    # -> 2.170 / 2.833,5 − 1 = −23,4%: gồm cả lần TCPH hạ IV 40% -> 30% ngày 15/10
+    assert abs(g["lech_20"] - (2170 / 2833.452 - 1)) < 1e-5
+    # Đắt/rẻ: giá hợp lý theo HV 30% (VPB 25.000, 121 ngày) = 2.706,9 như trên -> 2.170 / 2.706,9 − 1 = −19,8%
+    assert abs(g["dat_re"] - (2170 / 2706.878 - 1)) < 1e-5
 
 
 def test_cw_giam_manh_nho_lich_su_va_loi_mang():
@@ -773,4 +786,18 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
 
         html = web_cw.muc_giam_manh(D.doc_giam_manh(HOM_NAY))
         assert "CVPB2615" in html and "-33,3%" in html and "-22,9%" in html and "10:00" in html
+        assert "Rẻ 11,2%" in html  # cột Đắt/rẻ ở giá lúc báo
+    # file của ngày trước khi có 2 cột mới (02/11/2026): hiện "—", không lỗi
+    cu = {
+        "ma": "CVPB2615",
+        "cs": "VPB",
+        "giam": -0.3,
+        "gia": 2100,
+        "ref": 3000,
+        "kl": 1,
+        "cs_pt": 0.0,
+        "lech": -0.2,
+        "luc": "10:00",
+    }
+    assert web_cw.muc_giam_manh({"CVPB2615": cu}).count(">—</td>") == 2
     assert web_cw.muc_giam_manh({}) == ""

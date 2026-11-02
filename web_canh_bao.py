@@ -17,7 +17,7 @@ import danh_muc
 import etf as E
 import phai_sinh as P
 import web_chung as W  # doc_ket_qua đọc qua module: test patch được
-from web_chung import ESC, hang_doi, o_so, so, trang
+from web_chung import ESC, o_so, so, trang
 from web_cw import muc_giam_manh
 from web_etf import ck_dat_nguong
 
@@ -462,7 +462,9 @@ def trang_canh_bao():
         + "</div>"
     )
     phan += [
-        hang_doi(muc_muc_gia(muc, da_cham), muc_giam_manh(danh_muc.doc_giam_manh(hom_nay))),
+        # giảm mạnh trải ngang (không ghép cạnh Mức giá): bảng 10 cột không vừa nửa trang (02/11/2026)
+        muc_muc_gia(muc, da_cham),
+        muc_giam_manh(danh_muc.doc_giam_manh(hom_nay)),
         muc_cw(cw, df),
         muc_etf(etf, ssi),
         muc_hdtl(hd),

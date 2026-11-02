@@ -82,11 +82,13 @@ def muc_giam_manh(ds):
     """Mục ⚠ các CW (nhóm Nên xem xét / Theo dõi) đã giảm quá ngưỡng so với giá tham chiếu hôm nay; không có thì rỗng."""
     if not ds:
         return ""
-    pt = lambda x: f"{so(x * 100, 1, True)}%"
+    pt = lambda x: f"{so(x * 100, 1, True)}%" if math.isfinite(x) else "—"
+    dr = lambda g: dat_re(g.get("dat_re", math.nan) * 100)  # file trước 02/11/2026 không có dat_re, lech_20: hiện "—"
     dong = "".join(
         f'<tr><td><a href="/cw/{ESC(ma)}">{ESC(ma)}</a></td><td>{ESC(g["cs"])}</td><td class="so"><b>{pt(g["giam"])}</b></td>'
         f'<td class="so">{so(g["gia"])} / {so(g["ref"])}</td><td class="so">{so(g["kl"])}</td><td class="so">{pt(g["cs_pt"])}</td>'
-        f'<td class="so">{pt(g["lech"])}</td><td>{ESC(g["luc"])}</td></tr>'
+        f'<td class="so">{pt(g["lech"])}</td><td class="so {dr(g)[1]}">{dr(g)[0]}</td>'
+        f'<td class="so">{pt(g.get("lech_20", math.nan))}</td><td>{ESC(g["luc"])}</td></tr>'
         for ma, g in sorted(ds.items(), key=lambda x: x[1]["giam"])
     )
     return (
@@ -96,9 +98,14 @@ def muc_giam_manh(ds):
         "tức riêng CW bị bán chứ không phải do CS giảm × đòn bẩy. Lệch tính từ phiên gần nhất CW khớp đủ "
         f"{so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu (IV ngày đó, giá CS cùng ngày, đã trừ mất giá theo thời gian tới hôm nay). "
         f"Lệnh khớp gần nhất dưới {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu là lệnh lẻ: xét theo giá phải trả để mua đủ số tiền đó. "
-        "Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất.</p>"
+        "Đắt/rẻ (so với giá hợp lý theo biến động 1 năm của CS) và Lệch 20p tính ở giá lúc báo, nên có thể khác số trong danh sách "
+        "chứng quyền (tính lúc quét). Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất.</p>"
         '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
-        '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th><th>Báo lúc</th></tr></thead>'
+        '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th>'
+        '<th class="so" title="Giá lúc báo so với giá hợp lý theo biến động 1 năm của CS (cùng cách tính cột Đắt/rẻ ở danh sách)">'
+        "Đắt/rẻ</th>"
+        '<th class="so" title="Lệch 20 phiên tính ở giá lúc báo; danh sách chứng quyền ghi số lúc quét">Lệch 20p</th>'
+        "<th>Báo lúc</th></tr></thead>"
         f"<tbody>{dong}</tbody></table></div></section>"
     )
 
