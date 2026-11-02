@@ -89,7 +89,7 @@ def muc_cw(ds, df):
     elif not ds:
         than = (
             f"<p>Hiện không có CW nào có giá chào bán thấp hơn mức lẽ ra theo CS từ {nguong}% trở lên mà mua được "
-            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu.</p>"
+            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu, với IV không cao hơn trung vị các CW cùng cổ phiếu cơ sở.</p>"
         )
     else:
         hang = [
@@ -97,6 +97,8 @@ def muc_cw(ds, df):
             + o(x["gia"])
             + o(x["le_ra"])
             + o(x["lech"] * 100, 1, True, "%", True)
+            + o(x["iv"], 0, False, "%")
+            + o(x["iv_tv"], 0, False, "%")
             + o(x["mua_duoc"] / 1e6, 1)
             + o(x["cho_mua"])
             + o(x["spread"] * 100, 1, False, "%")
@@ -116,6 +118,15 @@ def muc_cw(ds, df):
                     "Giá CW lẽ ra có theo giá CS bây giờ, nếu tổ chức phát hành giữ mức IV đã yết lúc quét gần nhất",
                 ),
                 ("Lệch", True, "Giá chào bán / giá lẽ ra − 1: âm sâu = đang rẻ bất thường so với chính giá TCPH yết"),
+                ("IV", True, "IV ở giá chào bán bây giờ (—: giá dưới mức tối thiểu của mô hình)"),
+                (
+                    "TV cùng mã",
+                    True,
+                    (
+                        "Trung vị IV các CW khác cùng CS lúc quét. Chỉ báo khi IV không cao hơn số này: rẻ so với chính nó "
+                        "mà vẫn đắt hơn CW cùng mã thì không phải món hời"
+                    ),
+                ),
                 ("Mua được (tr)", True, f"Giá trị đang chào bán ở các mức rẻ hơn giá lẽ ra từ {nguong}% (triệu đồng)"),
                 ("Chờ mua", True, "Giá cao nhất đang có người mua: giá bán ra được ngay (đ)"),
                 ("Spread", True, "(chào bán − chờ mua) / giá giữa"),

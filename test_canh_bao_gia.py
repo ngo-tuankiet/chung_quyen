@@ -78,6 +78,22 @@ def test_cw_lech_re_tinh_tay():
     assert CB.cw_lech_re(DF_QUET.assign(**{"KL chào bán": [1666.0]}), bang_cw(2000), HOM_NAY, HOM_NAY) == []
 
 
+def test_cw_lech_re_bo_cw_van_dat_hon_cung_ma():
+    # CFPT2638 02/11/2026: lệch −72% so với giá lúc quét nhưng IV ở giá chào bán bây giờ vẫn 61% (HV 31%, trung vị 29 CW FPT khác
+    # 52%): TCPH chỉ đang hạ một IV quá cao, CW vẫn đắt hơn các CW cùng mã -> không báo "rẻ" (người dùng chốt 02/11/2026).
+    # Tính tay: chào bán 2.160 khi VPB 24.000, 121 ngày, r 4%: σ 20% cho d1 = 1,7560, d2 = 1,6409
+    # -> call = 24.000 × 0,9605 − 20.000 × e^(−0,0133) × 0,9496 = 4.309,4 -> 2.154,7/CW, nên 2.160 ứng với IV ≈ 20,8%.
+    # Lệch = 2.160 / 2.592,9 − 1 = −16,7% ≤ −15%; mua được 2.160 × 2.500 = 5,4 triệu
+    re = lambda tv, ban=2160: CB.cw_lech_re(DF_QUET.assign(**{"IV cùng mã %": [tv]}), bang_cw(ban), HOM_NAY, HOM_NAY)
+    x = re(25.0)[0]
+    assert abs(x["iv"] - 20.85) < 0.01 and x["iv_tv"] == 25.0 and abs(x["lech"] - (2160 / 2592.867 - 1)) < 1e-4
+    assert re(20.0) == []  # IV 20,8% > trung vị 20%: vẫn đắt hơn CW cùng mã -> không báo
+    assert len(re(float("nan"))) == 1  # dưới MIN_SO_CW_CUNG_MA CW cùng mã: không có trung vị để so -> vẫn báo
+    # 2.000 dưới giá trị tối thiểu (24.000 − 20.000 × e^(−0,0133)) / 2 = 2.131,7: không giải được IV, chắc chắn không đắt -> báo
+    x = re(20.0, ban=2000)[0]
+    assert x["gia"] == 2000 and x["iv"] != x["iv"]  # NaN
+
+
 def test_so_hd_phong_ho_tinh_tay():
     # Hull ch. 3: N* = β·V_A / V_F. Lệnh ETF 50 triệu, HĐ ở 1.858 điểm × 100.000 = 185,8 triệu -> 0,2691 HĐ
     assert abs(CB.so_hd_phong_ho(50_000_000, 1858) - 50_000_000 / 185_800_000) < 1e-12

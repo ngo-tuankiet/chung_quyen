@@ -6,7 +6,8 @@ ETF, VN30F, VN100F) mà vẫn an toàn; ETF lệch giá thì phòng hộ bằng 
 Mọi giá đem so là giá MUA ĐƯỢC trong sổ lệnh, không phải giá khớp: nến giật do khớp lẻ không mua lại được (CVNM2616 30/10/2026).
 - CW: giá chào bán thấp hơn giá "lẽ ra" theo cổ phiếu cơ sở (CS) ≥ NGUONG_LECH_CW. IV mốc = IV của giá chào bán lúc quét gần
   nhất (giá tổ chức phát hành tự yết), tính lại theo giá CS bây giờ (cw_scanner.lech_theo_cs). Phải có ≥ MIN_GIA_TRI_MUA đồng
-  chào bán ở các mức rẻ đó. Không phòng hộ được (Việt Nam chưa cho bán khống cổ phiếu).
+  chào bán ở các mức rẻ đó, và IV ở giá chào bán bây giờ không cao hơn trung vị IV các CW cùng CS (rẻ so với chính nó chưa đủ).
+  Không phòng hộ được (Việt Nam chưa cho bán khống cổ phiếu).
 - ETF: đúng ngưỡng 🟢 của trang ETF (≥ MIN_GIA_TRI_CHAO_BAN đồng chào bán ở giá đủ lãi ròng ≥ NGUONG_LAI_RONG nếu về iNAV), trừ
   quỹ lúc nào cũng rẻ như vậy (như cảnh báo trong phiên). Quỹ VN30 / VN100 kèm số HĐTL cần bán để phòng hộ (Hull ch. 3).
 - HĐTL: giá hợp lý cost-of-carry F = S·e^((r − q)T) (Hull ch. 5) với q = 0, tức cận trên thận trọng. Bán HĐTL + mua ETF cùng chỉ
@@ -165,8 +166,10 @@ def ban_ghi_cua(ma, bang_gia):
 # ============ CW, ETF, HĐTL LỆCH ============
 def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
     """CW có giá chào bán thấp hơn giá lẽ ra theo CS ≥ NGUONG_LECH_CW và ≥ MIN_GIA_TRI_MUA đồng chào bán ở các mức rẻ đó.
-    Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán) và CW lúc quét không có giá chào bán thật
-    (IV mốc phải từ giá tổ chức phát hành yết). Trả về [dict] xếp lệch sâu nhất trước."""
+    Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán), CW lúc quét không có giá chào bán thật
+    (IV mốc phải từ giá tổ chức phát hành yết) và CW mà IV ở giá chào bán bây giờ vẫn cao hơn trung vị IV các CW cùng CS lúc quét
+    (cột "IV cùng mã %"; không có trung vị hoặc giá dưới mức tối thiểu, không giải được IV, thì vẫn báo).
+    Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %."""
     if df is None or df.empty:
         return []
     kq = []
@@ -193,6 +196,13 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
         )[0]
         if not round(lech, 9) <= -NGUONG_LECH_CW:  # NaN: không tính được giá lẽ ra -> bỏ
             continue
+        # rẻ so với chính nó chưa đủ: TCPH hạ một IV quá cao thì CW vẫn đắt (CFPT2638 02/11/2026: lệch −72% mà IV còn 61%,
+        # HV 31%, trung vị 29 CW FPT khác 52%) -> chỉ báo khi IV không cao hơn trung vị cùng mã (người dùng chốt 02/11/2026)
+        iv, iv_tv = C.bien_dong_ngam_dinh(gia, S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, ty_le), h.get(
+            "IV cùng mã %"
+        )
+        if iv is not None and pd.notna(iv_tv) and iv * 100 > iv_tv:
+            continue
         le_ra = gia / (1 + lech)
         mua_duoc = gia_tri_chao_ban_den(so_lenh, le_ra * (1 - NGUONG_LECH_CW))
         if mua_duoc < MIN_GIA_TRI_MUA:
@@ -211,6 +221,8 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
                 "spread": (gia - cho_mua) / ((gia + cho_mua) / 2) if cho_mua else math.nan,
                 "con_ngay": (gd_cuoi - hom_nay).days,
                 "cs_pt": S / float(h["Giá CS"]) - 1,
+                "iv": iv * 100 if iv is not None else math.nan,
+                "iv_tv": float(iv_tv) if pd.notna(iv_tv) else math.nan,
             }
         )
     return sorted(kq, key=lambda x: x["lech"])

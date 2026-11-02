@@ -763,6 +763,14 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   IV mốc 50,0% (3.000 đ khi VPB 25.000), VPB 24.000 -> lẽ ra 2.593 đ; chào bán 2.000 -> −22,9%, có 2.000 × 2.500 = 5 triệu -> có.
   Mốc phải là giá yết thật: lúc quét có ≥ 5 triệu chào bán (Giá mua × KL chào bán), lô lẻ thổi IV mốc lên thì hôm sau báo
   "rẻ" giả. Không phòng hộ được (chưa bán khống cổ phiếu); có thể là TCPH chủ động hạ IV (ACBS, Vietcap) chứ không phải bán nhầm.
+  **Thêm 02/11/2026 (người dùng duyệt):** IV ở giá chào bán bây giờ phải ≤ trung vị IV các CW khác cùng CS lúc quét (cột
+  "IV cùng mã %"). Rẻ so với chính nó chưa đủ: CFPT2638 (Pinetree, K 75.200 khi FPT 50.200, cần FPT +55% mới hòa vốn) được báo
+  lệch −72% vì chào bán rơi từ 1.370 xuống 380, nhưng IV vẫn 61% so với HV 31% và trung vị 29 CW FPT khác 52%. Đó là TCPH đang
+  hạ một IV quá cao, CW vẫn đắt nhất nhóm. Cùng lúc CHPG2643, CHPG2644 (IV 61–62%, trung vị HPG 42%) cũng bị loại; lúc đóng cửa
+  02/11 mục này từ 3 mã còn 0. Không có trung vị (< `MIN_SO_CW_CUNG_MA` CW cùng mã) hoặc giá dưới mức tối thiểu của mô hình
+  (không giải được IV) thì vẫn báo. Bảng thêm cột IV và TV cùng mã. Tính tay (test): chào bán 2.160 khi VPB 24.000 -> IV 20,8%
+  (σ 20% cho 2.154,7 đ), lệch −16,7%: trung vị 25% -> báo, 20% -> không. Chưa kiểm chứng điều kiện này có giữ được tín hiệu
+  tốt nào không (chưa lưu lịch sử tin CW rẻ).
 - **ETF mua được dưới iNAV** (`etf_duoi_inav`): đúng ngưỡng 🟢 trang ETF (người dùng chọn): ≥ `MIN_GIA_TRI_CHAO_BAN` chào bán ở giá
   đủ lãi ròng ≥ `NGUONG_LAI_RONG` nếu về iNAV, bỏ quỹ có mức thường lệch 1 năm ≤ −`NGUONG_GIAM_SO_INAV` (như cảnh báo trong phiên).
   **Phòng hộ** (người dùng yêu cầu): quỹ VN30 / VN100 bán HĐTL tháng gần, N* = β·V_A / V_F (Hull ch. 3; β = 1 vì quỹ bám cùng chỉ
