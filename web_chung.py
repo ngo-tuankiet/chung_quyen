@@ -288,6 +288,13 @@ tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%
 .muc-luc { columns: 2 240px; margin: 8px 0 0; }
 footer { color: var(--chu-phu); font-size: 12px; margin-top: 32px; }
 .form-lenh label { display: inline-flex; flex-direction: column; gap: 2px; margin: 10px 12px 0 0; font-size: 13px; color: var(--chu-phu); }
+.dem-nhanh { display: flex; flex-wrap: wrap; gap: 4px 28px; padding-bottom: 12px; border-bottom: 1px solid var(--vien); color: var(--chu-phu); font-size: 14px; }
+.dem-nhanh b { color: var(--chu); font-size: 18px; margin-left: 4px; }
+.dem-nhanh b.am { color: var(--chu-am); }
+.hang-muc { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; }
+.hang-muc h2 { margin: 12px 0 6px; }
+.form-ngang { display: flex; flex-wrap: wrap; align-items: flex-end; }
+.form-ngang .nut { margin-top: 10px; padding: 7px 18px; }
 .form-lenh input, .form-lenh select { padding: 6px 8px; border: 1px solid var(--truc); border-radius: 6px; background: var(--be-mat); color: var(--chu); font: inherit; }
 .nut-nho { all: unset; cursor: pointer; color: var(--chu-am); font-size: 13px; text-decoration: underline; }
 """

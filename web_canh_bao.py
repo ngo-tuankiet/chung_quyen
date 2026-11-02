@@ -17,7 +17,7 @@ import danh_muc
 import etf as E
 import phai_sinh as P
 import web_chung as W  # doc_ket_qua đọc qua module: test patch được
-from web_chung import ESC, o_so, so, trang
+from web_chung import ESC, so, trang
 from web_cw import muc_giam_manh
 from web_etf import ck_dat_nguong
 
@@ -276,8 +276,8 @@ def muc_hdtl(ds):
     )
 
 
-def muc_muc_gia(ds, da_cham):
-    """Bảng mức giá tự đặt + form thêm."""
+def muc_muc_gia(ds, da_cham, tom_tat=""):
+    """Cụm đầu trang (người dùng muốn gọn 1 khung, 02/11/2026): dòng đếm tín hiệu `tom_tat` + mức giá tự đặt + form thêm 1 hàng."""
     hang = []
     for m in ds:
         don_vi = "điểm" if CB.he_so_cua(m["ma"]) > 1 else "đ"
@@ -313,20 +313,23 @@ def muc_muc_gia(ds, da_cham):
             hang,
         )
         if ds
-        else "<p>Chưa đặt mức giá nào.</p>"
+        else ""  # tiêu đề đã ghi (0)
     )
     discord = "gửi cả Discord" if CB.GUI_DISCORD_MUC_GIA else "chưa gửi Discord (chờ bạn cho phép)"
     return (
-        f'<section class="the"><h2>🔔 Mức giá tôi đặt ({len(ds)})</h2>'
-        + (f'<p class="loi" role="alert">{ESC(LOI_MUC_GIA)}</p>' if LOI_MUC_GIA else "")
-        + bang_muc
-        + '<form method="post" action="/canh-bao/them" class="form-lenh">'
+        '<section class="the cum-dau">'
+        + tom_tat
+        + '<div class="hang-muc">'
+        + f"<h2>🔔 Mức giá tôi đặt ({len(ds)})</h2>"
+        + '<form method="post" action="/canh-bao/them" class="form-lenh form-ngang">'
         '<label>Mã<input name="ma" required size="10" maxlength="12" placeholder="CVPB2615, VPB, E1VFVN30, VN30F1M"></label>'
         '<label>Khi giá<select name="chieu"><option value="duoi">xuống tới ≤</option><option value="tren">lên tới ≥</option></select></label>'
         '<label>Mức giá<input name="muc" inputmode="decimal" required size="10" placeholder="0,87 / 24,5 / 1858,5"></label>'
         '<label>Ghi chú<input name="ghi_chu" maxlength="100" size="16"></label>'
-        '<p><button class="nut">Thêm mức</button></p></form>'
-        f'<p class="phu">CW, cổ phiếu, ETF nhập như ở Danh mục (dưới 100 là nghìn đồng: 0,87 = 870 đ, 24,5 = 24.500 đ); HĐTL '
+        '<button class="nut">Thêm mức</button></form></div>'
+        + (f'<p class="loi" role="alert">{ESC(LOI_MUC_GIA)}</p>' if LOI_MUC_GIA else "")
+        + bang_muc
+        + f'<p class="phu">CW, cổ phiếu, ETF nhập như ở Danh mục (dưới 100 là nghìn đồng: 0,87 = 870 đ, 24,5 = 24.500 đ); HĐTL '
         f"nhập điểm. Bí danh HĐTL (VN30F1M...) tự chuyển sang hợp đồng mới khi đáo hạn. Lịch 5 phút trong giờ giao dịch ghi "
         f"lại mức đã chạm; {discord}.</p></section>"
     )
@@ -453,17 +456,20 @@ def trang_canh_bao():
             "chỉ để xem, không phải cơ hội.</p>"
         )
     phan += [f'<p class="loi" role="alert">Không tải được {ESC(x)}</p>' for x in loi]
-    phan.append(
-        '<div class="luoi-o">'
-        + o_so("CW rẻ bất thường", so(len(cw)))
-        + o_so("ETF dưới iNAV", so(len(etf)))
-        + o_so("HĐTL đắt/rẻ", so(sum(1 for x in hd if x["tin_hieu"])))
-        + o_so("Mức giá đã chạm", so(sum(str(m["id"]) in da_cham for m in muc)), f"trên {so(len(muc))} mức")
+    dem = [
+        ("CW rẻ bất thường", len(cw), ""),
+        ("ETF dưới iNAV", len(etf), ""),
+        ("HĐTL đắt/rẻ", sum(1 for x in hd if x["tin_hieu"]), ""),
+        ("Mức giá đã chạm", sum(str(m["id"]) in da_cham for m in muc), f" / {so(len(muc))} mức"),
+    ]
+    tom_tat = (
+        '<div class="dem-nhanh">'
+        + "".join(f'<span>{nhan} <b{" class=am" if n else ""}>{so(n)}</b>{them}</span>' for nhan, n, them in dem)
         + "</div>"
     )
     phan += [
         # giảm mạnh trải ngang (không ghép cạnh Mức giá): bảng 10 cột không vừa nửa trang (02/11/2026)
-        muc_muc_gia(muc, da_cham),
+        muc_muc_gia(muc, da_cham, tom_tat),
         muc_giam_manh(danh_muc.doc_giam_manh(hom_nay)),
         muc_cw(cw, df),
         muc_etf(etf, ssi),
