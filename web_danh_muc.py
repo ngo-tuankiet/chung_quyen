@@ -7,7 +7,7 @@ import pandas as pd
 
 import cw_scanner
 import danh_muc
-import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
+import web_chung as W  # doc_ket_qua và trạng thái QUET/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
 from web_chung import ESC, hang_doi, o_so, so, trang
 
 

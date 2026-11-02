@@ -2,7 +2,8 @@
 web.py - Giao diện web cho cw_scanner (chỉ dùng thư viện có sẵn của Python, không cần cài thêm).
 
 Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
-- Trang chính: bấm "Quét ngay" để chạy cw_scanner.main(); luôn hiển thị kết quả mới nhất trong ket_qua/.
+- Nút "🔄 Quét" đầu mỗi tab chạy ở luồng nền phần quét của tab đó (VIEC_QUET); trang Cảnh báo quét tất cả. Đang quét: mọi
+  trang hiện màn hình chờ. Luôn hiển thị kết quả mới nhất trong ket_qua/.
 - Bấm vào một mã CW: trang phân tích chi tiết (biểu đồ, kịch bản lãi/lỗ, so sánh các CW cùng mã cơ sở).
 - Trang "🔔 Cảnh báo giá" (/canh-bao): giá lệch bất thường đang mua được (CW, ETF, HĐTL) + mức giá tự đặt.
 - Trang "Hướng dẫn sử dụng" (/huong-dan): giải thích cho người mới, có trên thanh menu (đầu trang; điện thoại: dưới cùng).
@@ -11,8 +12,9 @@ Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 import contextlib
 import io
 import re
+import threading
 import webbrowser
-from datetime import date
+from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -20,6 +22,7 @@ import canh_bao_gia
 import chiet_khau
 import cw_scanner
 import danh_muc
+import etf
 import phai_sinh
 import web_canh_bao
 import web_chung as W
@@ -29,6 +32,62 @@ from web_danh_muc import trang_danh_muc
 from web_etf import trang_etf, trang_etf_chi_tiet
 from web_huong_dan import trang_huong_dan
 from web_phai_sinh import trang_phai_sinh, trang_phai_sinh_chi_tiet
+
+# loại quét (web_chung.NUT_QUET) -> [(tên bước, hàm)]; mọi loại xong đều bỏ giá đã nhớ (bo_bo_nho) nên trang mở lại lấy giá mới.
+# Phái sinh, danh mục lấy giá trực tiếp mỗi lần mở trang nên chỉ cần bỏ bộ nhớ.
+VIEC_QUET = {
+    "cw": [("chứng quyền", cw_scanner.main)],
+    "etf": [("ETF", lambda: etf.chay(gui=False))],  # nút quét không gửi Discord
+    "phai-sinh": [],
+    "danh-muc": [],
+}
+VIEC_QUET["tat-ca"] = VIEC_QUET["cw"] + VIEC_QUET["etf"]
+TAB_QUET = {loai: dd for dd, (loai, *_) in W.NUT_QUET.items()}  # loại quét -> tab hiện kết quả
+
+
+def bo_bo_nho():
+    """Bỏ giá đã nhớ (phái sinh 5 phút, trang cảnh báo, nến, lịch sử IV) để trang mở lại lấy giá mới."""
+    for bo_nho in (phai_sinh.BO_NHO, canh_bao_gia.BO_NHO, W.BO_NHO_NEN, W.BO_NHO_IV):
+        bo_nho.clear()
+
+
+def chay_quet():
+    """Chạy các bước của lần quét W.QUET (luồng nền); 1 bước lỗi thì ghi lại rồi chạy tiếp bước sau."""
+    q, loi = W.QUET, []
+    buoc = VIEC_QUET[q["loai"]]
+    try:
+        # gom lời nhắn để hiện lên trang. shortcut: đổi sys.stdout cả tiến trình, chỉ ổn vì máy chủ không in ra stdout
+        with contextlib.redirect_stdout(q["nhat_ky"]):
+            for i, (ten, ham) in enumerate(buoc, 1):
+                q["buoc"] = ten + (f" (bước {i}/{len(buoc)})" if len(buoc) > 1 else "")
+                try:
+                    ham()
+                # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ
+                except (Exception, SystemExit) as e:  # noqa: BLE001
+                    loi.append(f"{ten}: {e}")
+        bo_bo_nho()
+    finally:  # lỗi lạ nào cũng không để mọi trang kẹt ở màn hình chờ
+        q.update(dang=False, xong=datetime.now(), loi="; ".join(loi))
+
+
+def bat_dau_quet(loai):
+    """Ghi trạng thái "đang quét" ngay (trang mở sau đó thấy màn hình chờ) rồi chạy ở luồng nền; không có bước thì chạy luôn.
+    Máy chủ xử lý từng yêu cầu một nên kiểm W.QUET["dang"] rồi gán không cần khóa. -> luồng nền (test chờ được) hoặc None.
+    """
+    W.QUET.update(dang=True, loai=loai, tab=TAB_QUET[loai], buoc="", bat_dau=datetime.now(), xong=None, loi="")
+    W.QUET["nhat_ky"] = io.StringIO()
+    if not VIEC_QUET[loai]:
+        chay_quet()
+        return None
+    luong = threading.Thread(target=chay_quet, daemon=True)
+    luong.start()
+    return luong
+
+
+def trang_ve(headers, loai):
+    """Trang quay về sau khi bấm Quét: trang đang xem (Referer, đã qua nguon_hop_le); sai dạng thì về tab của loại quét."""
+    duong = urlsplit(headers.get("Referer") or "").path
+    return duong if re.fullmatch(r"/(?!/)[A-Za-z0-9/_.-]*", duong) else TAB_QUET[loai]
 
 
 def nguon_hop_le(headers):
@@ -46,10 +105,12 @@ class XuLy(BaseHTTPRequestHandler):
             self.send_header("Location", "/#luot")
             self.end_headers()
             return
+        # đang quét: mọi trang (trừ Hướng dẫn) chỉ hiện màn hình chờ, không đọc file kết quả đang ghi dở
+        cho = W.trang_cho() if W.QUET["dang"] and duong_dan != "/huong-dan" else None
         m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
         m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
         m_ps = re.fullmatch(r"/phai-sinh/(" + phai_sinh.MAU_MA_HD.pattern + ")", duong_dan)  # chỉ nhận mã hợp lệ
-        noi_dung = (
+        noi_dung = cho or (
             web_canh_bao.trang_canh_bao()
             if duong_dan == "/canh-bao"
             else (
@@ -98,25 +159,29 @@ class XuLy(BaseHTTPRequestHandler):
 
     def do_POST(self):
         duong_dan = urlsplit(self.path).path
-        if not nguon_hop_le(self.headers):  # trang web lạ không được tự bấm "Quét ngay" hay thêm/xóa lệnh hộ bạn
+        if not nguon_hop_le(self.headers):  # trang web lạ không được tự bấm "🔄 Quét" hay thêm/xóa lệnh hộ bạn
             self.send_response(403)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
             self.wfile.write("Từ chối: yêu cầu không gửi từ trang cw_scanner.".encode())
             return
-        ve_trang = "/"
+        form = parse_qs(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 10_000)).decode("utf-8"))
+        if W.QUET["dang"] and duong_dan != "/quet":  # thêm/xóa đọc file kết quả đang ghi dở: chờ quét xong
+            self.send_response(409)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write("Đang quét dữ liệu nên chưa lưu. Quay lại trang, quét xong thì gửi lại.".encode())
+            return
         if duong_dan == "/quet":
-            bo_dem = io.StringIO()
-            try:
-                with contextlib.redirect_stdout(bo_dem):  # gom lời nhắn của cw_scanner để hiện lên trang
-                    cw_scanner.main()
-                W.LOI = ""
-            except Exception as e:  # lỗi mạng/API: báo trên trang thay vì làm sập máy chủ  # noqa: BLE001
-                W.LOI = f"Lỗi khi quét: {e}"
-            W.NHAT_KY = bo_dem.getvalue()
+            loai = (form.get("loai") or [""])[0]
+            if loai not in VIEC_QUET:
+                self.send_error(400, "loai quet khong hop le")
+                return
+            ve_trang = trang_ve(self.headers, loai)
+            if not W.QUET["dang"]:  # bấm thêm lúc đang quét: không chạy lần nữa
+                bat_dau_quet(loai)
         elif duong_dan in ("/danh-muc/them", "/danh-muc/xoa"):
             ve_trang = "/danh-muc"
-            form = parse_qs(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 10_000)).decode("utf-8"))
             try:
                 if duong_dan.endswith("them"):
                     df, _ = W.doc_ket_qua()
@@ -131,7 +196,6 @@ class XuLy(BaseHTTPRequestHandler):
                 W.LOI_DANH_MUC = f"Không lưu được: {e}"
         elif duong_dan in ("/canh-bao/them", "/canh-bao/xoa"):
             ve_trang = "/canh-bao"
-            form = parse_qs(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 10_000)).decode("utf-8"))
             try:
                 if duong_dan.endswith("them"):
                     web_canh_bao.LOI_MUC_GIA = "; ".join(canh_bao_gia.them_muc_gia(form, date.today()))

@@ -177,8 +177,13 @@ python web.py
 ```
 Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
 - Trạng thái API key (đã nhập trong `.env` hay chưa — không bao giờ hiện key).
-- Nút **Quét ngay** (chờ 1–3 phút).
-- Mục **Nhật ký lần quét gần nhất**: mọi thông báo của chương trình; tự mở ra khi có cảnh báo `[!]` (ví dụ key bị từ chối).
+- Nút **🔄 Quét** ở góc phải mỗi trang (từ 02/11/2026, thay nút "Quét ngay"), chạy ở luồng nền (`web.VIEC_QUET`):
+  🔔 Cảnh báo quét **tất cả** (CW rồi ETF, rồi bỏ giá đã nhớ của phái sinh/cảnh báo/nến; 2–4 phút); 📈 Chứng quyền (cả trang chi tiết)
+  quét CW (1–3 phút); ETF chạy `etf.chay(gui=False)` (~30 giây, không gửi Discord); Phái sinh và Danh mục chỉ bỏ giá đã nhớ (vài giây,
+  trang vốn lấy giá trực tiếp). Đang quét: mọi trang trừ Hướng dẫn hiện màn hình chờ (bước, thời gian, nhật ký; tự tải lại 5 giây) để
+  không đọc file kết quả đang ghi dở; thêm/xóa lệnh, mức giá bị từ chối (409) tới khi quét xong; mỗi lúc 1 lần quét. Một bước lỗi thì
+  bước sau vẫn chạy, lỗi ghi ở đầu tab đã bấm. Giới hạn: bấm quét đúng lúc lịch launchd 14:00 / 9:40 đang chạy thì hai lần quét ghi cùng file.
+- Mục **Nhật ký lần quét gần nhất** (dưới nút, ở tab đã bấm): mọi thông báo của chương trình; tự mở ra khi có cảnh báo `[!]` (ví dụ key bị từ chối).
 - Bảng **CW mới phát hành**, bảng **Nên xem xét**, và bảng **Tất cả** có ô tìm kiếm (gõ VPB, SSI…).
 - Đường dẫn **❓ Hướng dẫn** trên thanh menu: giải thích cho người mới (chứng quyền là gì, cách dùng 5 bước,
   ý nghĩa từng cột, cách đọc trang phân tích, 5 câu tự hỏi trước khi mua, câu hỏi thường gặp). Rê chuột lên tiêu đề cột để xem giải thích ngắn.

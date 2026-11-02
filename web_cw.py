@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 import cw_scanner
 import danh_muc
-import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
+import web_chung as W  # doc_ket_qua và trạng thái QUET/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
 import web_luot
 from web_chung import (
     BO_NHO_IV,
@@ -32,21 +32,13 @@ def trang_chinh():
         (
             '<div class="dau-trang"><div><h1>Quét chứng quyền</h1>'
             f'<p class="phu">{f"Dữ liệu ngày {ngay:%d/%m/%Y} · {len(df)} CW · định giá bằng Black-Scholes" if ngay else "Chưa có dữ liệu"}'
-            f' · API key vnstock: {"đã nhập ✓" if co_key else "<b>chưa nhập</b> (mở file .env để điền)"}</p></div>'
-            '<form method="post" action="/quet" onsubmit="this.nut.disabled = true; this.nut.textContent = \'Đang quét... (1-3 phút)\';">'
-            '<button class="nut" name="nut">Quét ngay</button></form></div>'
+            f' · API key vnstock: {"đã nhập ✓" if co_key else "<b>chưa nhập</b> (mở file .env để điền)"}</p></div></div>'
         )
     ]
-    if W.LOI:
-        phan.append(f'<p class="loi" role="alert">{ESC(W.LOI)}</p>')
-    if W.NHAT_KY:  # tự mở nhật ký nếu có cảnh báo [!]
-        phan.append(
-            f'<details class="the"{" open" if "[!]" in W.NHAT_KY else ""}><summary>Nhật ký lần quét gần nhất</summary><pre>{ESC(W.NHAT_KY)}</pre></details>'
-        )
     if df is None:
         phan.append(
             '<div class="the"><h2>Chưa có kết quả</h2><p>Lần đầu dùng? Làm theo 3 bước:</p><ol>'
-            "<li>Bấm nút <b>Quét ngay</b> ở góc trên bên phải và chờ 1-3 phút.</li>"
+            "<li>Bấm nút <b>🔄 Quét</b> ở góc trên bên phải và chờ 1-3 phút.</li>"
             "<li>Xem bảng <b>Nên xem xét</b> hiện ra - đó là những chứng quyền đạt cả 4 tiêu chí.</li>"
             "<li>Bấm vào một mã để xem phân tích chi tiết trước khi quyết định.</li></ol>"
             '<p>Chưa biết chứng quyền là gì? Đọc <a href="/huong-dan">Hướng dẫn sử dụng</a> (khoảng 5 phút).</p></div>'
@@ -305,7 +297,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
                 f"còn {(gd_cuoi - ngay_tinh).days} ngày để bán; sau đó chỉ chờ nhận tiền theo giá trung bình 5 phiên trước "
                 f"ngày đáo hạn {ngay_dao_han:%d/%m/%Y}"
                 if gd_cuoi
-                else "bấm Quét ngay để lấy ngày này"
+                else "bấm 🔄 Quét để lấy ngày này"
             ),
         )
         + o_so(
@@ -457,7 +449,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         m_cw_khac,
         m_dieu_khoan,
     ]
-    return trang(f"{ma} – phân tích chứng quyền", "".join(phan))
+    return trang(f"{ma} – phân tích chứng quyền", "".join(phan), "/")  # thuộc tab Chứng quyền (nút 🔄 Quét)
 
 
 # ============ TRANG CW SẮP RA MẮT ============
@@ -490,7 +482,7 @@ def trang_sap_ra_mat(tai_moi=False):
         if not luu:
             phan.append(
                 f'<p class="loi" role="alert">Không tải được danh sách từ HOSE ({ESC(str(e))}). Máy chủ HOSE có thể đang chậm, '
-                "hãy tải lại trang sau ít phút hoặc bấm Quét ngay ở trang chính.</p>"
+                "hãy tải lại trang sau ít phút hoặc bấm 🔄 Quét ở trang chính.</p>"
             )
             return trang("CW sắp ra mắt", "".join(phan), "/sap-ra-mat")
         ds = C.doc_cw_sap_ra_mat(json.loads(luu[-1].read_text(encoding="utf-8")))

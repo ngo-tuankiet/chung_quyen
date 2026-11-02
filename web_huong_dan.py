@@ -40,7 +40,7 @@ def trang_huong_dan():
 
     phan.append(
         '<section class="the" id="cong-cu"><h2>1. Công cụ này làm gì?</h2>'
-        "<p>Mỗi lần bạn bấm <b>Quét ngay</b>, chương trình tải giá của <b>tất cả chứng quyền đang niêm yết trên HOSE</b>, "
+        "<p>Mỗi lần bạn bấm <b>🔄 Quét</b>, chương trình tải giá của <b>tất cả chứng quyền đang niêm yết trên HOSE</b>, "
         "tính <b>giá hợp lý</b> của từng mã bằng công thức Black-Scholes, rồi chấm điểm theo 4 tiêu chí để bạn biết "
         "<b>nên xem kỹ mã nào</b> và <b>nên bỏ qua mã nào</b>.</p>"
         "<p>Chương trình <b>không mua bán giúp bạn</b>, <b>không dự báo cổ phiếu sẽ tăng hay giảm</b>, và <b>không phải lời khuyên đầu tư</b>. "
@@ -63,7 +63,7 @@ def trang_huong_dan():
 
     phan.append(
         '<section class="the" id="5-buoc"><h2>3. Dùng trang web trong 5 bước</h2><ol>'
-        '<li><b>Bấm "Quét ngay"</b> ở <a href="/">trang chính</a> và chờ 1-3 phút. Nên quét <b>sau 15:00</b> các ngày giao dịch để có giá đóng cửa.</li>'
+        '<li><b>Bấm "🔄 Quét"</b> ở góc phải <a href="/">trang chính</a> và chờ 1-3 phút. Nên quét <b>sau 15:00</b> các ngày giao dịch để có giá đóng cửa.</li>'
         "<li><b>Xem 4 ô số</b> ở đầu trang: có bao nhiêu mã <i>Nên xem xét</i>, <i>Theo dõi</i>, <i>Bỏ qua</i> và bao nhiêu mã mới phát hành.</li>"
         '<li><b>Xem bảng "Nên xem xét"</b>: đây là các mã đạt cả 4 tiêu chí. '
         '<b>Bấm vào tiêu đề cột để sắp xếp</b> (ví dụ bấm "So với giá hợp lý" để mã rẻ nhất lên đầu). '
@@ -87,7 +87,7 @@ def trang_huong_dan():
         + " · ".join(
             f"{huy_hieu(k)} {m}" for k, m in zip(KET_LUAN, ("đạt cả 4", "trượt 1 tiêu chí", "trượt từ 2 tiêu chí"))
         )
-        + '</p><p class="phu">Muốn đổi các mức trên: mở file <code>cw_scanner.py</code>, sửa phần <b>CẤU HÌNH</b> ở đầu file, lưu lại rồi bấm Quét ngay.</p></section>'
+        + '</p><p class="phu">Muốn đổi các mức trên: mở file <code>cw_scanner.py</code>, sửa phần <b>CẤU HÌNH</b> ở đầu file, lưu lại rồi bấm 🔄 Quét.</p></section>'
     )
 
     phan.append(
@@ -168,7 +168,12 @@ def trang_huong_dan():
         ),
         (
             "Dữ liệu được cập nhật khi nào?",
-            "Mỗi lần bấm Quét ngay. Ngày của dữ liệu ghi ở đầu trang chính. Giá trong ngày thay đổi liên tục nên hãy quét lại trước khi đặt lệnh.",
+            (
+                "Mỗi lần bấm 🔄 Quét (góc phải mỗi trang) và theo lịch tự động. Nút ở trang 🔔 Cảnh báo quét tất cả (chứng quyền, ETF, "
+                "giá phái sinh; 2–4 phút); nút ở từng trang chỉ quét phần của trang đó: Chứng quyền 1–3 phút, ETF khoảng 30 giây (không "
+                "gửi Discord), Phái sinh và Danh mục chỉ lấy lại giá ngay (vài giây). Trong lúc quét, trang hiện tiến độ và tự tải lại; "
+                "xong sẽ hiện dữ liệu mới. Ngày của dữ liệu ghi ở đầu mỗi trang. Giá trong ngày thay đổi liên tục nên hãy quét lại trước khi đặt lệnh."
+            ),
         ),
         (
             'Chữ "Mới" cạnh mã CW là gì?',

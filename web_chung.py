@@ -1,11 +1,12 @@
 """Phần dùng chung của giao diện web: CSS/JS, định dạng số, khung trang + menu, bảng CW, biểu đồ, đọc file kết quả, trạng thái lần quét."""
 
 import html
+import io
 import json
 import math
 import re
 import time
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import parse_qs, quote, urlsplit
 
 import pandas as pd
@@ -19,8 +20,34 @@ BO_NHO_NEN: dict[str, tuple] = (
     {}
 )  # mã -> (lúc tải, nến H4): trang chi tiết mở lại trong vài phút không gọi vnstock lần nữa
 BO_NHO_IV: dict[tuple, dict] = {}  # (mã CW, ngày) -> [[ngày, IV %]]: lịch sử giá CW chỉ tải 1 lần mỗi ngày
-LOI = ""  # lỗi của lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ)
-NHAT_KY = ""  # mọi dòng cw_scanner in ra trong lần quét gần nhất
+# nút 🔄 Quét đầu mỗi tab (đường dẫn menu -> loại quét, tên, giải thích khi rê chuột); trang Cảnh báo quét tất cả. Các bước: web.VIEC_QUET
+NUT_QUET = {
+    "/canh-bao": (
+        "tat-ca",
+        "tất cả",
+        "Quét chứng quyền rồi ETF, lấy lại giá phái sinh và giá trên trang này (2–4 phút)",
+    ),
+    "/": ("cw", "chứng quyền", "Quét lại toàn bộ chứng quyền (1–3 phút)"),
+    "/etf": ("etf", "ETF", "Quét lại các quỹ ETF, không gửi Discord (khoảng 30 giây)"),
+    "/phai-sinh": ("phai-sinh", "giá phái sinh", "Lấy giá hợp đồng tương lai mới ngay, không chờ hết 5 phút nhớ tạm"),
+    "/danh-muc": (
+        "danh-muc",
+        "giá danh mục",
+        "Lấy lại giá trực tiếp; IV, giá hợp lý vẫn theo lần quét chứng quyền gần nhất",
+    ),
+}
+GIAY_TAI_LAI = 5  # màn hình chờ lúc đang quét tự tải lại sau ngần này giây
+# lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ); tab: trang hiện kết quả
+QUET = {
+    "dang": False,
+    "loai": "",
+    "tab": "",
+    "buoc": "",
+    "bat_dau": None,
+    "xong": None,
+    "loi": "",
+    "nhat_ky": io.StringIO(),
+}
 LOI_DANH_MUC = ""  # lỗi của lần thêm/xóa lệnh gần nhất (hiện 1 lần ở trang Danh mục)
 ESC = html.escape
 # kết luận -> (lớp màu, biểu tượng, nhãn). Màu luôn đi kèm biểu tượng + chữ, không dùng màu một mình
@@ -115,6 +142,8 @@ h2 { font-size: 18px; margin: 0; }
 .dau-trang { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-start; }
 .nut { background: var(--nut); color: #fff; border: 0; border-radius: 8px; padding: 10px 22px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
 .nut:disabled { opacity: .6; cursor: wait; }
+.nut-quet { float: right; margin: 0 0 12px 16px; }
+.ket-qua-quet { margin-bottom: 8px; } .ket-qua-quet pre { clear: both; max-height: 320px; overflow: auto; }
 .the { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 20px; margin-top: 16px; }
 .luoi-o { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
 .o-so { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 14px 16px; }
@@ -462,11 +491,69 @@ def thu_gon_giai_thich(html):
     )
 
 
+def thoi_luong(giay):
+    """125 -> '2 phút 5 giây', 35 -> '35 giây'."""
+    phut, giay = divmod(int(giay), 60)
+    return f"{phut} phút {giay} giây" if phut else f"{giay} giây"
+
+
+def muc_quet(duong_dan):
+    """Nút 🔄 Quét của tab + kết quả lần quét gần nhất bấm từ tab này (đầu trang); tab không có loại quét -> ""."""
+    if duong_dan not in NUT_QUET or QUET["dang"]:
+        return ""
+    loai, _, giai_thich = NUT_QUET[duong_dan]
+    phan = [
+        (
+            '<form class="nut-quet" method="post" action="/quet" onsubmit="this.nut.disabled = true;">'
+            f'<input type="hidden" name="loai" value="{loai}"><button class="nut" name="nut" title="{ESC(giai_thich)}">'
+            f'🔄 Quét{" tất cả" if loai == "tat-ca" else ""}</button></form>'
+        )
+    ]
+    q = QUET
+    if q["tab"] == duong_dan and q["xong"]:
+        ten, luc = (
+            NUT_QUET[duong_dan][1],
+            f'{q["xong"]:%H:%M} ({thoi_luong((q["xong"] - q["bat_dau"]).total_seconds())})',
+        )
+        nhat_ky = q["nhat_ky"].getvalue()
+        canh_bao = nhat_ky.count("[!]")
+        # 1 dòng kết quả, bấm mở nhật ký; chỉ tự mở khi có lỗi (để không đẩy nội dung trang xuống)
+        phan.append(
+            f'<p class="phu ket-qua-quet" role="status">✓ Quét {ten} xong lúc {luc}.</p>'
+            if not (nhat_ky or q["loi"])  # phái sinh, danh mục: chỉ bỏ giá đã nhớ, không có nhật ký
+            else f'<details class="ket-qua-quet"{" open" if q["loi"] else ""}>'
+            + (
+                f'<summary class="loi" role="alert">Quét {ten} lúc {luc} có lỗi: {ESC(q["loi"])}</summary>'
+                if q["loi"]
+                else f'<summary class="phu" role="status">✓ Quét {ten} xong lúc {luc}'
+                + (f" · {canh_bao} dòng cảnh báo [!]" if canh_bao else "")
+                + " · xem nhật ký</summary>"
+            )
+            + f"<pre>{ESC(nhat_ky or '(không có dòng nào)')}</pre></details>"
+        )
+    return "".join(phan)
+
+
+def trang_cho():
+    """Màn hình chờ lúc đang quét (thay cho mọi trang, để không đọc file kết quả đang ghi dở): bước đang chạy + nhật ký, tự tải lại."""
+    q = QUET
+    nhat_ky = "\n".join(q["nhat_ky"].getvalue().splitlines()[-30:])
+    than = (
+        f'<section class="the" role="status"><h1>⏳ Đang quét {ESC(q["buoc"] or NUT_QUET.get(q["tab"], ("", ""))[1])}</h1>'
+        f'<p>Bắt đầu lúc {q["bat_dau"]:%H:%M:%S}, đã chạy {thoi_luong((datetime.now() - q["bat_dau"]).total_seconds())}. '
+        f"Trang tự tải lại mỗi {GIAY_TAI_LAI} giây; quét xong sẽ hiện dữ liệu mới.</p>"
+        + (f"<pre>{ESC(nhat_ky)}</pre>" if nhat_ky else "")
+        + f"</section><script>setTimeout(() => location.reload(), {GIAY_TAI_LAI * 1000});</script>"
+    )
+    return trang("Đang quét…", than, q["tab"])
+
+
 def trang(tieu_de, than, duong_dan=""):
-    """Khung chung của mọi trang: thanh điều hướng trên cùng + nội dung + lưu ý cuối trang.
+    """Khung chung của mọi trang: thanh điều hướng trên cùng + nút 🔄 Quét của tab + nội dung + lưu ý cuối trang.
     Ghi chú dài thu vào "ℹ Giải thích", trừ trang Hướng dẫn (trang để đọc)."""
     if duong_dan != "/huong-dan":
         than = thu_gon_giai_thich(than)
+    than = muc_quet(duong_dan) + than
     menu = "".join(
         f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}><span class="bt" aria-hidden="true">{bt}</span>'
         f"<span>{ten}</span></a>"

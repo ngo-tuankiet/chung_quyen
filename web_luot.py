@@ -109,7 +109,7 @@ def muc_luot(df, ngay):
         f'<p class="phu">{he_so}</p></details></details>'
     )
     if dat["Lướt: CS cần tăng %"].isna().all() and loai["Lướt: CS cần tăng %"].isna().all():
-        phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm Quét ngay ở đầu trang.</p>')
+        phan.append('<p class="loi">File quét này từ bản cũ, chưa có số liệu lướt: bấm 🔄 Quét ở đầu trang.</p>')
     phan.append(
         f'<section class="the"><h2>⚡ Lướt được ({len(dat)} CW)</h2>'
         '<input type="search" data-loc="#bang-luot" placeholder="Lọc theo mã cổ phiếu hoặc mã CW (vd: VPB, HPG)" '

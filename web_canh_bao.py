@@ -80,7 +80,7 @@ def lay_du_lieu():
 def muc_cw(ds, df):
     nguong = so(CB.NGUONG_LECH_CW * 100, 0)
     if df is None:
-        than = "<p>Chưa có kết quả quét CW (bấm Quét ngay ở trang Chứng quyền).</p>"
+        than = "<p>Chưa có kết quả quét CW (bấm 🔄 Quét ở trang này hoặc trang Chứng quyền).</p>"
     elif not ds:
         than = (
             f"<p>Hiện không có CW nào có giá chào bán thấp hơn mức lẽ ra theo CS từ {nguong}% trở lên mà mua được "
