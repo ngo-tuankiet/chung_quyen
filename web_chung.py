@@ -4,6 +4,7 @@ import html
 import io
 import json
 import math
+import os
 import re
 import time
 from datetime import date, datetime
@@ -14,7 +15,7 @@ import pandas as pd
 import cw_scanner
 import danh_muc
 
-CONG = 8000
+CONG = int(os.environ.get("PORT", "8000"))
 VON_MAC_DINH = 10  # triệu đồng: số tiền mặc định ở mục "Rủi ro với số tiền của bạn"
 BO_NHO_NEN: dict[str, tuple] = (
     {}

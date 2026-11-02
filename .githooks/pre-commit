@@ -3,9 +3,15 @@
 # Chỉ khi khẩn cấp mới bỏ qua: git commit --no-verify
 # Lưu ý: ruff/black/pytest kiểm thư mục làm việc hiện tại (không riêng phần đã stage); quét secret kiểm đúng phần đã stage.
 cd "$(git rev-parse --show-toplevel)" || exit 1
-PY=.venv/bin/python
+if [ -x ".venv/bin/python" ]; then
+  PY=.venv/bin/python
+elif [ -f ".venv/Scripts/python.exe" ]; then
+  PY=.venv/Scripts/python.exe
+else
+  PY=python
+fi
 chan() { echo "✗ $1"; echo "  -> commit bị chặn. Sửa xong rồi commit lại (khẩn cấp: git commit --no-verify)."; exit 1; }
-[ -x "$PY" ] || chan "không thấy $PY (chạy chay_web.command để tạo môi trường)"
+"$PY" -c "import sys" 2>/dev/null || chan "không tìm thấy python trong .venv"
 "$PY" -m ruff --version >/dev/null 2>&1 || chan "chưa cài công cụ dev: $PY -m pip install -r requirements-dev.txt"
 
 echo "[1/5] ruff check"

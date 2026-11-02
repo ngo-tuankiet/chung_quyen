@@ -13,7 +13,9 @@ Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 import contextlib
 import io
 import json
+import os
 import re
+import sys
 import threading
 import webbrowser
 from datetime import date, datetime
@@ -45,6 +47,7 @@ VIEC_QUET = {
 }
 VIEC_QUET["tat-ca"] = VIEC_QUET["cw"] + VIEC_QUET["etf"]
 TAB_QUET = {loai: dd for dd, (loai, *_) in W.NUT_QUET.items()}  # loại quét -> tab hiện kết quả
+HOST_NGHE = os.environ.get("HOST", "127.0.0.1")  # mặc định chỉ máy này; HOST=0.0.0.0: máy khác trong mạng vào được
 
 
 def bo_bo_nho():
@@ -93,10 +96,15 @@ def trang_ve(headers, loai):
 
 
 def nguon_hop_le(headers):
-    """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này."""
+    """Chặn POST từ trang web khác (CSRF): chỉ nhận khi Origin (hoặc Referer) là chính trang này.
+    Mặc định chỉ nhận localhost: tin theo header Host thì trang lạ trỏ tên miền của nó về 127.0.0.1 (DNS rebinding) cũng lọt.
+    Chỉ khi tự mở máy chủ ra mạng (biến HOST) mới nhận thêm địa chỉ đang truy cập."""
     nguon = headers.get("Origin") or headers.get("Referer") or ""
-    goc = (f"http://localhost:{CONG}", f"http://127.0.0.1:{CONG}")
-    return nguon in goc or nguon.startswith(tuple(g + "/" for g in goc))
+    goc = [f"http://localhost:{CONG}", f"http://127.0.0.1:{CONG}"]
+    host = headers.get("Host") or ""
+    if HOST_NGHE != "127.0.0.1" and host:
+        goc += [f"http://{host}", f"https://{host}"]
+    return any(nguon == g or nguon.startswith(g + "/") for g in goc)
 
 
 class XuLy(BaseHTTPRequestHandler):
@@ -232,8 +240,11 @@ class XuLy(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    # Chỉ mở cho máy của bạn (127.0.0.1), người khác trong mạng không truy cập được
-    may_chu = HTTPServer(("127.0.0.1", CONG), XuLy)
-    print(f"Giao diện web: http://localhost:{CONG}  (Ctrl+C để tắt)")
-    webbrowser.open(f"http://localhost:{CONG}")
+    # chạy nền không có cửa sổ (Task Scheduler) Windows dùng bảng mã cũ -> in tiếng Việt bị lỗi và dừng chương trình
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]  # stdout luôn là TextIOWrapper
+    # 1 luồng: quét đã chạy ở luồng nền nên không chặn trang; bat_dau_quet và redirect_stdout cần xử lý từng yêu cầu một
+    may_chu = HTTPServer((HOST_NGHE, CONG), XuLy)
+    print(f"Giao diện web: http://{HOST_NGHE}:{CONG}  (Ctrl+C để tắt)")
+    if "KHONG_MO_TRINH_DUYET" not in os.environ and not os.environ.get("PORT"):
+        webbrowser.open(f"http://localhost:{CONG}")
     may_chu.serve_forever()

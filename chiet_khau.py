@@ -26,7 +26,7 @@ import danh_muc as D
 # ============ CẤU HÌNH ============
 URL_SSI_ETF = "https://iboard-query.ssi.com.vn/stock/type/e/hose"
 HEADERS_SSI = {
-    "User-Agent": "Mozilla/5.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Origin": "https://iboard.ssi.com.vn",
     "Referer": "https://iboard.ssi.com.vn/",
 }
@@ -321,7 +321,10 @@ def giu_may_thuc(luc=None):
     gập nắp máy vẫn ngủ. shortcut: ngày lễ trong tuần vẫn giữ thức, cần thì kiểm tra la_ngay_giao_dich trước."""
     luc = luc or datetime.now()
     if luc.weekday() < 5 and GIU_MAY_THUC[0] <= luc.time() <= GIU_MAY_THUC[1]:
-        subprocess.Popen(["/usr/bin/caffeinate", "-i", "-t", str(GIU_THUC_GIAY)], start_new_session=True)
+        try:
+            subprocess.Popen(["/usr/bin/caffeinate", "-i", "-t", str(GIU_THUC_GIAY)], start_new_session=True)
+        except OSError:
+            pass  # máy không có caffeinate (Windows, Linux VPS không tự ngủ)
 
 
 def kiem_tra_trong_phien(luon=False, luc=None):

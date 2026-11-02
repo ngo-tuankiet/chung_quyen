@@ -451,6 +451,13 @@ def test_nguon_hop_le():
             {"Referer": "http://localhost:80001/"},
         )
     )
+    rebinding = {"Origin": "http://trang-la.com:8000", "Host": "trang-la.com:8000"}  # tên miền lạ trỏ về 127.0.0.1
+    mang_lan = {"Origin": "http://192.168.1.5:8000", "Host": "192.168.1.5:8000"}
+    assert not web.nguon_hop_le(rebinding) and not web.nguon_hop_le(mang_lan)  # mặc định: chỉ localhost
+    with mock.patch.object(web, "HOST_NGHE", "0.0.0.0"):  # tự mở ra mạng: nhận địa chỉ đang truy cập
+        assert web.nguon_hop_le(mang_lan) and not web.nguon_hop_le(
+            {"Origin": "https://trang-la.com", "Host": "192.168.1.5:8000"}
+        )
 
 
 def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():

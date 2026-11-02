@@ -175,7 +175,7 @@ python cw_scanner.py
 ```bash
 python web.py
 ```
-Trình duyệt tự mở `http://localhost:8000`. Trang hiển thị:
+Trình duyệt tự mở `http://localhost:8000`. Biến môi trường tùy chọn (thêm 02/11/2026 khi gộp bản Windows/máy chủ của ngo-tuankiet): `PORT` đổi cổng (có `PORT` hoặc `KHONG_MO_TRINH_DUYET` thì không tự mở trình duyệt); `HOST=0.0.0.0` cho máy khác trong mạng vào (mặc định chỉ máy này; chỉ khi đặt `HOST` nút Quét/thêm/xóa mới nhận lệnh từ địa chỉ khác localhost, để chặn DNS rebinding). Trang hiển thị:
 - Trạng thái API key (đã nhập trong `.env` hay chưa — không bao giờ hiện key).
 - Nút **🔄 Quét** ở góc phải mỗi trang (từ 02/11/2026, thay nút "Quét ngay"), chạy ở luồng nền (`web.VIEC_QUET`):
   🔔 Cảnh báo quét **tất cả** (CW rồi ETF, rồi bỏ giá đã nhớ của phái sinh/cảnh báo/nến; 2–4 phút); 📈 Chứng quyền (cả trang chi tiết)
