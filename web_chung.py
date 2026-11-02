@@ -59,7 +59,7 @@ KET_LUAN = {
     "BỎ QUA": ("bo-qua", "✕", "Bỏ qua"),
 }
 # Các cột của bảng danh sách: (tiêu đề, căn lề, giải thích cho người mới - hiện khi rê chuột lên tiêu đề và ở trang Hướng dẫn)
-GIAI_THICH_LECH = "Giá CW thực tế so với giá “lẽ ra” nếu CW giữ nguyên mức IV của ngày mốc và chỉ chạy theo giá cổ phiếu cơ sở (đã gồm đòn bẩy và mất giá theo thời gian), qua 20 phiên gần nhất. Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. Trong khoảng ±15% là bình thường. Chi tiết và biểu đồ ở trang của từng CW."
+GIAI_THICH_LECH = "Giá CW thực tế so với giá “lẽ ra” nếu CW giữ nguyên mức IV của ngày mốc và chỉ chạy theo giá cổ phiếu cơ sở (đã gồm đòn bẩy và mất giá theo thời gian), qua 20 phiên gần nhất. Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. Trong khoảng ±15% là bình thường. Âm sâu mà đường lệch đi ngang thường là tổ chức phát hành đã hạ IV một lần (trang của từng CW ghi IV ngày mốc → phiên gần nhất). Chi tiết và biểu đồ ở trang của từng CW."
 COT = [
     (
         "Mã CW",

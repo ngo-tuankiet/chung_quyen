@@ -93,8 +93,10 @@ def muc_giam_manh(ds):
         f'<section class="the" role="alert"><h2>⚠ CW giảm mạnh hôm nay ({len(ds)})</h2>'
         f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với giá tham chiếu '
         f"(= giá đóng cửa phiên trước) <b>và</b> lệch ≤ −{danh_muc.NGUONG_LECH_GIAM_MANH:.0%} so với mức lẽ ra theo cổ phiếu cơ sở, "
-        "tức riêng CW bị bán chứ không phải do CS giảm × đòn bẩy. Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất. "
-        "KL nhỏ thì giá khớp có thể chỉ do 1 lệnh lẻ.</p>"
+        "tức riêng CW bị bán chứ không phải do CS giảm × đòn bẩy. Lệch tính từ phiên gần nhất CW khớp đủ "
+        f"{so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu (IV ngày đó, giá CS cùng ngày, đã trừ mất giá theo thời gian tới hôm nay). "
+        f"Lệnh khớp gần nhất dưới {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu là lệnh lẻ: xét theo giá phải trả để mua đủ số tiền đó. "
+        "Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất.</p>"
         '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
         '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th><th>Báo lúc</th></tr></thead>'
         f"<tbody>{dong}</tbody></table></div></section>"
@@ -314,10 +316,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     bo_nho, loi_iv = BO_NHO_IV.get((ma, date.today())), ""
     if bo_nho is None and lich_su:
         try:
-            df_cw = C.lay_gia_dong_cua(ma, C.NGAY_MOT_NAM, C.NGUON_GIA_CW)
-            he_so = 10 ** round(math.log10(P_khop / float(df_cw["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
-            gia_cw = {str(t)[:10]: float(g) * he_so for t, g in zip(df_cw["time"], df_cw["close"])}
-            kl_cw = {str(t)[:10]: float(v) for t, v in zip(df_cw["time"], df_cw["volume"])}
+            gia_cw, kl_cw = C.lich_su_cw(ma, P_khop, C.NGAY_MOT_NAM)
             # phiên khớp lẻ: giá đóng cửa không mua được -> IV ngày đó giả, bỏ (như lech_20_phien)
             gia_du = {d: g for d, g in gia_cw.items() if g * kl_cw[d] >= C.GIA_TRI_KHOP_TOI_THIEU}
             bo_nho = BO_NHO_IV[(ma, date.today())] = {
@@ -351,6 +350,16 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         C.lech_20_phien(bo_nho["gia"], bo_nho["kl"], dict(lich_su), K, ty_le, ngay_dao_han, r) if bo_nho else (None, [])
     )
     lech_ls = [[d, round(lech * 100, 1)] for d, *_, lech in hang_lech]
+    # lệch chỉ đến từ IV đổi (giá lẽ ra giữ IV mốc): hiện IV 2 đầu để thấy ngay lệch sâu là do TCPH hạ IV một lần hay đang lệch
+    # (CHPG2637 02/11/2026: −63% vì IV 54% ngày mốc 06/10 bị hạ còn 30% ngày 16–19/10, từ đó CW chạy sát HPG)
+    iv_ngay = dict(iv_ls or [])
+    iv_moc, iv_cuoi = (iv_ngay.get(moc), iv_ngay.get(hang_lech[-1][0])) if hang_lech else (None, None)
+    dong_iv = (  # ghi chú ngắn (≤ GIAI_THICH_TOI_THIEU ký tự) để luôn hiện, không bị thu vào "ℹ Giải thích"
+        f'<p class="phu"><b>IV ngày mốc {so(iv_moc, 0)}% → phiên {hang_lech[-1][0][8:]}/{hang_lech[-1][0][5:7]} '
+        f"{so(iv_cuoi, 0)}%</b>: lệch chỉ đến từ IV đổi.</p>"
+        if iv_moc and iv_cuoi
+        else ""
+    )
     nguong_lech = danh_muc.CANH_BAO_LECH * 100
     mau_bang = hang_lech[:: max(len(hang_lech) // 4, 1)][:4] + hang_lech[-1:] if hang_lech else []
     m_theo_kip = (
@@ -359,10 +368,13 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         f"(đã gồm đòn bẩy và mất giá theo thời gian). Âm: CW không theo kịp cổ phiếu; dương: CW chạy nhanh hơn, dễ bị kéo về. "
         f"Trong khoảng ±{so(nguong_lech, 0)}% là bình thường. Mốc: "
         + (
-            f"{moc[8:]}/{moc[5:7]}/{moc[:4]} (phiên đầu tiên trong 20 phiên gần nhất khớp ≥ {so(C.MIN_KHOI_LUONG)} CW).</p>"
+            f"{moc[8:]}/{moc[5:7]}/{moc[:4]} (phiên đầu tiên trong 20 phiên gần nhất khớp ≥ {so(C.MIN_KHOI_LUONG)} CW)."
             if moc
-            else "—.</p>"
+            else "—."
         )
+        + " IV hạ một lần rồi đứng yên (đường lệch đi ngang) là tổ chức phát hành đã hạ giá chào bán: CW vẫn chạy theo "
+        f"{ESC(cs)} từ đó, số lệch giữ nguyên tới khi mốc trôi qua ngày hạ.</p>"
+        + dong_iv
         + (
             bieu_do(
                 lech_ls,

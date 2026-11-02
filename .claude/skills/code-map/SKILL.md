@@ -11,8 +11,8 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 ## File
 | File | Làm gì | Hàm chính |
 |---|---|---|
-| `cw_scanner.py` | Lõi CW: lấy dữ liệu, Black-Scholes, IV/HV, 4 tiêu chí, lướt, lưu kết quả quét | `black_scholes_call`, `bien_dong_ngam_dinh`, `lay_bang_gia` (API Vietcap), `lay_gia_dong_cua` (vnstock), `bien_dong_lich_su`, `gia_mua`, `danh_gia`, `dinh_gia`, `luot_ngan_han`, `chon_luot`, `doc_he_so_iv`, `lai_kb_hieu_chinh`, `la_ngay_giao_dich`, `main` |
-| `danh_muc.py` | Lệnh CW đang nắm (`danh_muc.csv`), vị thế, cảnh báo + báo cáo ngày qua Discord | `them_lenh`, `xoa_lenh`, `tinh_vi_the`, `danh_gia_danh_muc`, `kiem_tra`, `bao_cao_ngay`, `gui_discord` |
+| `cw_scanner.py` | Lõi CW: lấy dữ liệu, Black-Scholes, IV/HV, 4 tiêu chí, lướt, lưu kết quả quét | `black_scholes_call`, `bien_dong_ngam_dinh`, `lay_bang_gia` (API Vietcap), `lay_gia_dong_cua` (vnstock), `lich_su_cw` (giá CW đồng + KL), `bien_dong_lich_su`, `gia_mua`, `muc_so_lenh`, `lech_theo_cs`, `lech_20_phien`, `danh_gia`, `dinh_gia`, `luot_ngan_han`, `chon_luot`, `doc_he_so_iv`, `lai_kb_hieu_chinh`, `la_ngay_giao_dich`, `main` |
+| `danh_muc.py` | Lệnh CW đang nắm (`danh_muc.csv`), vị thế, cảnh báo + báo cáo ngày qua Discord | `them_lenh`, `xoa_lenh`, `tinh_vi_the`, `danh_gia_danh_muc`, `kiem_tra`, `bao_cao_ngay`, `gui_discord`; CW giảm mạnh: `cw_giam_manh` (mốc `moc_lech`, giá `gia_ban_du`) |
 | `etf.py` | Báo cáo ETF: giá/NAV, chỉ số kỹ thuật, xếp hạng "rẻ hơn thường" | `lay_du_lieu` (VCI), `lay_nav`, `lap_bang`, `xep_hang`, `bao_cao_gon`, `chay` |
 | `chiet_khau.py` | Chiết khấu ETF so với iNAV (SSI), làm sạch NAV Vietcap IQ, cảnh báo trong phiên | `lai_rong_neu_ve_nav`, `gia_mua_lenh`, `danh_gia_quy`, `lam_sach_nav`, `bo_nav_loi`, `thong_ke_nav`, `kiem_tra_trong_phien` |
 | `web.py` | Máy chủ web localhost:8000: định tuyến GET/POST, chặn CSRF (`nguon_hop_le`), nút 🔄 Quét chạy nền (`VIEC_QUET` loại -> bước; đang quét mọi trang hiện `W.trang_cho`) | `XuLy`, `bat_dau_quet`, `chay_quet`, `bo_bo_nho` |

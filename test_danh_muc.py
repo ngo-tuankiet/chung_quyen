@@ -613,11 +613,35 @@ def _bang_giam(gia_cw, kl=50_000, ref_cw=3000, gia_cs=24000, kl_cuoi=10_000):
 
 
 DF_NHOM = DF.assign(**{"Đánh giá": ["THEO DÕI"]})
+# Mốc lệch mặc định: phiên 16/10 CW khớp 50.000 ở đúng BS(25.000, 124 ngày, IV 50%) / 2 = 3.013,2, VPB 25.000.
+# 19/10 là nến dở của hôm nay: không được làm mốc.
+P0_GIAM = cw_scanner.black_scholes_call(25000, 20000, 124 / 365, 0.04, 0.50)[0] / 2
+LICH_CW_GIAM = {"2026-10-16": (P0_GIAM, 50_000), "2026-10-19": (2000, 50_000)}
+LS_GIAM = {"VPB": [["2026-10-16", 25000], ["2026-10-19", 24000]]}
+
+
+def lich_su_vnstock(gia_kl):
+    """DataFrame giống vnstock (giá nghìn đồng) từ {ngày: (giá đồng, KL)}."""
+    return pd.DataFrame(
+        {
+            "time": list(gia_kl),
+            "close": [g / 1000 for g, _ in gia_kl.values()],
+            "volume": [v for _, v in gia_kl.values()],
+        }
+    )
+
+
+def giam_manh(b, lich_cw=LICH_CW_GIAM, lich_su=LS_GIAM):
+    with (
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=lich_su_vnstock(lich_cw)),
+    ):
+        return D.cw_giam_manh(DF_NHOM, b, HOM_NAY, lich_su)
 
 
 def test_cw_giam_manh_bien_va_lech_tinh_tay():
-    giam = lambda gia, **k: D.cw_giam_manh(DF_NHOM, _bang_giam(gia, **k), HOM_NAY)
-    # CS đứng yên 25.000 nên lệch = mức giảm. Tham chiếu 3.000: khớp 2.520 (−16%, lệch −16%) -> báo;
+    giam = lambda gia, **k: giam_manh(_bang_giam(gia, **k))
+    # VPB 25.000 hôm nay: lẽ ra = BS(25.000, 121 ngày, 50%) / 2 = 2.999,7. Tham chiếu 3.000: khớp 2.520 (−16%, lệch −16,0%) -> báo;
     # 2.580 (−14%) -> không; đúng 2.550 (−15%) -> không ("trên 15%")
     assert [g["ma"] for g in giam(2520, gia_cs=25000)] == ["CVPB2615"]
     assert giam(2580, gia_cs=25000) == [] and giam(2550, gia_cs=25000) == []
@@ -625,34 +649,85 @@ def test_cw_giam_manh_bien_va_lech_tinh_tay():
         giam(2520, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
     )  # chưa khớp lệnh nào: không có giá để so
     # lệnh khớp gần nhất ≥ 5 triệu đồng thì dùng giá khớp: 2.000 × 2.500 = 5.000.000 -> báo theo 2.000;
-    # dưới (2.000 × 2.499 = 4.998.000, lệnh lẻ như CVNM2616 30/10/2026: 120 × 100) thì dùng giá bán 1 (giá mua được), không có lệnh bán -> bỏ qua
+    # dưới (2.000 × 2.499 = 4.998.000, lệnh lẻ như CVNM2616 30/10/2026: 120 × 100) thì dùng giá phải trả để mua đủ 5 triệu
     assert [g["gia"] for g in giam(2000, kl_cuoi=2500)] == [2000]
     b = _bang_giam(2000, kl_cuoi=2499)
     b["CVPB2615"][2]["askPrices"] = []
-    assert D.cw_giam_manh(DF_NHOM, b, HOM_NAY) == []
+    assert giam_manh(b) == []  # không có lệnh bán: không có giá mua được
+    # giá bán 1 chỉ 2,1 triệu (CHPG2636 02/11/2026: 150 × 100 CW): không phải giá mua được, sổ lệnh không đủ 5 triệu -> bỏ qua
     b["CVPB2615"][2]["askPrices"] = [{"price": 2100, "volume": 1000}]
-    g = D.cw_giam_manh(DF_NHOM, b, HOM_NAY)[0]  # bán 1 2.100: −30%, lệch 2.100 / 2.593 − 1 = −19,0% -> báo theo 2.100
-    assert g["gia"] == 2100 and math.isclose(g["giam"], -0.3) and abs(g["lech"] - (2100 / 2592.867 - 1)) < 1e-4
-    b["CVPB2615"][2]["askPrices"] = [{"price": 2700, "volume": 1000}]
-    assert D.cw_giam_manh(DF_NHOM, b, HOM_NAY) == []  # bán 1 2.700: −10% -> không báo
+    assert giam_manh(b) == []
+    # 2.100 × 1.000 = 2,1 triệu + 2.150 × 2.000 = 4,3 triệu -> đủ 5 triệu ở 2.150 (mức chữ ATC bỏ qua): −28,3%,
+    # lệch 2.150 / 2.592,5 − 1 = −17,1% -> báo theo 2.150
+    b["CVPB2615"][2]["askPrices"] = [
+        {"price": 2150, "volume": 2000},
+        {"price": 2100, "volume": 1000},
+        {"price": "ATC", "volume": 500},
+    ]
+    g = giam_manh(b)[0]
+    assert (
+        g["gia"] == 2150 and math.isclose(g["giam"], 2150 / 3000 - 1) and abs(g["lech"] - (2150 / 2592.496 - 1)) < 1e-5
+    )
+    b["CVPB2615"][2]["askPrices"] = [{"price": 2700, "volume": 3000}]
+    assert giam_manh(b) == []  # đủ 5 triệu ở 2.700: −10% -> không báo
     # nhóm Bỏ qua thì không xét
-    assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400, gia_cs=25000), HOM_NAY) == []
-    # Lệch tính tay: IV từ giá tham chiếu (CW 3.000 × 2 = 6.000, S 25.000, K 20.000, 121 ngày, r 4%) = 50,0%;
-    # giá lẽ ra với S 24.000: d1 = 0,8233, d2 = 0,5354 -> call = 24.000 × 0,7948 − 20.000 × e^(−0,0133) × 0,7038 = 5.186 -> 2.593/CW
-    # lệch = 2.400 / 2.593 − 1 = −7,4%: phần lớn mức giảm 20% là do CS −4% nhân đòn bẩy -> KHÔNG báo
+    assert D.cw_giam_manh(DF.assign(**{"Đánh giá": ["BỎ QUA"]}), _bang_giam(2400, gia_cs=25000), HOM_NAY, LS_GIAM) == []
+    # Lệch tính tay: IV mốc 16/10 = 50%; giá lẽ ra với S 24.000, còn 121 ngày (r 4%): d1 = 0,8233, d2 = 0,5354
+    # -> call = 24.000 × 0,7948 − 20.000 × e^(−0,0133) × 0,7038 = 5.185 -> 2.592,5/CW
+    # lệch = 2.400 / 2.592,5 − 1 = −7,4%: phần lớn mức giảm 20% là do CS −4% nhân đòn bẩy -> KHÔNG báo
     # (người dùng chốt 30/10/2026: chỉ báo khi lệch ≤ −15%, giảm do đòn bẩy là bình thường)
     assert giam(2400) == []
-    assert (
-        abs(
-            cw_scanner.lech_theo_cs(3000, 25000, HOM_NAY, 2400, 24000, HOM_NAY, 20000, 2, date(2027, 2, 17), 0.04)[0]
-            + 0.07438
-        )
-        < 1e-4
+    lech = cw_scanner.lech_theo_cs(
+        P0_GIAM, 25000, date(2026, 10, 16), 2400, 24000, HOM_NAY, 20000, 2, date(2027, 2, 17), 0.04
     )
-    # khớp 2.000 (−33,3%) với CS 24.000: lệch = 2.000 / 2.593 − 1 = −22,9% -> báo
+    assert abs(lech[0] - (2400 / 2592.496 - 1)) < 1e-5
+    # khớp 2.000 (−33,3%) với CS 24.000: lệch = 2.000 / 2.592,5 − 1 = −22,9% -> báo
     g = giam(2000)[0]
     assert math.isclose(g["giam"], -1 / 3) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
-    assert abs(g["lech"] - (2000 / 2592.867 - 1)) < 1e-4 and g["cs"] == "VPB"
+    assert abs(g["lech"] - (2000 / 2592.496 - 1)) < 1e-5 and g["cs"] == "VPB" and g["moc"] == "2026-10-16"
+
+
+def test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian():
+    # Tái hiện CSTB2620 02/11/2026: tham chiếu 3.260 là giá khớp lẻ ngày 16/10 (100 CW = 326 nghìn đồng); phiên khớp đủ gần nhất
+    # là 15/10: CW 2.715,7 = BS(25.000, 125 ngày, IV 30%) / 2. Hôm nay 19/10 VPB vẫn 25.000, TCPH yết đúng IV 30%:
+    # d1 = 1,4550, d2 = 1,2823 -> call = 25.000 × 0,92717 − 20.000 × 0,98683 × 0,90013 = 5.413,8 -> 2.706,9/CW (4 ngày mất giá −0,3%).
+    # Cách cũ (mốc = tham chiếu CW + CS, cùng ngày, bỏ mất giá) ra lệch = 2.710 / 3.260 − 1 = −16,9% -> báo sai.
+    p15 = cw_scanner.black_scholes_call(25000, 20000, 125 / 365, 0.04, 0.30)[0] / 2
+    lich_cw = {
+        "2026-10-14": (2900, 50_000),
+        "2026-10-15": (p15, 50_000),
+        "2026-10-16": (3260, 100),
+        "2026-10-19": (2710, 1),
+    }
+    ls = {"VPB": [["2026-10-14", 25500], ["2026-10-15", 25000], ["2026-10-16", 25000], ["2026-10-19", 25000]]}
+    gia, kl = ({d: x[i] for d, x in lich_cw.items()} for i in (0, 1))
+    assert D.moc_lech(gia, kl, dict(ls["VPB"]), "2026-10-19") == "2026-10-15"  # 16/10 khớp lẻ, 19/10 là hôm nay
+    assert giam_manh(_bang_giam(2710, ref_cw=3260, gia_cs=25000), lich_cw, ls) == []  # lệch 2.710 / 2.706,9 − 1 = +0,1%
+    # TCPH bán rẻ thật: 2.170 -> lệch = 2.170 / 2.706,9 − 1 = −19,8% -> báo, ghi mốc 15/10
+    g = giam_manh(_bang_giam(2170, ref_cw=3260, gia_cs=25000), lich_cw, ls)[0]
+    assert abs(g["lech"] - (2170 / 2706.878 - 1)) < 1e-5 and g["moc"] == "2026-10-15"
+    assert "lệch -19,8% so với mức lẽ ra theo CS từ phiên 15/10" in D.noi_dung_giam_manh(g)
+
+
+def test_cw_giam_manh_nho_lich_su_va_loi_mang():
+    b = _bang_giam(2000)
+    with (
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=lich_su_vnstock(LICH_CW_GIAM)) as lay,
+    ):
+        D.cw_giam_manh(DF_NHOM, b, HOM_NAY, LS_GIAM)
+        assert len(D.cw_giam_manh(DF_NHOM, b, HOM_NAY, LS_GIAM)) == 1 and lay.call_count == 1  # trang web hỏi mỗi phút
+    with (
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=ConnectionError("mất mạng")),
+        mock.patch("sys.stdout", new=io.StringIO()) as in_ra,
+    ):
+        g = D.cw_giam_manh(DF_NHOM, b, HOM_NAY, LS_GIAM)[
+            0
+        ]  # không tính được lệch: vẫn báo (người dùng chốt 30/10/2026)
+        assert math.isnan(g["lech"]) and g["moc"] == "" and "CVPB2615: chưa tải được lịch sử giá" in in_ra.getvalue()
+        assert "chưa tính được lệch so với CS" in D.noi_dung_giam_manh(g)
+        assert D.BO_NHO_LICH_SU_CW == {}  # lỗi thì không nhớ: lần sau tải lại
 
 
 def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
@@ -666,7 +741,10 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
             FILE_TRANG_THAI=Path(tmp) / "tt.json",
             THU_MUC_GIAM_MANH=Path(tmp),
             GUI_DISCORD_GIAM_MANH=True,
+            doc_lich_su=mock.Mock(return_value=LS_GIAM),
         ),
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=lich_su_vnstock(LICH_CW_GIAM)),
         mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF_NHOM, HOM_NAY)),
         mock.patch.object(
             cw_scanner, "doc_env", return_value={"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/1/abc"}
@@ -686,7 +764,7 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
             "CW giảm bất thường" in noi_dung
             and "CVPB2615" in noi_dung
             and "-33,3%" in noi_dung
-            and "lệch -22,9%" in noi_dung
+            and "lệch -22,9% so với mức lẽ ra theo CS từ phiên 16/10" in noi_dung
         )
         assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # mỗi mã tối đa 1 tin/ngày
         # file cho trang web: còn giữ mã đã báo trong ngày

@@ -310,6 +310,15 @@ def gia_mua(niem_yet, khop_lenh, so_lenh):
     return niem_yet["refPrice"], "tham chiếu"
 
 
+def muc_so_lenh(so_lenh, ben):
+    """[(giá, khối lượng)] một bên sổ lệnh ('askPrices' / 'bidPrices'), bỏ mức trống và mức dạng chữ (ATO/ATC)."""
+    return [
+        (m["price"], m.get("volume") or 0)
+        for m in (so_lenh or {}).get(ben) or []
+        if isinstance(m.get("price"), (int, float)) and m["price"] > 0 and (m.get("volume") or 0) > 0
+    ]
+
+
 def lay_gia_dong_cua(ma, so_ngay=NGAY_MOT_NAM, nguon="KBS", interval="1D", **them):
     """DataFrame (time, open, high, low, close, volume) giá `so_ngay` ngày qua của một mã từ vnstock; interval "1H" = nến 1 giờ.
     Giá cổ phiếu đã điều chỉnh theo sự kiện quyền; đơn vị có thể là nghìn đồng.
@@ -370,14 +379,21 @@ NGUON_GIA_CW = "VCI"
 SO_NGAY_LECH = 45  # ngày lịch đủ chứa 20 phiên + phiên mốc để tính "Lệch 20 phiên" lúc quét
 
 
+def lich_su_cw(ma, P, so_ngay=SO_NGAY_LECH):
+    """Giá đóng cửa (đồng) và khối lượng từng phiên `so_ngay` ngày qua của 1 CW (vnstock NGUON_GIA_CW):
+    ({ngày 'YYYY-MM-DD': giá}, {ngày: KL}). P: giá CW hiện tại (đồng) để đổi đơn vị (vnstock có thể trả nghìn đồng)."""
+    df = lay_gia_dong_cua(ma, so_ngay, NGUON_GIA_CW)
+    he_so = 10 ** round(math.log10(P / float(df["close"].iloc[-1])))
+    gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"])}
+    kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"])}
+    return gia, kl
+
+
 def lech_hien_tai(ma, P, gia_cs, K, ty_le, dao_han, r):
     """Lệch so với CS của 1 CW (tỷ lệ) và ngày mốc, đúng như mục "có theo kịp" ở trang chi tiết (lech_20_phien).
     P: giá CW hiện tại (đồng) để đổi đơn vị lịch sử vnstock; gia_cs: {ngày 'YYYY-MM-DD': giá CS đồng}.
     Không có phiên đủ thanh khoản -> (NaN, "")."""
-    df = lay_gia_dong_cua(ma, SO_NGAY_LECH, NGUON_GIA_CW)
-    he_so = 10 ** round(math.log10(P / float(df["close"].iloc[-1])))  # vnstock có thể trả nghìn đồng
-    gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"])}
-    kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"])}
+    gia, kl = lich_su_cw(ma, P)
     moc, hang = lech_20_phien(gia, kl, gia_cs, K, ty_le, dao_han, r)
     return (hang[-1][4], moc) if hang else (math.nan, "")
 

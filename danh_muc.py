@@ -40,7 +40,12 @@ NGUONG_GIAM_MANH = 0.15
 NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # ... VÀ lệch so với mức lẽ ra theo CS ≤ −15%: giảm do CS × đòn bẩy là bình thường, không báo (người dùng chốt 30/10/2026,
 # sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.
+# Mốc lệch = phiên gần nhất CW khớp đủ + giá CS cùng ngày, tính cả mất giá theo thời gian (người dùng chốt 02/11/2026: mốc theo
+# giá tham chiếu báo sai CSTB2620 −17% vì tham chiếu là giá khớp lẻ 29/10, mốc đúng 28/10 chỉ −0,2%; thứ Hai bỏ 3 ngày mất giá
+# cuối tuần đẩy CHPG2636 từ −13,8% lên −19,1%).
 NGUONG_LECH_GIAM_MANH = 0.15
+# Lịch sử giá CW để tìm mốc lệch chỉ đổi 1 lần/ngày, mà trang Cảnh báo hỏi mỗi phút: nhớ theo (mã, ngày)
+BO_NHO_LICH_SU_CW: dict = {}
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
@@ -559,11 +564,32 @@ def tai_bang_gia(ds_ma, df, cho=15):
     return {**bang, **C.lay_bang_gia(sorted(thieu), cho=cho)} if thieu else bang
 
 
-def cw_giam_manh(df, bang_gia, hom_nay):
-    """CW thuộc NHOM_THEO_DOI_GIAM có giá khớp hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
-    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy), lệnh khớp gần nhất dưới C.GIA_TRI_KHOP_TOI_THIEU đồng (khớp lẻ) thì dùng giá bán 1. Mỗi CW: dict
-    ma, cs, giam, gia, ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy từ giá tham chiếu CW và CS;
-    bỏ phần mất giá theo thời gian qua 1 đêm). Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
+def gia_ban_du(so_lenh, gia_tri=C.GIA_TRI_KHOP_TOI_THIEU):
+    """Mức chào bán mà 1 lệnh mua đủ `gia_tri` đồng phải trả tới (cộng dồn từ giá bán 1); sổ lệnh không đủ -> None.
+    Giá bán 1 chỉ vài trăm CW (CHPG2636 02/11/2026: 100 CW giá 150 = 15 nghìn đồng) không phải giá mua được (người dùng chốt 02/11/2026).
+    """
+    tong = 0
+    for g, kl in sorted(C.muc_so_lenh(so_lenh, "askPrices")):
+        tong += g * kl
+        if tong >= gia_tri:
+            return g
+    return None
+
+
+def moc_lech(gia_cw, kl_cw, gia_cs, truoc):
+    """Ngày mốc lệch của cảnh báo giảm mạnh: phiên gần nhất trước `truoc` ('YYYY-MM-DD') có giá CS và CW khớp đủ
+    (giá đóng cửa × KL ≥ C.GIA_TRI_KHOP_TOI_THIEU, như lech_20_phien); không có -> None."""
+    du = [d for d in gia_cw if d < truoc and d in gia_cs and gia_cw[d] * kl_cw.get(d, 0) >= C.GIA_TRI_KHOP_TOI_THIEU]
+    return max(du, default=None)
+
+
+def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
+    """CW thuộc NHOM_THEO_DOI_GIAM có giá hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
+    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy). Giá = giá khớp gần nhất; lệnh đó dưới
+    C.GIA_TRI_KHOP_TOI_THIEU đồng (khớp lẻ) thì giá phải trả để mua đủ số tiền đó (gia_ban_du). Mỗi CW: dict ma, cs, giam, gia,
+    ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy ở ngày moc_lech, tính cả mất giá theo thời gian
+    tới hôm nay), moc ('' nếu không tính được lệch). lich_su: giá CS đã điều chỉnh lúc quét (doc_lich_su).
+    Chưa khớp lệnh nào hôm nay thì không có giá để so, bỏ qua."""
     if df is None or "Đánh giá" not in df:
         return []
     nhom = df[df["Đánh giá"].isin(NHOM_THEO_DOI_GIAM)]
@@ -577,9 +603,8 @@ def cw_giam_manh(df, bang_gia, hom_nay):
         if not gia or not ref or not khop.get("accumulatedVolume"):
             continue
         if gia * (khop.get("matchVol") or 0) < C.GIA_TRI_KHOP_TOI_THIEU:  # giá CW trên bảng Vietcap tính bằng đồng
-            ban = (so_lenh or {}).get("askPrices") or []
-            gia = ban[0].get("price") or 0 if ban else 0
-            if not gia:  # không có lệnh đặt bán: không có giá mua được để so
+            gia = gia_ban_du(so_lenh)
+            if not gia:  # sổ lệnh bán không đủ 5 triệu: không có giá mua được để so
                 continue
         giam = gia / ref - 1
         if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.550 / 3.000 − 1 phải đúng bằng −15% (không báo)
@@ -590,11 +615,31 @@ def cw_giam_manh(df, bang_gia, hom_nay):
         md = ny.get("maturityDate") or ""
         dao_han = date(int(md[:4]), int(md[4:6]), int(md[6:])) if md else None
         r = float(h["r %"]) / 100 if "r %" in h and not pd.isna(h["r %"]) else C.LAI_SUAT_PHI_RUI_RO
-        lech = math.nan
-        if S0 and S and dao_han:
-            lech = C.lech_theo_cs(
-                ref, S0, hom_nay, gia, S, hom_nay, ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"]), dao_han, r
-            )[0]
+        lech, moc = math.nan, None
+        if S and dao_han and cs in lich_su:
+            try:
+                gia_cw, kl_cw = BO_NHO_LICH_SU_CW.get((ma, hom_nay)) or C.lich_su_cw(ma, gia)
+            # mất mạng / hết lượt gọi vnstock: chỉ mã này không tính được lệch (vẫn báo), các mã khác và danh mục vẫn chạy
+            except Exception as e:  # noqa: BLE001
+                print(f"  [!] {ma}: chưa tải được lịch sử giá ({str(e)[:80]}), không tính được lệch so với CS")
+                gia_cw, kl_cw = {}, {}
+            else:
+                BO_NHO_LICH_SU_CW[(ma, hom_nay)] = gia_cw, kl_cw
+            gia_cs = dict(lich_su[cs])
+            moc = moc_lech(gia_cw, kl_cw, gia_cs, str(hom_nay))
+            if moc:
+                lech = C.lech_theo_cs(
+                    gia_cw[moc],
+                    gia_cs[moc],
+                    date.fromisoformat(moc),
+                    gia,
+                    S,
+                    hom_nay,
+                    ny["exercisePrice"],
+                    C.doc_ty_le(ny["exerciseRatio"]),
+                    dao_han,
+                    r,
+                )[0]
         if round(lech, 9) > -NGUONG_LECH_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo
             continue
         ket_qua.append(
@@ -607,6 +652,7 @@ def cw_giam_manh(df, bang_gia, hom_nay):
                 "kl": khop["accumulatedVolume"],
                 "cs_pt": S / S0 - 1 if S0 and S else math.nan,
                 "lech": lech,
+                "moc": moc if not math.isnan(lech) else "",
             }
         )
     return ket_qua
@@ -614,7 +660,11 @@ def cw_giam_manh(df, bang_gia, hom_nay):
 
 def noi_dung_giam_manh(g):
     """1 dòng cảnh báo giảm mạnh (giá, KL khớp là dữ liệu thị trường công khai, không phải vị thế của người dùng)."""
-    lech = f" · lệch {pt(g['lech'], 1)} so với mức lẽ ra theo CS" if not math.isnan(g["lech"]) else ""
+    lech = (
+        f" · lệch {pt(g['lech'], 1)} so với mức lẽ ra theo CS từ phiên {g['moc'][8:]}/{g['moc'][5:7]}"
+        if not math.isnan(g["lech"])
+        else " · chưa tính được lệch so với CS"
+    )
     cs = f" · {g['cs']} {pt(g['cs_pt'], 1)}" if not math.isnan(g["cs_pt"]) else ""
     return f"{pt(g['giam'], 1)} ({so(g['gia'])} so với tham chiếu {so(g['ref'])}), KL {so(g['kl'])}{cs}{lech}"
 
@@ -797,12 +847,13 @@ def kiem_tra(luon=False, luc=None):
     if not any(ny.get("tradingDate") == hom_nay for ny, *_ in bang_gia.values()):
         return []  # ngày nghỉ lễ / Tết: bảng giá vẫn là phiên trước, không có gì mới để báo
     trang_thai = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
+    lich_su = doc_lich_su(ngay_quet)
     dong, canh_bao, kl_moi = (
-        danh_gia_danh_muc(vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), doc_lich_su(ngay_quet))
+        danh_gia_danh_muc(vt, bang_gia, df, luc.date(), trang_thai.get("kl_niem_yet", {}), lich_su)
         if vt
         else ([], [], trang_thai.get("kl_niem_yet", {}))
     )
-    giam = cw_giam_manh(df, bang_gia, luc.date())
+    giam = cw_giam_manh(df, bang_gia, luc.date(), lich_su)
     if giam:
         ghi_giam_manh(hom_nay, giam, luc)
     canh_bao_giam = [(g["ma"], "giam_manh", noi_dung_giam_manh(g)) for g in giam] if GUI_DISCORD_GIAM_MANH else []

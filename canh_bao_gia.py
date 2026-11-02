@@ -77,18 +77,9 @@ def doc_ngay(chuoi):
     return None
 
 
-def muc_so_lenh(so_lenh, ben):
-    """[(giá, khối lượng)] một bên sổ lệnh ('askPrices' / 'bidPrices'), bỏ mức trống và mức dạng chữ (ATO/ATC)."""
-    return [
-        (m["price"], m.get("volume") or 0)
-        for m in (so_lenh or {}).get(ben) or []
-        if isinstance(m.get("price"), (int, float)) and m["price"] > 0 and (m.get("volume") or 0) > 0
-    ]
-
-
 def gia_tri_chao_ban_den(so_lenh, gia_toi_da, he_so=1):
     """Tổng giá trị (đồng) đang chào bán ở các mức giá ≤ gia_toi_da. he_so: hệ số nhân của HĐTL (giá tính bằng điểm)."""
-    return float(sum(g * v * he_so for g, v in muc_so_lenh(so_lenh, "askPrices") if g <= gia_toi_da))
+    return float(sum(g * v * he_so for g, v in C.muc_so_lenh(so_lenh, "askPrices") if g <= gia_toi_da))
 
 
 def so_hd_phong_ho(gia_tri, F, beta=1.0):
@@ -188,7 +179,7 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
         if not float(h["Giá mua"]) * float(h.get("KL chào bán") or 0) >= MIN_GIA_TRI_MUA:
             continue
         ny, _, so_lenh = bang_gia[ma]
-        ban, cs = muc_so_lenh(so_lenh, "askPrices"), ny.get("underlyingSymbol") or h["Mã CS"]
+        ban, cs = C.muc_so_lenh(so_lenh, "askPrices"), ny.get("underlyingSymbol") or h["Mã CS"]
         gd_cuoi, dao_han = doc_ngay(ny.get("lastTradingDate")), doc_ngay(ny.get("maturityDate"))
         if not ban or cs not in bang_gia or not gd_cuoi or not dao_han:
             continue
@@ -290,7 +281,7 @@ def hdtl_lech(bang_gia, chi_so, ssi, hom_nay, r=C.LAI_SUAT_PHI_RUI_RO, trong_phi
         if not MAU_MA_HD_KRX.fullmatch(ma) or not cs or not gd_cuoi or gd_cuoi < hom_nay:
             continue
         S, ngay_cs = chi_so.get(cs, (math.nan, ""))
-        ban, mua = muc_so_lenh(so_lenh, "askPrices"), muc_so_lenh(so_lenh, "bidPrices")
+        ban, mua = C.muc_so_lenh(so_lenh, "askPrices"), C.muc_so_lenh(so_lenh, "bidPrices")
         A_hd, B_hd = (min(g for g, _ in ban) if ban else math.nan), (max(g for g, _ in mua) if mua else math.nan)
         gia = khop.get("matchPrice") or math.nan
         ngay_con_lai = (gd_cuoi - hom_nay).days
@@ -399,9 +390,9 @@ def gia_xet(ban_ghi, chieu, he_so=1):
     if gia and gia * (khop.get("matchVol") or 0) * he_so >= MIN_GIA_TRI_MUA:
         return gia
     if chieu == "duoi":
-        ban = muc_so_lenh(so_lenh, "askPrices")
+        ban = C.muc_so_lenh(so_lenh, "askPrices")
         return min(g for g, _ in ban) if ban else None
-    mua = muc_so_lenh(so_lenh, "bidPrices")
+    mua = C.muc_so_lenh(so_lenh, "bidPrices")
     return max(g for g, _ in mua) if mua else None
 
 

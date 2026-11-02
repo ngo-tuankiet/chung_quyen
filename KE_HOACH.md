@@ -332,10 +332,24 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
 - **CW giảm mạnh** (30/10/2026, `cw_giam_manh`): cùng lịch 5 phút, kể cả khi không nắm vị thế nào. CW thuộc nhóm Nên xem xét / Theo dõi của
   lần quét gần nhất có giá khớp hôm nay giảm **quá** 15% so với tham chiếu (`NGUONG_GIAM_MANH`; đúng −15% không báo; chưa khớp lệnh nào thì
   không xét) **và** lệch ≤ −15% (`NGUONG_LECH_GIAM_MANH`, thêm 30/10/2026: sáng đó 13/13 mã báo theo mức giảm đều khớp biểu đồ,
-  do TCB −2,2%, VIC −2,9% nhân đòn bẩy 7–15; lọc lệch còn 1 mã). Kèm % CS hôm nay và **lệch** = giá CW / mức lẽ ra theo CS − 1 (IV giải từ giá tham chiếu CW và CS, bỏ mất giá 1 đêm): gần 0 là do
+  do TCB −2,2%, VIC −2,9% nhân đòn bẩy 7–15; lọc lệch còn 1 mã). Kèm % CS hôm nay và **lệch** = giá CW / mức lẽ ra theo CS − 1: gần 0 là do
   CS × đòn bẩy, âm sâu là riêng CW bị bán. Lệnh lẻ (thêm 30/10/2026): lệnh khớp gần nhất (giá × KL) dưới 5 triệu đồng
-  (`cw_scanner.GIA_TRI_KHOP_TOI_THIEU`) thì tính theo giá bán 1 (giá phải trả để mua được) thay giá khớp, không có lệnh bán thì bỏ qua; CVNM2616 bị báo −54% chỉ vì khớp 100 CW giá 120
-  trong khi giá bán 1 là 220. Hiện ở mục ⚠ trang chính
+  (`cw_scanner.GIA_TRI_KHOP_TOI_THIEU`) thì không dùng giá khớp; CVNM2616 bị báo −54% chỉ vì khớp 100 CW giá 120
+  trong khi giá bán 1 là 220.
+  **Sửa 02/11/2026 (người dùng duyệt):**
+  1. Mốc lệch là **phiên gần nhất CW khớp đủ** (giá đóng cửa × KL ≥ 5 triệu, như "Lệch 20 phiên") với **giá CS cùng ngày** trong file
+     lịch sử lúc quét (`moc_lech`, giá CW từ vnstock VCI, nhớ theo mã + ngày). Trước đây mốc là giá tham chiếu CW + CS, tức giá đóng
+     cửa phiên trước dù đó là khớp lẻ, và ghép với giá CS khác ngày.
+  2. **Tính mất giá theo thời gian** từ ngày mốc tới hôm nay, kể cả cuối tuần (trước đây bỏ, coi như mốc là hôm nay).
+  3. Khớp lẻ thì giá xét là **mức chào bán mà 1 lệnh mua đủ 5 triệu phải trả tới** (`gia_ban_du`, cộng dồn từ giá bán 1), thay cho giá
+     bán 1. Sổ lệnh bán không đủ 5 triệu thì bỏ qua. Sổ lệnh mỏng (vd sau giờ: 480 × 1.800, 490 × 3.800 rồi nhảy lên 1.060) thì giá xét
+     nhảy xa và không báo: không mua được 5 triệu ở giá rẻ.
+  Không tải được lịch sử giá hoặc không có phiên khớp đủ thì vẫn báo, ghi "chưa tính được lệch so với CS". Tin báo ghi mốc ("lệch … từ phiên 28/10").
+  Kiểm bằng dữ liệu thật 02/11/2026: CSTB2620 bị báo −17,0% vì tham chiếu 760 là giá khớp lẻ 29/10 (1.400 CW ≈ 1,1 triệu) ghép với STB
+  ngày 30/10. Mốc đúng 28/10 (CW 870, STB 68.000, IV 37%) ra −0,2% lúc 13:30 và +4,5% lúc đóng cửa: CW chạy theo STB. Thứ Hai, phần
+  mất giá cuối tuần bị bỏ đẩy CHPG2636 từ −13,8% lên −19,1% và CSTB2622 từ −12,6% lên −15,9%. CHPG2636 còn bị xét ở giá bán 1 là
+  150 × 100 CW (15 nghìn đồng). Lúc đóng cửa 02/11, trong 75 CW nhóm theo dõi, cách mới chỉ báo CVHM2604 (khớp thật 11.300 CW giá 1.960,
+  lệch −26,7%). Test tính tay: `test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian`. Hiện ở mục ⚠ trang chính
   (`ket_qua/giam_manh_<ngày>.json`, giữ mã đã báo dù giá hồi). Discord (1 tin/mã/ngày): bật từ 30/10/2026 (`GUI_DISCORD_GIAM_MANH`).
   Ngày 30/10/2026 lúc 12:13 có 13/79 CW bị báo; đa số lệch −7…+1% (TCB −2,2%, VIC −2,9%), CSTB2621 lệch −15% nhưng chỉ khớp 100 CW.
 
@@ -423,6 +437,11 @@ M/B cộng trên các lệnh đang hiện vì Vietcap không trả tổng cả p
 (`cw_scanner.lech_hien_tai` → `lech_20_phien`, 1 lượt vnstock/CW, thêm ~40 giây mỗi lần quét); hiện ở cột "Lệch 20 phiên" của danh sách
 chứng quyền và "Lệch 20p" của trang ⚡ (bấm tiêu đề để sắp xếp; vượt ±15% in đậm ở danh sách). Quét 26/10 13:07: 317/333 CW có số,
 81 CW ≤ −15%, 52 CW ≥ +15% — tức lệch quá ±15% không hiếm.
+Cách đọc (kiểm 02/11/2026): lệch chỉ đến từ IV đổi giữa ngày mốc và hôm nay (giá lẽ ra giữ IV mốc), nên một lần TCPH hạ IV làm lệch
+âm sâu suốt tới khi mốc trôi qua ngày hạ. CHPG2637 ghi −62,9% vì IV 54% ngày mốc 06/10 bị hạ còn khoảng 30% ngày 16–19/10 (CW 960 → 320
+trong khi HPG gần như đứng yên); từ đó IV đứng ở 27–31% và CW chạy sát HPG. Trang chi tiết vì vậy hiện thêm "IV ngày mốc → phiên gần
+nhất" ngay dưới tiêu đề. Phép tính đúng; gai đơn lẻ trên biểu đồ (CSTB2620 +46,7% ngày 06/10) là phiên đủ 5 triệu cả ngày nhưng giá
+đóng cửa là 1 lô nhỏ giá cao (chưa lọc).
 Quét thật 23/10/2026 10:31: 333 CW, 229 lướt được, 104 bị loại (68 spread > 5%, 58 bên mua < 20 triệu, 18 sắp hết hạn, 11 không có người chờ mua);
 đứng đầu CVPB2615 (CS cần +0,37%, CS +5% thì lãi +44%), cuối bảng là CW IV rất cao (CSHB2609 IV − HV +159 điểm: CS +5% vẫn lỗ 8,7%).
 

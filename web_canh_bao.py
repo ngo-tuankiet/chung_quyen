@@ -411,7 +411,7 @@ def tin_canh_bao(luc=None):
                 + (f" ({m['ghi_chu']})" if m["ghi_chu"] else ""),
                 "/canh-bao",
             )
-    for g in danh_muc.cw_giam_manh(df, du_lieu["bang_gia"], luc.date()):
+    for g in danh_muc.cw_giam_manh(df, du_lieu["bang_gia"], luc.date(), danh_muc.doc_lich_su(du_lieu["ngay_quet"])):
         them("giam", g["ma"], f"CW giảm mạnh: {g['ma']}", danh_muc.noi_dung_giam_manh(g), f"/cw/{g['ma']}")
     try:
         for ma, loai, noi_dung in canh_bao_danh_muc(df, du_lieu["ngay_quet"], luc.date()):
