@@ -1,5 +1,6 @@
 """Kiểm tra trang 🔔 Cảnh báo giá. Chạy: python -m pytest -q   hoặc   python test_canh_bao_gia.py (không cần cài pytest)."""
 
+import contextlib
 import tempfile
 import threading
 import urllib.error
@@ -341,7 +342,9 @@ def test_trang_mo_duoc_khi_mat_mang_va_chan_post_trang_la():
             may_chu.shutdown()
 
 
-def test_trang_co_du_lieu():
+@contextlib.contextmanager
+def du_lieu_mau(muc=()):
+    """Dữ liệu mẫu cho trang Cảnh báo lúc 10:00 ngày HOM_NAY (giờ khớp lệnh): CVPB2615 rẻ, E1VFVN30 dưới iNAV, VN30F1M đắt."""
     import web_canh_bao
     import web_chung
 
@@ -354,14 +357,20 @@ def test_trang_co_du_lieu():
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.multiple(CB, FILE_MUC_GIA=Path(tmp) / "muc_gia.csv", THU_MUC_CHAM=Path(tmp)),
+        mock.patch.object(CB, "doc_muc_gia", return_value=list(muc)),
         mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF_QUET, HOM_NAY)),
         mock.patch.object(CB, "ma_hdtl", return_value=["41I1GB000"]),
         mock.patch.object(C, "lay_bang_gia", return_value=bg),
         mock.patch.object(CB.CK, "lay_ssi", return_value=ssi),
         mock.patch.object(CB, "gia_chi_so", return_value=(2000.0, str(HOM_NAY))),
-        mock.patch.object(web_canh_bao, "date", mock.Mock(today=mock.Mock(return_value=HOM_NAY))),
+        mock.patch.object(web_canh_bao, "datetime", mock.Mock(now=mock.Mock(return_value=datetime(2026, 10, 19, 10)))),
         mock.patch.object(web_canh_bao.danh_muc, "trong_gio_khop_lenh", return_value=True),
     ):
+        yield web_canh_bao
+
+
+def test_trang_co_du_lieu():
+    with du_lieu_mau() as web_canh_bao:
         html = web_canh_bao.trang_canh_bao()
     assert "Ngoài giờ khớp lệnh" not in html
     assert "CVPB2615" in html and "-22,9%" in html  # CW rẻ bất thường
@@ -370,6 +379,46 @@ def test_trang_co_du_lieu():
     )  # phòng hộ: 50 triệu / (2.040 × 100.000) = 0,245 HĐ
     assert "VN30F1M" in html and "41I1GB000" in html and "Đắt: bán HĐ + mua ETF" in html  # HĐTL đắt
     assert "<script>alert" not in html
+
+
+def test_tin_canh_bao():
+    """Tin cho trình duyệt (kêu + thông báo): cùng số với trang, id 'ngày|loại|mã', link mở đúng trang."""
+    muc = {"id": 3, "ma": "VN30F1M", "chieu": "tren", "muc": 2000.0, "ghi_chu": "chốt lời", "ngay_tao": "2026-10-18"}
+    dm = [("CVPB2615", "cat_lo", "giá 1.500 chạm cắt lỗ 1.600")]
+    with du_lieu_mau([muc]) as web_canh_bao, mock.patch.object(web_canh_bao, "canh_bao_danh_muc", return_value=dm):
+        kq = web_canh_bao.tin_canh_bao(datetime(2026, 10, 19, 10))
+    tin = {t["id"]: t for t in kq["tin"]}
+    ngay = "2026-10-19|"
+    assert {ngay + x for x in ("cw|CVPB2615", "etf|E1VFVN30", "hd-dat|VN30F1M", "muc|3", "dm-cat_lo|CVPB2615")} <= set(
+        tin
+    )
+    assert not kq["ngoai_gio"] and kq["loi"] == []
+    cw = tin[ngay + "cw|CVPB2615"]
+    assert "lệch -22,9% so với giá lẽ ra theo VPB" in cw["noi_dung"] and cw["link"] == "/cw/CVPB2615"
+    assert "lãi ròng nếu về iNAV +2,68%" in tin[ngay + "etf|E1VFVN30"]["noi_dung"]
+    assert tin[ngay + "hd-dat|VN30F1M"]["link"] == "/phai-sinh/VN30F1M"
+    # mức "≥ 2.000": giá xét là giá chờ mua 2.040 (bán được ngay)
+    assert tin[ngay + "muc|3"]["noi_dung"] == "giá 2.040,0 ≥ mức 2.000,0 (chốt lời)"
+    assert tin[ngay + "dm-cat_lo|CVPB2615"] == {
+        "id": ngay + "dm-cat_lo|CVPB2615",
+        "tieu_de": "Danh mục: CVPB2615",
+        "noi_dung": "giá 1.500 chạm cắt lỗ 1.600",
+        "link": "/danh-muc",
+    }
+
+
+def test_tin_canh_bao_ngoai_gio_va_loi_danh_muc():
+    import web_canh_bao
+
+    with mock.patch.object(web_canh_bao, "lay_du_lieu", side_effect=AssertionError("ngoài giờ không được tải")):
+        assert web_canh_bao.tin_canh_bao(datetime(2026, 10, 19, 12)) == {
+            "ngoai_gio": True,
+            "tin": [],
+            "loi": [],
+        }  # nghỉ trưa
+    with du_lieu_mau() as wcb, mock.patch.object(wcb, "canh_bao_danh_muc", side_effect=ValueError("dòng 3 sai")):
+        kq = wcb.tin_canh_bao(datetime(2026, 10, 19, 10))
+    assert kq["loi"] == ["danh mục: ValueError dòng 3 sai"] and any("|cw|CVPB2615" in t["id"] for t in kq["tin"])
 
 
 if __name__ == "__main__":

@@ -251,6 +251,11 @@ def trang_huong_dan():
         "1 hợp đồng ứng khoảng 186 triệu ETF nên lệnh nhỏ không phòng hộ trọn được. CW không phòng hộ được.</li>"
         "<li><b>Mức giá tôi đặt</b>: nhập mã, chiều (xuống tới / lên tới) và mức giá; lịch 5 phút trong giờ giao dịch ghi lại lần chạm "
         "đầu tiên trong ngày. Discord chưa bật.</li>"
+        "<li><b>Báo bằng âm thanh + thông báo</b>: chỉ cần mở <b>bất kỳ trang nào</b> của công cụ (trang Cảnh báo hay trang khác). "
+        "Trong giờ khớp lệnh, mỗi phút trang tự hỏi có cảnh báo mới không (các mục trên trang này, CW giảm mạnh và cảnh báo danh "
+        "mục). Có tin mới: kêu 2 lần, hiện thông báo của máy (bấm vào mở đúng trang) và khung đỏ góc trên phải, giữ tới khi bấm "
+        "<b>Đã xem</b>. Mỗi tin chỉ báo 1 lần trong ngày. Nút <b>🔊 Báo</b> cuối thanh menu để bật/tắt và nghe thử. Trình duyệt chỉ "
+        "cho phát tiếng sau khi bạn bấm vào trang ít nhất 1 lần; đóng hết các trang hoặc máy ngủ thì không báo.</li>"
         "<li>Chưa tín hiệu nào ở trang này được kiểm chứng là có lãi sau phí; ngoài giờ khớp lệnh trang không đưa tín hiệu hợp đồng "
         "tương lai (sổ lệnh còn lại và iNAV không cùng thời điểm).</li></ul></section>"
         '<section class="the" id="hoi-dap"><h2>12. Câu hỏi thường gặp</h2>'

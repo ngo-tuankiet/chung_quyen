@@ -1,9 +1,14 @@
 """Trang 🔔 Cảnh báo giá (/canh-bao): giá lệch bất thường ĐANG mua được (CW, ETF, HĐTL VN30F/VN100F) + các mức giá tự đặt.
-Công thức và giả định: canh_bao_gia.py. Trang chỉ đọc: không ghi file, không gửi Discord (GET có thể do trang web khác gọi).
+tin_canh_bao: cùng các cảnh báo đó + CW giảm mạnh + cảnh báo danh mục, dạng JSON (/canh-bao/tin) để mọi trang đang mở báo
+âm thanh + thông báo (JS trong web_chung). Công thức và giả định: canh_bao_gia.py. Chỉ đọc: không ghi file, không gửi Discord
+(GET có thể do trang web khác gọi).
 """
 
+import json
 import math
-from datetime import date, datetime
+from datetime import datetime
+
+import pandas as pd
 
 import canh_bao_gia as CB
 import chiet_khau as CK
@@ -316,19 +321,112 @@ def muc_muc_gia(ds, da_cham):
     )
 
 
-def trang_canh_bao():
-    hom_nay = date.today()
+def tinh_canh_bao(luc):
+    """Tải dữ liệu (lay_du_lieu) và tính các cảnh báo của trang lúc `luc`; dùng chung cho trang và tin_canh_bao."""
+    hom_nay = luc.date()
     du_lieu, loi = lay_du_lieu()
     bg, ssi, df = du_lieu["bang_gia"], du_lieu["ssi"], du_lieu["df"]
     cw = CB.cw_lech_re(df, bg, du_lieu["ngay_quet"], hom_nay) if bg and df is not None else []
     phien = sorted({ny.get("tradingDate") for ny, *_ in bg.values() if ny.get("tradingDate")})
-    dong_cua = not phien or phien[-1] != str(hom_nay) or not danh_muc.trong_gio_khop_lenh(datetime.now())
+    dong_cua = not phien or phien[-1] != str(hom_nay) or not danh_muc.trong_gio_khop_lenh(luc)
     hd = CB.hdtl_lech(
         du_lieu["hd"], du_lieu["chi_so"], ssi, hom_nay, trong_phien=not dong_cua, thuong_lech=du_lieu["thuong"]
     )
     thang_gan = {x["chi_so"]: (x["bi_danh"] or x["ma"], x["mua"]) for x in hd if x["bi_danh"].endswith("F1M")}
     etf = CB.etf_duoi_inav(ssi, du_lieu["thuong"], thang_gan) if ssi else []
     muc = CB.trang_thai_muc(du_lieu["muc"], bg)  # bảng giá lỗi: mọi mức "chưa có giá"
+    return du_lieu, loi, cw, phien, dong_cua, hd, etf, muc
+
+
+def canh_bao_danh_muc(df, ngay_quet, hom_nay):
+    """Cảnh báo các CW đang nắm, đúng loại danh_muc.kiem_tra gửi Discord (bat_thuong): [(mã, loại, nội dung)]."""
+    D = danh_muc
+    vt = {m: v for m, v in D.tinh_vi_the(D.doc_lenh()).items() if v["so_luong"] > 0}
+    if not vt:
+        return []
+    df = df if df is not None else pd.DataFrame(columns=["Mã CW", "Mã CS", "IV %"])  # chưa quét: bỏ phần IV
+    tt = json.loads(D.FILE_TRANG_THAI.read_text(encoding="utf-8")) if D.FILE_TRANG_THAI.exists() else {}
+    dong, canh_bao, _ = D.danh_gia_danh_muc(
+        vt,
+        D.tai_bang_gia(list(vt), df, cho=CHO_BANG_GIA),
+        df,
+        hom_nay,
+        tt.get("kl_niem_yet", {}),
+        D.doc_lich_su(ngay_quet),
+    )
+    return D.bat_thuong(dong, canh_bao)
+
+
+def tin_canh_bao(luc=None):
+    """Cảnh báo đang có, cho trình duyệt báo âm thanh + thông báo (JSON /canh-bao/tin): {ngoai_gio, tin, loi}. Mỗi tin: id
+    'ngày|loại|mã' (trình duyệt nhớ đã báo: mỗi tin 1 lần/ngày), tieu_de, noi_dung, link. Ngoài giờ khớp lệnh: không tải gì;
+    ngày nghỉ (bảng giá vẫn là phiên trước): không báo."""
+    luc = luc or datetime.now()
+    if not danh_muc.trong_gio_khop_lenh(luc):
+        return {"ngoai_gio": True, "tin": [], "loi": []}
+    du_lieu, loi, cw, _, dong_cua, hd, etf, muc = tinh_canh_bao(luc)
+    if dong_cua:
+        return {"ngoai_gio": True, "tin": [], "loi": loi}
+    tin, ngay, df = [], str(luc.date()), du_lieu["df"]
+
+    def them(loai, ma, tieu_de, noi_dung, link):
+        tin.append({"id": f"{ngay}|{loai}|{ma}", "tieu_de": tieu_de, "noi_dung": noi_dung, "link": link})
+
+    for x in cw:
+        them(
+            "cw",
+            x["ma"],
+            f"CW rẻ bất thường: {x['ma']}",
+            f"chào bán {so(x['gia'])} đ, lệch {so(x['lech'] * 100, 1, True)}% so với giá lẽ ra theo {x['cs']}; "
+            f"mua được {so(x['mua_duoc'] / 1e6, 1)} triệu",
+            f"/cw/{x['ma']}",
+        )
+    for x in etf:
+        them(
+            "etf",
+            x["ma"],
+            f"ETF dưới iNAV: {x['ma']}",
+            f"chào bán {so(x['gia'])} đ, iNAV {so(x['inav'])} đ, lãi ròng nếu về iNAV {so(x['lai_rong'], 2, True)}%",
+            f"/etf/{x['ma']}",
+        )
+    for x in hd:
+        if x["tin_hieu"]:
+            ma = x["bi_danh"] or x["ma"]
+            them(
+                f"hd-{x['tin_hieu']}",
+                ma,
+                f"HĐTL {'đắt' if x['tin_hieu'] == 'dat' else 'rẻ'}: {ma}",
+                f"giá {so(x['gia'], 1)}, hợp lý {so(x['hop_ly'], 1)}, lệch {so(x['lech'], 1, True)} điểm"
+                + (f", lãi khóa {so(x['lai_khoa'], 1, True)} điểm" if math.isfinite(x["lai_khoa"]) else ""),
+                f"/phai-sinh/{ma}" if P.MAU_MA_HD.fullmatch(ma) else "/canh-bao",
+            )
+    for m in muc:
+        if m["cham"]:
+            le = 1 if CB.he_so_cua(m["ma"]) > 1 else 0
+            them(
+                "muc",
+                m["id"],
+                f"Chạm mức giá: {m['ma']}",
+                f"giá {so(m['gia'], le)} {CB.CHIEU[m['chieu']]} mức {so(m['muc'], le)}"
+                + (f" ({m['ghi_chu']})" if m["ghi_chu"] else ""),
+                "/canh-bao",
+            )
+    for g in danh_muc.cw_giam_manh(df, du_lieu["bang_gia"], luc.date()):
+        them("giam", g["ma"], f"CW giảm mạnh: {g['ma']}", danh_muc.noi_dung_giam_manh(g), f"/cw/{g['ma']}")
+    try:
+        for ma, loai, noi_dung in canh_bao_danh_muc(df, du_lieu["ngay_quet"], luc.date()):
+            them(f"dm-{loai}", ma, f"Danh mục: {ma}", noi_dung, "/danh-muc")
+    # danh_muc.csv sửa tay sai, mất mạng: các tin khác vẫn báo
+    except Exception as e:  # noqa: BLE001
+        loi.append(f"danh mục: {type(e).__name__} {str(e)[:80]}")
+    return {"ngoai_gio": False, "tin": tin, "loi": loi}
+
+
+def trang_canh_bao():
+    luc = datetime.now()
+    hom_nay = luc.date()
+    du_lieu, loi, cw, phien, dong_cua, hd, etf, muc = tinh_canh_bao(luc)
+    ssi, df = du_lieu["ssi"], du_lieu["df"]
     da_cham = CB.doc_da_cham(str(hom_nay))
     phan = [
         (

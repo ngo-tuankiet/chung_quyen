@@ -771,6 +771,16 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   Lịch 5 phút (`danh_muc.py` gọi `kiem_tra_muc_gia` sau `kiem_tra`, trong giờ khớp lệnh và tới 14:50 để có giá ATC) ghi lần chạm đầu tiên trong ngày vào
   `ket_qua/muc_gia_cham_<ngày>.json`. **Discord tắt** (`GUI_DISCORD_MUC_GIA = False`) chờ người dùng cho phép; bật thì mỗi mức tối
   đa 1 tin/ngày, gửi lỗi thì lần sau gửi lại.
+- **Báo âm thanh + thông báo trên trình duyệt** (02/11/2026, người dùng duyệt, gồm cả danh mục): mọi trang cw_scanner đang mở hỏi
+  `GET /canh-bao/tin` (`web_canh_bao.tin_canh_bao`) mỗi `GIAY_HOI_CANH_BAO` = 60 giây; nhiều tab thì tab hỏi trước được, tab khác bỏ
+  lượt. Máy chủ chỉ tính trong giờ khớp lệnh (`danh_muc.trong_gio_khop_lenh`, ngoài giờ trả rỗng, không tải gì) và ngày có phiên; đang
+  🔄 Quét thì trả rỗng. Tin gồm: CW rẻ bất thường, ETF dưới iNAV, HĐTL đắt/rẻ, mức giá tự đặt **đang** chạm (tính trực tiếp, không chờ
+  lịch 5 phút), CW giảm mạnh (`danh_muc.cw_giam_manh` trên bảng giá của trang, không chờ file 5 phút) và cảnh báo danh mục đúng loại
+  gửi Discord (`danh_muc.bat_thuong`). id `ngày|loại|mã`: trình duyệt nhớ (localStorage) để mỗi tin báo 1 lần/ngày. Tin mới: kêu 2
+  lần "ting-tong" (Web Audio, không cần file), thông báo hệ thống (Notification, tối đa `SO_THONG_BAO_TOI_DA` = 5/lượt, bấm mở đúng
+  trang), khung đỏ góc trên phải giữ qua các trang tới khi bấm "Đã xem", tiêu đề tab nhấp nháy. Nút 🔊 cuối menu bật/tắt + nghe thử,
+  bấm lần đầu xin quyền thông báo. Giới hạn: chỉ báo khi còn mở ít nhất 1 tab và máy không ngủ; trình duyệt chặn tiếng tới khi bấm vào
+  trang 1 lần (khung đỏ nhắc); mỗi lượt hỏi tốn như mở trang Cảnh báo.
 - **Giới hạn**: chưa kiểm chứng tín hiệu nào; r = 4% là giả định; chưa có cổ tức VN30; giá chỉ số lấy từ nến ngày VCI (độ trễ trong phiên
   chưa đo); đếm phiên chưa trừ ngày lễ; máy chủ web 1 luồng nên trang mất khoảng 1–2 giây mỗi lần mở; VCI/Vietcap chập chờn ban đêm
   (31/10/2026 0h–1h: lỗi 418 và quá thời gian).

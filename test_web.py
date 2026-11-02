@@ -2,6 +2,7 @@
 
 import http.client
 import io
+import json
 import threading
 import time
 from http.server import HTTPServer
@@ -33,7 +34,9 @@ def test_nut_quet_theo_tab():
     assert 'name="loai" value="tat-ca"' in canh_bao and "🔄 Quét tất cả" in canh_bao
     for dd, loai in (("/", "cw"), ("/etf", "etf"), ("/phai-sinh", "phai-sinh"), ("/danh-muc", "danh-muc")):
         assert f'name="loai" value="{loai}"' in W.trang("x", "", dd)
-    assert 'action="/quet"' not in W.trang("x", "", "/huong-dan")
+    huong_dan = W.trang("x", "", "/huong-dan")
+    assert 'action="/quet"' not in huong_dan
+    assert 'id="nut-bao"' in huong_dan and f'data-giay="{W.GIAY_HOI_CANH_BAO}"' in huong_dan  # nút 🔊 ở mọi trang
     W.QUET["dang"] = True
     assert 'action="/quet"' not in W.trang("x", "", "/etf")  # đang quét: ẩn nút
 
@@ -110,6 +113,11 @@ def test_may_chu_trong_luc_quet():
         tl = ket_noi.getresponse()
         return tl.status, tl.getheader("Location"), tl.read().decode("utf-8")
 
+    tin = {
+        "ngoai_gio": False,
+        "tin": [{"id": "2026-11-02|cw|CVNM2616", "tieu_de": "CW rẻ", "noi_dung": "x", "link": "/"}],
+    }
+
     def quet_etf():
         so_lan.append(1)
         print("[!] FUEXX thiếu NAV")
@@ -119,12 +127,16 @@ def test_may_chu_trong_luc_quet():
         mock.patch.dict(web.VIEC_QUET, {"etf": [("ETF", quet_etf)]}),
         mock.patch.object(web, "CONG", may_chu.server_port),
         mock.patch.object(web, "trang_etf", lambda: W.trang("Quỹ ETF", "<h1>Quỹ ETF</h1>", "/etf")),
+        mock.patch.object(web.web_canh_bao, "tin_canh_bao", return_value=tin) as tin_canh_bao,
     ):
         try:
             assert goi("POST", "/quet", "loai=etf")[:2] == (303, "/etf/E1VFVN30")  # quay về trang đang xem
             trang_cho = goi("GET", "/etf")[2]
             assert "⏳ Đang quét ETF" in trang_cho and "location.reload" in trang_cho
             assert "⏳ Đang quét" not in goi("GET", "/huong-dan")[2]
+            assert (
+                json.loads(goi("GET", "/canh-bao/tin")[2])["dang_quet"] and not tin_canh_bao.called
+            )  # không đọc file dở
             assert goi("POST", "/quet", "loai=etf")[0] == 303 and so_lan == [1]  # bấm thêm: không chạy lần 2
             assert goi("POST", "/danh-muc/them", "ma=CVNM2616")[0] == 409
             assert goi("POST", "/quet", "loai=xoa-het")[0] == 400
@@ -135,6 +147,7 @@ def test_may_chu_trong_luc_quet():
                 time.sleep(0.1)
             trang = goi("GET", "/etf")[2]
             assert "<h1>Quỹ ETF</h1>" in trang and "✓ Quét ETF xong lúc" in trang and "1 dòng cảnh báo [!]" in trang
+            assert json.loads(goi("GET", "/canh-bao/tin")[2]) == tin
         finally:
             cho.set()
             may_chu.shutdown()

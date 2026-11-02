@@ -5,12 +5,14 @@ Cách chạy:  python web.py   -> trình duyệt tự mở http://localhost:8000
 - Nút "🔄 Quét" đầu mỗi tab chạy ở luồng nền phần quét của tab đó (VIEC_QUET); trang Cảnh báo quét tất cả. Đang quét: mọi
   trang hiện màn hình chờ. Luôn hiển thị kết quả mới nhất trong ket_qua/.
 - Bấm vào một mã CW: trang phân tích chi tiết (biểu đồ, kịch bản lãi/lỗ, so sánh các CW cùng mã cơ sở).
-- Trang "🔔 Cảnh báo giá" (/canh-bao): giá lệch bất thường đang mua được (CW, ETF, HĐTL) + mức giá tự đặt.
+- Trang "🔔 Cảnh báo giá" (/canh-bao): giá lệch bất thường đang mua được (CW, ETF, HĐTL) + mức giá tự đặt. Mọi trang đang mở
+  hỏi /canh-bao/tin mỗi phút trong giờ khớp lệnh: cảnh báo mới thì kêu + thông báo hệ thống + khung đỏ (nút 🔊 trên menu).
 - Trang "Hướng dẫn sử dụng" (/huong-dan): giải thích cho người mới, có trên thanh menu (đầu trang; điện thoại: dưới cùng).
 """
 
 import contextlib
 import io
+import json
 import re
 import threading
 import webbrowser
@@ -104,6 +106,20 @@ class XuLy(BaseHTTPRequestHandler):
             self.send_response(301)
             self.send_header("Location", "/#luot")
             self.end_headers()
+            return
+        if (
+            duong_dan == "/canh-bao/tin"
+        ):  # mọi trang đang mở hỏi định kỳ (JS trong web_chung) để báo âm thanh + thông báo
+            tin = (
+                {"ngoai_gio": False, "dang_quet": True, "tin": [], "loi": []}  # không đọc file kết quả đang ghi dở
+                if W.QUET["dang"]
+                else web_canh_bao.tin_canh_bao()
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(json.dumps(tin, ensure_ascii=False).encode("utf-8"))
             return
         # đang quét: mọi trang (trừ Hướng dẫn) chỉ hiện màn hình chờ, không đọc file kết quả đang ghi dở
         cho = W.trang_cho() if W.QUET["dang"] and duong_dan != "/huong-dan" else None

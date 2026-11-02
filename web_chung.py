@@ -37,6 +37,8 @@ NUT_QUET = {
     ),
 }
 GIAY_TAI_LAI = 5  # màn hình chờ lúc đang quét tự tải lại sau ngần này giây
+GIAY_HOI_CANH_BAO = 60  # mọi trang đang mở hỏi /canh-bao/tin ngần này giây 1 lần (nhiều tab: chỉ 1 tab hỏi)
+SO_THONG_BAO_TOI_DA = 5  # mỗi lượt hiện tối đa ngần này thông báo hệ thống (còn lại xem trong khung đỏ trên trang)
 # lần quét gần nhất (chỉ 1 người dùng trên máy mình nên dùng biến toàn cục là đủ); tab: trang hiện kết quả
 QUET = {
     "dang": False,
@@ -256,6 +258,11 @@ dl.dieu-khoan dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nu
 tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%, transparent); }
 .thanh-tren { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
 .thanh-tren a { text-decoration: none; }
+.nut-bao { all: unset; cursor: pointer; color: var(--lien-ket); margin-left: auto; }
+.nut-bao:focus-visible { outline: 2px solid var(--nut); }
+#khung-bao { position: fixed; top: 12px; right: 12px; z-index: 20; width: min(440px, calc(100vw - 24px)); background: var(--be-mat);
+  border: 2px solid var(--chu-am); border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+#khung-bao ul { margin: 8px 0; padding-left: 18px; max-height: 50vh; overflow: auto; }
 .thanh-tren a[aria-current] { color: var(--chu); border-bottom: 2px solid var(--nut); }
 .thanh-tren .bt { margin-right: 4px; }
 /* Điện thoại: menu thành thanh cố định dưới cùng (biểu tượng trên chữ), bảng gọn hơn, cột mã đứng yên khi vuốt ngang */
@@ -265,8 +272,8 @@ tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%
   .the { padding: 14px; }
   .thanh-tren { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; margin: 0; gap: 0; flex-wrap: nowrap;
     background: var(--be-mat); border-top: 1px solid var(--vien); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
-  .thanh-tren a { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0;
-    font-size: 11px; color: var(--chu-phu); }
+  .thanh-tren a, .thanh-tren .nut-bao { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 0; font-size: 11px; color: var(--chu-phu); margin: 0; }
   .thanh-tren .bt { font-size: 22px; line-height: 1; margin: 0; }
   .thanh-tren a[aria-current] { color: var(--nut); border-bottom: 0; }
   table { font-size: 13px; }
@@ -286,6 +293,95 @@ footer { color: var(--chu-phu); font-size: 12px; margin-top: 32px; }
 """
 
 JS = """
+// Báo cảnh báo mới (kêu + thông báo hệ thống + khung đỏ): hỏi /canh-bao/tin mỗi data-giay giây (máy chủ chỉ tính trong giờ
+// khớp lệnh). Nhiều tab: tab hỏi trước thì tab khác bỏ lượt. Bật/tắt, đã báo, chưa xem: nhớ trong trình duyệt (localStorage).
+(() => {
+  const nut = document.getElementById("nut-bao");
+  if (!nut) return;
+  const doc = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const ghi = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const ds = k => { try { return JSON.parse(doc(k) || "[]"); } catch (e) { return []; } };
+  const giay = +nut.dataset.giay, toi_da = +nut.dataset.toiDa, goc = document.title;
+  const bat = () => doc("bao_dong") !== "tat";
+  let am = null, nhay = null;
+  const mo_am = () => {  // trình duyệt chỉ cho phát tiếng sau khi người dùng bấm vào trang ít nhất 1 lần
+    try { am = am || new (window.AudioContext || window.webkitAudioContext)(); if (am.state === "suspended") am.resume(); } catch (e) {}
+  };
+  const keu = () => {  // 2 lần "ting-tong", tạo bằng trình duyệt (không cần file âm thanh)
+    mo_am();
+    if (!am) return;
+    [[880, 0], [660, .3], [880, .75], [660, 1.05]].forEach(([tan_so, t]) => {
+      const o = am.createOscillator(), g = am.createGain(), t0 = am.currentTime + t;
+      o.frequency.value = tan_so; o.connect(g); g.connect(am.destination);
+      g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.3, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .28);
+      o.start(t0); o.stop(t0 + .3);
+    });
+  };
+  const ve = () => {  // khung đỏ + tiêu đề tab nhấp nháy theo danh sách chưa xem (giữ qua các trang, tới khi bấm "Đã xem")
+    const chua = ds("bao_chua_xem");
+    document.getElementById("khung-bao")?.remove();
+    clearInterval(nhay);
+    document.title = goc;
+    if (!chua.length) return;
+    const k = document.createElement("section");
+    k.id = "khung-bao";
+    k.setAttribute("role", "alert");
+    k.innerHTML = '<b></b><ul></ul><p class="phu" hidden>Chưa phát được tiếng: bấm vào trang một lần để trình duyệt cho phép.</p>'
+      + '<button type="button" class="nut">Đã xem</button>';
+    k.querySelector("b").textContent = `🔔 ${chua.length} cảnh báo mới`;
+    chua.forEach(t => {
+      const li = document.createElement("li"), a = document.createElement("a");
+      a.href = t.link; a.textContent = t.tieu_de;
+      li.append(a, ": " + t.noi_dung);
+      k.querySelector("ul").append(li);
+    });
+    k.querySelector("button").addEventListener("click", () => { ghi("bao_chua_xem", "[]"); ve(); });
+    document.body.append(k);
+    setTimeout(() => { k.querySelector("p").hidden = !bat() || (am && am.state === "running"); }, 500);
+    let sang = false;
+    nhay = setInterval(() => { document.title = (sang = !sang) ? `🔔 (${chua.length}) Cảnh báo mới` : goc; }, 1000);
+  };
+  const bao = moi => {
+    ghi("bao_chua_xem", JSON.stringify(ds("bao_chua_xem").concat(moi).slice(-30)));
+    ve();
+    keu();
+    if ("Notification" in window && Notification.permission === "granted") {
+      moi.slice(0, toi_da).forEach(t => {
+        const n = new Notification("🔔 " + t.tieu_de, { body: t.noi_dung, tag: t.id });
+        n.onclick = () => { window.focus(); location.href = t.link; };
+      });
+    }
+  };
+  const hoi = () => {
+    if (!bat() || Date.now() - (+doc("bao_lan_hoi") || 0) < (giay - 5) * 1000) return;  // tắt, hoặc tab khác vừa hỏi
+    ghi("bao_lan_hoi", Date.now());
+    fetch("/canh-bao/tin", { cache: "no-store" }).then(r => r.json()).then(d => {
+      const da = ds("bao_da_bao"), moi = d.tin.filter(t => !da.includes(t.id));
+      if (!moi.length) return;
+      const ngay = moi[0].id.split("|")[0];  // id "ngày|loại|mã": mỗi tin báo 1 lần/ngày, bỏ id ngày cũ
+      ghi("bao_da_bao", JSON.stringify(da.filter(id => id.startsWith(ngay)).concat(moi.map(t => t.id))));
+      bao(moi);
+    }).catch(() => {});  // máy chủ tắt / mất mạng: lượt sau hỏi lại
+  };
+  const cap_nhat_nut = () => {
+    nut.querySelector(".bt").textContent = bat() ? "🔊" : "🔇";
+    nut.querySelector(".chu").textContent = bat() ? "Báo: bật" : "Báo: tắt";
+    nut.setAttribute("aria-pressed", bat());
+  };
+  nut.addEventListener("click", () => {
+    ghi("bao_dong", bat() ? "tat" : "bat");
+    cap_nhat_nut();
+    if (!bat()) return;
+    keu();  // nghe thử; bấm nút cũng là lần bấm cho phép phát tiếng
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  });
+  ["pointerdown", "keydown"].forEach(su_kien => document.addEventListener(su_kien, mo_am, { once: true }));
+  window.addEventListener("storage", e => { if (e.key === "bao_chua_xem") ve(); });  // "Đã xem" ở tab khác
+  cap_nhat_nut();
+  ve();
+  hoi();
+  setInterval(hoi, 10000);
+})();
 // Bấm vào cả dòng để mở trang chi tiết (đường link trong ô mã vẫn dùng được bằng bàn phím)
 document.querySelectorAll("tr[data-href]").forEach(tr => tr.addEventListener("click", e => {
   if (!e.target.closest("a")) location.href = tr.dataset.href;
@@ -558,6 +654,10 @@ def trang(tieu_de, than, duong_dan=""):
         f'<a href="{dd}"{" aria-current=page" if dd == duong_dan else ""}><span class="bt" aria-hidden="true">{bt}</span>'
         f"<span>{ten}</span></a>"
         for dd, bt, ten in MENU
+    ) + (
+        f'<button type="button" id="nut-bao" class="nut-bao" data-giay="{GIAY_HOI_CANH_BAO}" data-toi-da="{SO_THONG_BAO_TOI_DA}" '
+        'title="Kêu + thông báo khi có cảnh báo mới (trong giờ khớp lệnh, khi còn mở ít nhất 1 trang cw_scanner). '
+        'Bấm để bật/tắt và nghe thử."><span class="bt" aria-hidden="true">🔊</span><span class="chu">Báo: bật</span></button>'
     )
     # biểu tượng trên tab trình duyệt: emoji của mục menu (trang khác, vd chi tiết CW: 📈), vẽ bằng SVG nên không cần file ảnh
     bieu_tuong = {dd: bt for dd, bt, _ in MENU}.get(duong_dan, "📈")
