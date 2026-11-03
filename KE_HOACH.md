@@ -358,6 +358,13 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   được bổ sung 2 số này (và lệch theo cách mới) bằng đúng `cw_giam_manh` ở giá + giá CS đã lưu lúc báo. Hiện ở mục ⚠ trang chính
   (`ket_qua/giam_manh_<ngày>.json`, giữ mã đã báo dù giá hồi). Discord (1 tin/mã/ngày): bật từ 30/10/2026 (`GUI_DISCORD_GIAM_MANH`).
   Ngày 30/10/2026 lúc 12:13 có 13/79 CW bị báo; đa số lệch −7…+1% (TCB −2,2%, VIC −2,9%), CSTB2621 lệch −15% nhưng chỉ khớp 100 CW.
+  **Thêm 03/11/2026 (người dùng thấy CACB2621 ngoài bảng "Đắt 26,8%" mà trang chi tiết "Đắt 120,1%"):** không phải lỗi công thức;
+  bảng ghi số lúc báo (80 đ, khớp thật ~1,23 triệu CW 09:16–09:45) còn tổ chức phát hành nâng giá chào bán lên 130 đ lúc ~09:50
+  (từ 10:00 chỉ khớp lô 100 CW). Trang Cảnh báo thêm cột *Giá mua nay* (giá chào bán thấp nhất lúc mở trang, % so tham chiếu) và
+  *Đắt/rẻ lúc báo → nay* (`web_canh_bao.gia_nay`: đúng `C.dinh_gia` với HV, r của lần quét như trang chi tiết). Giá mua nay không
+  còn thấp hơn tham chiếu quá 15% thì dòng mờ, ghi "đã hồi" (chỉ hiển thị, tiêu chí báo không đổi). Lưu ý CW giá rất thấp (giá
+  hợp lý vài chục đồng): 1 bước giá CS đổi đắt/rẻ cả chục điểm (CACB2621: ACB 20.250 → Đắt 120,1%, 20.200 → Đắt 131,9%), nên 2
+  trang mở cách nhau vài giây có thể lệch nhau đúng chừng đó.
 
 **Khi nào bán: trạng thái mỗi vị thế** (lát 1a, 23/10/2026; chỉ hiện ở cột *Trạng thái* trang 💼, **không gửi Discord**, không đổi cảnh báo cũ)
 - 🔴 **Nên bán**: chạm chốt lời / cắt lỗ **do bạn tự đặt** ở lệnh mua; **CW đắt** (cảnh báo `cw_dat`); **mất giá theo thời gian ≥ 2%/ngày**

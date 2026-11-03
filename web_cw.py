@@ -78,19 +78,38 @@ def trang_chinh():
     return trang("Quét chứng quyền", "".join(phan), "/")
 
 
-def muc_giam_manh(ds):
-    """Mục ⚠ các CW (nhóm Nên xem xét / Theo dõi) đã giảm quá ngưỡng so với giá tham chiếu hôm nay; không có thì rỗng."""
+def muc_giam_manh(ds, nay=None):
+    """Mục ⚠ các CW (nhóm Nên xem xét / Theo dõi) đã giảm quá ngưỡng so với giá tham chiếu hôm nay; không có thì rỗng.
+    nay: mã -> (giá mua nay, đắt/rẻ nay) từ web_canh_bao.gia_nay; None (trang không tải giá trực tiếp) thì không có cột "nay".
+    """
     if not ds:
         return ""
     pt = lambda x: f"{so(x * 100, 1, True)}%" if math.isfinite(x) else "—"
-    dr = lambda g: dat_re(g.get("dat_re", math.nan) * 100)  # file trước 02/11/2026 không có dat_re, lech_20: hiện "—"
-    dong = "".join(
-        f'<tr><td><a href="/cw/{ESC(ma)}">{ESC(ma)}</a></td><td>{ESC(g["cs"])}</td><td class="so"><b>{pt(g["giam"])}</b></td>'
-        f'<td class="so">{so(g["gia"])} / {so(g["ref"])}</td><td class="so">{so(g["kl"])}</td><td class="so">{pt(g["cs_pt"])}</td>'
-        f'<td class="so">{pt(g["lech"])}</td><td class="so {dr(g)[1]}">{dr(g)[0]}</td>'
-        f'<td class="so">{pt(g.get("lech_20", math.nan))}</td><td>{ESC(g["luc"])}</td></tr>'
-        for ma, g in sorted(ds.items(), key=lambda x: x[1]["giam"])
-    )
+    dr = lambda x: '<span class="{1}">{0}</span>'.format(*dat_re(x * 100))
+
+    def dong(ma, g):
+        # file trước 02/11/2026 không có dat_re, lech_20: hiện "—"
+        lop, o_nay, dr_nay = "", "", ""
+        if nay is not None:
+            gia, dat_re_nay = nay.get(ma, (None, math.nan))
+            # giá mua nay không còn thấp hơn tham chiếu quá ngưỡng (cùng cách làm tròn với danh_muc.cw_giam_manh): hết tác dụng
+            hoi = gia is not None and round(gia / g["ref"] - 1, 9) >= -danh_muc.NGUONG_GIAM_MANH
+            lop = ' class="da-hoi"' if hoi else ""
+            o_nay = (
+                f'<td class="so">{so(gia)} ({pt(gia / g["ref"] - 1)}){" đã hồi" if hoi else ""}</td>'
+                if gia
+                else "<td>—</td>"
+            )
+            dr_nay = f" → {dr(dat_re_nay)}"
+        return (
+            f'<tr{lop}><td><a href="/cw/{ESC(ma)}">{ESC(ma)}</a></td><td>{ESC(g["cs"])}</td>'
+            f'<td class="so"><b>{pt(g["giam"])}</b></td><td class="so">{so(g["gia"])} / {so(g["ref"])}</td>{o_nay}'
+            f'<td class="so">{so(g["kl"])}</td><td class="so">{pt(g["cs_pt"])}</td><td class="so">{pt(g["lech"])}</td>'
+            f'<td class="so">{dr(g.get("dat_re", math.nan))}{dr_nay}</td>'
+            f'<td class="so">{pt(g.get("lech_20", math.nan))}</td><td>{ESC(g["luc"])}</td></tr>'
+        )
+
+    hang = "".join(dong(ma, g) for ma, g in sorted(ds.items(), key=lambda x: x[1]["giam"]))
     return (
         f'<section class="the" role="alert"><h2>⚠ CW giảm mạnh hôm nay ({len(ds)})</h2>'
         f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với giá tham chiếu '
@@ -99,14 +118,28 @@ def muc_giam_manh(ds):
         f"{so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu (IV ngày đó, giá CS cùng ngày, đã trừ mất giá theo thời gian tới hôm nay). "
         f"Lệnh khớp gần nhất dưới {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu là lệnh lẻ: xét theo giá phải trả để mua đủ số tiền đó. "
         "Đắt/rẻ (so với giá hợp lý theo biến động 1 năm của CS) và Lệch 20p tính ở giá lúc báo, nên có thể khác số trong danh sách "
-        "chứng quyền (tính lúc quét). Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất.</p>"
+        "chứng quyền (tính lúc quét). Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất."
+        + (
+            " <b>Giá mua nay</b> = giá chào bán thấp nhất lúc mở trang, Đắt/rẻ sau dấu → tính ở giá đó (cùng số với trang chi "
+            f'tiết). Dòng mờ ghi "đã hồi": giá mua nay không còn thấp hơn tham chiếu quá {danh_muc.NGUONG_GIAM_MANH:.0%}, '
+            "cảnh báo đã hết tác dụng."
+            if nay is not None
+            else ""
+        )
+        + "</p>"
         '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
-        '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th>'
-        '<th class="so" title="Giá lúc báo so với giá hợp lý theo biến động 1 năm của CS (cùng cách tính cột Đắt/rẻ ở danh sách)">'
-        "Đắt/rẻ</th>"
+        + (
+            '<th class="so" title="Giá chào bán thấp nhất lúc mở trang (% so với tham chiếu)">Giá mua nay</th>'
+            if nay is not None
+            else ""
+        )
+        + '<th class="so">KL khớp</th><th class="so">CS hôm nay</th><th class="so">Lệch</th>'
+        '<th class="so" title="Giá lúc báo (→ giá mua nay) so với giá hợp lý theo biến động 1 năm của CS (cùng cách tính cột '
+        'Đắt/rẻ ở danh sách)">'
+        f"Đắt/rẻ{' lúc báo → nay' if nay is not None else ''}</th>"
         '<th class="so" title="Lệch 20 phiên tính ở giá lúc báo; danh sách chứng quyền ghi số lúc quét">Lệch 20p</th>'
         "<th>Báo lúc</th></tr></thead>"
-        f"<tbody>{dong}</tbody></table></div></section>"
+        f"<tbody>{hang}</tbody></table></div></section>"
     )
 
 

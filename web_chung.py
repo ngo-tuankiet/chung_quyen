@@ -201,6 +201,7 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
 .nen-le { opacity: .3; } tr.khop-le td { opacity: .45; }
+tr.da-hoi td { opacity: .5; }
 .kl-tang { fill: var(--tot); opacity: .45; } .kl-giam { fill: var(--chu-am); opacity: .45; }
 .kl-tang-dam { fill: var(--tot); } .kl-giam-dam { fill: var(--chu-am); }
 .vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }

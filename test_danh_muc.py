@@ -806,5 +806,43 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
         "lech": -0.2,
         "luc": "10:00",
     }
-    assert web_cw.muc_giam_manh({"CVPB2615": cu}).count(">—</td>") == 2
+    assert web_cw.muc_giam_manh({"CVPB2615": cu}).count(">—<") == 2
     assert web_cw.muc_giam_manh({}) == ""
+
+
+def test_gia_mua_nay_va_da_hoi_tinh_tay():
+    import web_canh_bao
+    import web_cw
+
+    # Giá mua nay = chào bán thấp nhất 2.600 (mức 2.700 bỏ qua); VPB khớp 24.000, HV 30%, r 4%, còn 121 ngày:
+    # giá hợp lý = 2.252,385 (như test_cw_giam_manh_bien_va_lech_tinh_tay) -> đắt 2.600 / 2.252,385 − 1 = +15,4%
+    b = _bang_giam(2000, gia_cs=24000)
+    b["CVPB2615"][2]["askPrices"] = [{"price": 2700, "volume": 1000}, {"price": 2600, "volume": 500}]
+    nay = web_canh_bao.gia_nay({"CVPB2615": {}}, b, DF, HOM_NAY)
+    assert nay["CVPB2615"][0] == 2600 and math.isclose(nay["CVPB2615"][1], 0.154)
+    assert web_canh_bao.gia_nay({"CVPB2615": {}}, {}, DF, HOM_NAY) == {}  # bảng giá lỗi
+    assert web_canh_bao.gia_nay({"CVPB2615": {}}, b, None, HOM_NAY) == {}  # chưa có lần quét
+    g = {
+        "ma": "CVPB2615",
+        "cs": "VPB",
+        "giam": -1 / 3,
+        "gia": 2000,
+        "ref": 3000,
+        "kl": 50_000,
+        "cs_pt": -0.04,
+        "lech": -0.229,
+        "dat_re": 2000 / 2252.385 - 1,
+        "lech_20": -0.229,
+        "luc": "10:00",
+    }
+    # 2.600 / 3.000 − 1 = −13,3%: không còn giảm quá 15% -> dòng mờ "đã hồi"; đắt/rẻ lúc báo → nay
+    html = web_cw.muc_giam_manh({"CVPB2615": g}, nay)
+    assert '<tr class="da-hoi">' in html and "2.600 (-13,3%) đã hồi" in html
+    assert '<span class="duong">Rẻ 11,2%</span> → <span class="am">Đắt 15,4%</span>' in html
+    # đúng −15% (2.550) cũng là đã hồi vì cảnh báo cần giảm QUÁ 15%; 2.400 (−20%) thì chưa
+    assert '<tr class="da-hoi">' in web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2550, 0.132)})
+    con = web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2400, 0.066)})
+    assert "<tr>" in con and "2.400 (-20,0%)</td>" in con
+    # thiếu giá trực tiếp của mã: ô "—"; trang Chứng quyền không tải giá trực tiếp thì không có cột
+    assert "<td>—</td>" in web_cw.muc_giam_manh({"CVPB2615": g}, {})
+    assert "Giá mua nay" not in web_cw.muc_giam_manh({"CVPB2615": g})

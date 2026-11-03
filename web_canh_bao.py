@@ -436,12 +436,28 @@ def tin_canh_bao(luc=None):
     return {"ngoai_gio": False, "tin": tin, "loi": loi}
 
 
+def gia_nay(ds, bg, df, hom_nay):
+    """Mã CW -> (giá mua nay, đắt/rẻ nay) tính đúng như trang chi tiết (C.dinh_gia, HV và r của lần quét) để 2 nơi cùng số.
+    Thiếu bảng giá hay dòng quét của mã thì bỏ mã đó (ô hiện —)."""
+    kq = {}
+    for ma in ds:
+        h = df[df["Mã CW"] == ma] if df is not None else ()
+        if ma not in bg or not len(h) or h.iloc[0]["Mã CS"] not in bg:
+            continue
+        h = h.iloc[0]
+        r = float(h["r %"]) / 100 if "r %" in h else C.LAI_SUAT_PHI_RUI_RO
+        g = C.dinh_gia(*bg[ma], C.gia_hien_tai(*bg[h["Mã CS"]]), float(h["Biến động %/năm"]) / 100, hom_nay, r)
+        kq[ma] = (g["Giá mua"], g["Đắt/rẻ %"] / 100)
+    return kq
+
+
 def trang_canh_bao():
     luc = datetime.now()
     hom_nay = luc.date()
     du_lieu, loi, cw, phien, dong_cua, hd, etf, muc = tinh_canh_bao(luc)
     ssi, df = du_lieu["ssi"], du_lieu["df"]
     da_cham = CB.doc_da_cham(str(hom_nay))
+    giam_manh = danh_muc.doc_giam_manh(hom_nay)
     phan = [
         (
             '<h1>🔔 Cảnh báo giá</h1><p class="phu">Giá lệch bất thường <b>đang mua được ngay</b> lúc mở trang (so giá trong '
@@ -470,7 +486,7 @@ def trang_canh_bao():
     phan += [
         # giảm mạnh trải ngang (không ghép cạnh Mức giá): bảng 10 cột không vừa nửa trang (02/11/2026)
         muc_muc_gia(muc, da_cham, tom_tat),
-        muc_giam_manh(danh_muc.doc_giam_manh(hom_nay)),
+        muc_giam_manh(giam_manh, gia_nay(giam_manh, du_lieu["bang_gia"], df, hom_nay)),
         muc_cw(cw, df),
         muc_etf(etf, ssi),
         muc_hdtl(hd),
