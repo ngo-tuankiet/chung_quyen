@@ -113,7 +113,8 @@ def muc_giam_manh(ds, nay=None):
     return (
         f'<section class="the" role="alert"><h2>⚠ CW giảm mạnh hôm nay ({len(ds)})</h2>'
         f'<p class="phu">CW nhóm Nên xem xét / Theo dõi có giá khớp giảm quá {danh_muc.NGUONG_GIAM_MANH:.0%} so với giá tham chiếu '
-        f"(= giá đóng cửa phiên trước) <b>và</b> lệch ≤ −{danh_muc.NGUONG_LECH_GIAM_MANH:.0%} so với mức lẽ ra theo cổ phiếu cơ sở, "
+        f"(= giá đóng cửa phiên trước) <b>và</b> lệch ≤ −{danh_muc.NGUONG_LECH_GIAM_MANH:.0%} so với mức lẽ ra theo cổ phiếu cơ sở "
+        f"<b>và</b> Lệch 20p < −{danh_muc.NGUONG_LECH_20_GIAM_MANH:.0%} (tụt hẳn so với CS cả 20 phiên, từ 03/11/2026), "
         "tức riêng CW bị bán chứ không phải do CS giảm × đòn bẩy. Lệch tính từ phiên gần nhất CW khớp đủ "
         f"{so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu (IV ngày đó, giá CS cùng ngày, đã trừ mất giá theo thời gian tới hôm nay). "
         f"Lệnh khớp gần nhất dưới {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu là lệnh lẻ: xét theo giá phải trả để mua đủ số tiền đó. "

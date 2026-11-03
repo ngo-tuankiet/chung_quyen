@@ -35,8 +35,9 @@ CANH_BAO_PHIEN_GD_CUOI_GAP = 2
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15 VÀ IV (theo giá chờ mua) > trung vị IV CW cùng mã
-# CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 15% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026)
-NGUONG_GIAM_MANH = 0.15
+# CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 20% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026
+# là 15%, siết lên 20% ngày 03/11/2026: CACB2621 "giảm 20%" chỉ là 2 bước giá 100 -> 80 đ)
+NGUONG_GIAM_MANH = 0.20
 NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # ... VÀ lệch so với mức lẽ ra theo CS ≤ −15%: giảm do CS × đòn bẩy là bình thường, không báo (người dùng chốt 30/10/2026,
 # sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.
@@ -44,6 +45,10 @@ NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # giá tham chiếu báo sai CSTB2620 −17% vì tham chiếu là giá khớp lẻ 29/10, mốc đúng 28/10 chỉ −0,2%; thứ Hai bỏ 3 ngày mất giá
 # cuối tuần đẩy CHPG2636 từ −13,8% lên −19,1%).
 NGUONG_LECH_GIAM_MANH = 0.15
+# ... VÀ Lệch 20 phiên ở giá lúc báo < −25%: CW tụt hẳn so với CS cả 20 phiên chứ không chỉ hôm nay (người dùng chốt 03/11/2026;
+# 8 cảnh báo 02–03/11 còn 2: CHPG2636 −47%, CHPG2637 −68%, phiên sau bán ở giá chờ mua lãi +40%, +44%). Không tính được thì
+# vẫn báo, như lệch (người dùng chốt 30/10/2026).
+NGUONG_LECH_20_GIAM_MANH = 0.25
 # Lịch sử giá CW để tìm mốc lệch chỉ đổi 1 lần/ngày, mà trang Cảnh báo hỏi mỗi phút: nhớ theo (mã, ngày)
 BO_NHO_LICH_SU_CW: dict = {}
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
@@ -585,7 +590,8 @@ def moc_lech(gia_cw, kl_cw, gia_cs, truoc):
 
 def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
     """CW thuộc NHOM_THEO_DOI_GIAM có giá hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
-    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy). Giá = giá khớp gần nhất; lệnh đó dưới
+    ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy) và Lệch 20 phiên < −NGUONG_LECH_20_GIAM_MANH.
+    Giá = giá khớp gần nhất; lệnh đó dưới
     C.GIA_TRI_KHOP_TOI_THIEU đồng (khớp lẻ) thì giá phải trả để mua đủ số tiền đó (gia_ban_du). Mỗi CW: dict ma, cs, giam, gia,
     ref, kl, cs_pt (% CS hôm nay), lech (giá CW / mức lẽ ra theo CS − 1, IV lấy ở ngày moc_lech, tính cả mất giá theo thời gian
     tới hôm nay), moc ('' nếu không tính được lệch), dat_re (giá / giá hợp lý theo HV − 1) và lech_20 (Lệch 20 phiên), cả hai
@@ -608,7 +614,7 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
             if not gia:  # sổ lệnh bán không đủ 5 triệu: không có giá mua được để so
                 continue
         giam = gia / ref - 1
-        if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.550 / 3.000 − 1 phải đúng bằng −15% (không báo)
+        if round(giam, 9) >= -NGUONG_GIAM_MANH:  # làm tròn: 2.400 / 3.000 − 1 phải đúng bằng −20% (không báo)
             continue
         cs = ny["underlyingSymbol"]
         cs_ny, cs_khop, _ = bang_gia.get(cs, ({}, {}, {}))
@@ -641,6 +647,8 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
                     gia_cw[moc_20], gia_cs[moc_20], date.fromisoformat(moc_20), gia, S, hom_nay, K, ty_le, dao_han, r
                 )[0]
         if round(lech, 9) > -NGUONG_LECH_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo
+            continue
+        if round(lech_20, 9) >= -NGUONG_LECH_20_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo (như lệch)
             continue
         # Đắt/rẻ ở giá lúc báo, cùng công thức cột "Đắt/rẻ %" của lần quét (C.dinh_gia): giá hợp lý theo HV 1 năm của CS
         hv, dat_re = h.get("Biến động %/năm"), math.nan
@@ -675,7 +683,8 @@ def noi_dung_giam_manh(g):
         else " · chưa tính được lệch so với CS"
     )
     cs = f" · {g['cs']} {pt(g['cs_pt'], 1)}" if not math.isnan(g["cs_pt"]) else ""
-    return f"{pt(g['giam'], 1)} ({so(g['gia'])} so với tham chiếu {so(g['ref'])}), KL {so(g['kl'])}{cs}{lech}"
+    lech_20 = f" · lệch 20 phiên {pt(g['lech_20'], 1)}" if math.isfinite(g.get("lech_20", math.nan)) else ""
+    return f"{pt(g['giam'], 1)} ({so(g['gia'])} so với tham chiếu {so(g['ref'])}), KL {so(g['kl'])}{cs}{lech}{lech_20}"
 
 
 def doc_giam_manh(ngay):
@@ -727,7 +736,8 @@ def noi_dung_discord(moi, luc):
     if gm:
         phan.append(
             f"**📉 CW giảm bất thường** (nhóm Nên xem xét / Theo dõi, giảm quá {pt(NGUONG_GIAM_MANH, dau=False)} so với tham chiếu "
-            f"và lệch ≤ −{pt(NGUONG_LECH_GIAM_MANH, dau=False)} so với mức lẽ ra theo CS) ({luc:%H:%M %d/%m})\n"
+            f"và lệch ≤ −{pt(NGUONG_LECH_GIAM_MANH, dau=False)} so với mức lẽ ra theo CS, Lệch 20 phiên < "
+            f"−{pt(NGUONG_LECH_20_GIAM_MANH, dau=False)}) ({luc:%H:%M %d/%m})\n"
             + "\n".join(f"📉 **{ma}**: {nd}" for ma, _, nd in gm)
         )
     return "\n\n".join(phan)

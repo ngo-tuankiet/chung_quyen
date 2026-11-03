@@ -37,6 +37,9 @@ import phai_sinh as P
 
 # ============ CẤU HÌNH ============
 NGUONG_LECH_CW = D.NGUONG_LECH_GIAM_MANH  # 15%: cùng ngưỡng lệch của cảnh báo CW giảm mạnh (người dùng chốt 30/10/2026)
+# CW trong ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) không cần điều kiện IV ≤ trung vị cùng mã (người dùng chốt
+# 03/11/2026: "top 30 hoặc IV rẻ"; đo 03/11 13:27 chưa thêm mã nào vì không CW top 30 nào lệch tới −15%)
+SO_TOP_CW_RE = 30
 MIN_GIA_TRI_MUA = (
     C.GIA_TRI_KHOP_TOI_THIEU
 )  # 5 triệu đồng: ít hơn là lô lẻ, không phải cơ hội thật (người dùng chốt 30/10/2026)
@@ -168,10 +171,12 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
     """CW có giá chào bán thấp hơn giá lẽ ra theo CS ≥ NGUONG_LECH_CW và ≥ MIN_GIA_TRI_MUA đồng chào bán ở các mức rẻ đó.
     Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán), CW lúc quét không có giá chào bán thật
     (IV mốc phải từ giá tổ chức phát hành yết) và CW mà IV ở giá chào bán bây giờ vẫn cao hơn trung vị IV các CW cùng CS lúc quét
-    (cột "IV cùng mã %"; không có trung vị hoặc giá dưới mức tối thiểu, không giải được IV, thì vẫn báo).
-    Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %."""
+    (cột "IV cùng mã %"; không có trung vị hoặc giá dưới mức tối thiểu, không giải được IV, thì vẫn báo). CW trong SO_TOP_CW_RE
+    dòng đầu df (thứ tự file quét = trang Chứng quyền: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV đó.
+    Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %; top: CW thuộc SO_TOP_CW_RE dòng đầu."""
     if df is None or df.empty:
         return []
+    top = set(df["Mã CW"].head(SO_TOP_CW_RE))
     kq = []
     for _, h in df.iterrows():
         ma = h["Mã CW"]
@@ -201,7 +206,7 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
         iv, iv_tv = C.bien_dong_ngam_dinh(gia, S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, ty_le), h.get(
             "IV cùng mã %"
         )
-        if iv is not None and pd.notna(iv_tv) and iv * 100 > iv_tv:
+        if ma not in top and iv is not None and pd.notna(iv_tv) and iv * 100 > iv_tv:
             continue
         le_ra = gia / (1 + lech)
         mua_duoc = gia_tri_chao_ban_den(so_lenh, le_ra * (1 - NGUONG_LECH_CW))
@@ -223,6 +228,7 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
                 "cs_pt": S / float(h["Giá CS"]) - 1,
                 "iv": iv * 100 if iv is not None else math.nan,
                 "iv_tv": float(iv_tv) if pd.notna(iv_tv) else math.nan,
+                "top": ma in top,
             }
         )
     return sorted(kq, key=lambda x: x["lech"])

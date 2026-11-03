@@ -89,11 +89,14 @@ def muc_cw(ds, df):
     elif not ds:
         than = (
             f"<p>Hiện không có CW nào có giá chào bán thấp hơn mức lẽ ra theo CS từ {nguong}% trở lên mà mua được "
-            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu, với IV không cao hơn trung vị các CW cùng cổ phiếu cơ sở.</p>"
+            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu, với IV không cao hơn trung vị các CW cùng cổ phiếu cơ sở (CW trong "
+            f"{CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền không cần điều kiện IV này).</p>"
         )
     else:
         hang = [
-            f'<tr data-href="/cw/{ESC(x["ma"])}"><td><a href="/cw/{ESC(x["ma"])}">{ESC(x["ma"])}</a></td><td>{ESC(x["cs"])}</td>'
+            f'<tr data-href="/cw/{ESC(x["ma"])}"><td><a href="/cw/{ESC(x["ma"])}">{ESC(x["ma"])}</a>'
+            + (f" <small>top {CB.SO_TOP_CW_RE}</small>" if x.get("top") else "")
+            + f'</td><td>{ESC(x["cs"])}</td>'
             + o(x["gia"])
             + o(x["le_ra"])
             + o(x["lech"] * 100, 1, True, "%", True)
@@ -124,7 +127,8 @@ def muc_cw(ds, df):
                     True,
                     (
                         "Trung vị IV các CW khác cùng CS lúc quét. Chỉ báo khi IV không cao hơn số này: rẻ so với chính nó "
-                        "mà vẫn đắt hơn CW cùng mã thì không phải món hời"
+                        f"mà vẫn đắt hơn CW cùng mã thì không phải món hời. CW ghi 'top {CB.SO_TOP_CW_RE}' (thuộc "
+                        f"{CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền) không cần điều kiện này"
                     ),
                 ),
                 ("Mua được (tr)", True, f"Giá trị đang chào bán ở các mức rẻ hơn giá lẽ ra từ {nguong}% (triệu đồng)"),

@@ -329,7 +329,12 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   là khớp lẻ, giá không mua lại được. Biểu đồ IV theo thời gian và "Lệch 20 phiên" (cả cột lệch lúc quét) bỏ phiên khớp lẻ
   (CVNM2616: 9/66 phiên); nến H1/H4/D1 và bảng khớp lệnh vẫn hiện nhưng vẽ mờ (rê chuột ghi "khớp lẻ"). Nến là lệnh đã khớp
   thật nên không thay bằng giá bán 1: không có lịch sử sổ lệnh. Định giá, IV hiện tại, hòa vốn, lướt vẫn tính theo giá bán 1 như trước.
-- **CW giảm mạnh** (30/10/2026, `cw_giam_manh`): cùng lịch 5 phút, kể cả khi không nắm vị thế nào. CW thuộc nhóm Nên xem xét / Theo dõi của
+- **CW giảm mạnh** (30/10/2026, `cw_giam_manh`; **siết 03/11/2026, người dùng chốt:** giảm **quá 20%** thay vì 15%, và thêm
+  Lệch 20 phiên ở giá lúc báo < −25% (`NGUONG_LECH_20_GIAM_MANH`; không tính được thì vẫn báo như lệch). Đo trên 8 cảnh báo
+  02–03/11 chỉ còn CHPG2636 (Lệch 20p −47%) và CHPG2637 (−68%), hai mã mà chiều 03/11 bán ở giá chờ mua lãi +40%, +44%; bỏ
+  CHPG2642 (+29%, Lệch 20p −22%), CVPB2617 (−4%), CACB2621 (−20% đúng ngưỡng, chỉ 2 bước giá 100 → 80 đ) và 3 mã VPB 03/11
+  (đi ngang). Mẫu 8 cảnh báo / 2 ngày, chưa phải kiểm chứng thống kê. Mô tả gốc bên dưới giữ số 15% của lúc đó.)
+  Cùng lịch 5 phút, kể cả khi không nắm vị thế nào. CW thuộc nhóm Nên xem xét / Theo dõi của
   lần quét gần nhất có giá khớp hôm nay giảm **quá** 15% so với tham chiếu (`NGUONG_GIAM_MANH`; đúng −15% không báo; chưa khớp lệnh nào thì
   không xét) **và** lệch ≤ −15% (`NGUONG_LECH_GIAM_MANH`, thêm 30/10/2026: sáng đó 13/13 mã báo theo mức giảm đều khớp biểu đồ,
   do TCB −2,2%, VIC −2,9% nhân đòn bẩy 7–15; lọc lệch còn 1 mã). Kèm % CS hôm nay và **lệch** = giá CW / mức lẽ ra theo CS − 1: gần 0 là do
@@ -776,6 +781,10 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   IV mốc 50,0% (3.000 đ khi VPB 25.000), VPB 24.000 -> lẽ ra 2.593 đ; chào bán 2.000 -> −22,9%, có 2.000 × 2.500 = 5 triệu -> có.
   Mốc phải là giá yết thật: lúc quét có ≥ 5 triệu chào bán (Giá mua × KL chào bán), lô lẻ thổi IV mốc lên thì hôm sau báo
   "rẻ" giả. Không phòng hộ được (chưa bán khống cổ phiếu); có thể là TCPH chủ động hạ IV (ACBS, Vietcap) chứ không phải bán nhầm.
+  **Nới 03/11/2026 (người dùng chốt "top 30 hoặc IV rẻ"):** CW thuộc 30 dòng đầu danh sách Chứng quyền (`SO_TOP_CW_RE`, thứ tự
+  file quét: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV ≤ trung vị bên dưới; ngưỡng lệch giữ 15%. Bảng ghi
+  "top 30" cạnh mã. Đo 03/11 13:27: chưa thêm mã nào (không CW top 30 nào lệch tới −15%); 2 mã đang báo CSHB2615 (40 đ),
+  CSHB2607 (90 đ) hạng 274, 277 có lệch chỉ 1–2 bước giá và IV 55–56% so với HV 26%, qua được vì CW SHB khác còn đắt hơn.
   **Thêm 02/11/2026 (người dùng duyệt):** IV ở giá chào bán bây giờ phải ≤ trung vị IV các CW khác cùng CS lúc quét (cột
   "IV cùng mã %"). Rẻ so với chính nó chưa đủ: CFPT2638 (Pinetree, K 75.200 khi FPT 50.200, cần FPT +55% mới hòa vốn) được báo
   lệch −72% vì chào bán rơi từ 1.370 xuống 380, nhưng IV vẫn 61% so với HV 31% và trung vị 29 CW FPT khác 52%. Đó là TCPH đang
