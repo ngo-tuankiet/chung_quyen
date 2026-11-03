@@ -330,10 +330,12 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   (CVNM2616: 9/66 phiên); nến H1/H4/D1 và bảng khớp lệnh vẫn hiện nhưng vẽ mờ (rê chuột ghi "khớp lẻ"). Nến là lệnh đã khớp
   thật nên không thay bằng giá bán 1: không có lịch sử sổ lệnh. Định giá, IV hiện tại, hòa vốn, lướt vẫn tính theo giá bán 1 như trước.
 - **CW giảm mạnh** (30/10/2026, `cw_giam_manh`; **siết 03/11/2026, người dùng chốt:** giảm **quá 20%** thay vì 15%, và thêm
-  Lệch 20 phiên ở giá lúc báo < −25% (`NGUONG_LECH_20_GIAM_MANH`; không tính được thì vẫn báo như lệch). Đo trên 8 cảnh báo
-  02–03/11 chỉ còn CHPG2636 (Lệch 20p −47%) và CHPG2637 (−68%), hai mã mà chiều 03/11 bán ở giá chờ mua lãi +40%, +44%; bỏ
-  CHPG2642 (+29%, Lệch 20p −22%), CVPB2617 (−4%), CACB2621 (−20% đúng ngưỡng, chỉ 2 bước giá 100 → 80 đ) và 3 mã VPB 03/11
-  (đi ngang). Mẫu 8 cảnh báo / 2 ngày, chưa phải kiểm chứng thống kê. Mô tả gốc bên dưới giữ số 15% của lúc đó.)
+  Lệch 20 phiên ở giá lúc báo < −20% (`NGUONG_LECH_20_GIAM_MANH`, số âm: CW tụt hẳn so với CS cả 20 phiên; thử −25% trước, người
+  dùng chọn −20%; không tính được thì vẫn báo như lệch). Trên 9 cảnh báo đã ghi 02–03/11 còn 4: CHPG2636 (Lệch 20p −47%),
+  CHPG2637 (−68%), CHPG2642 (−22%) mà chiều 03/11 bán ở giá chờ mua lãi +40%, +44%, +29%, và CVPB2624 (−24%, 03/11); bỏ
+  CVPB2617 (−4%), CACB2621 (−20% đúng ngưỡng, chỉ 2 bước giá 100 → 80 đ), CVPB2625/2626/2627 (Lệch 20p −2%, +2%, +28%).
+  File 03/11 đã bỏ 4 mã không đạt (người dùng duyệt). Mẫu 9 cảnh báo / 2 ngày, chưa phải kiểm chứng thống kê. Mô tả gốc bên dưới
+  giữ số 15% của lúc đó.)
   Cùng lịch 5 phút, kể cả khi không nắm vị thế nào. CW thuộc nhóm Nên xem xét / Theo dõi của
   lần quét gần nhất có giá khớp hôm nay giảm **quá** 15% so với tham chiếu (`NGUONG_GIAM_MANH`; đúng −15% không báo; chưa khớp lệnh nào thì
   không xét) **và** lệch ≤ −15% (`NGUONG_LECH_GIAM_MANH`, thêm 30/10/2026: sáng đó 13/13 mã báo theo mức giảm đều khớp biểu đồ,

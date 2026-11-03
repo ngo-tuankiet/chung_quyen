@@ -45,10 +45,10 @@ NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # giá tham chiếu báo sai CSTB2620 −17% vì tham chiếu là giá khớp lẻ 29/10, mốc đúng 28/10 chỉ −0,2%; thứ Hai bỏ 3 ngày mất giá
 # cuối tuần đẩy CHPG2636 từ −13,8% lên −19,1%).
 NGUONG_LECH_GIAM_MANH = 0.15
-# ... VÀ Lệch 20 phiên ở giá lúc báo < −25%: CW tụt hẳn so với CS cả 20 phiên chứ không chỉ hôm nay (người dùng chốt 03/11/2026;
-# 8 cảnh báo 02–03/11 còn 2: CHPG2636 −47%, CHPG2637 −68%, phiên sau bán ở giá chờ mua lãi +40%, +44%). Không tính được thì
-# vẫn báo, như lệch (người dùng chốt 30/10/2026).
-NGUONG_LECH_20_GIAM_MANH = 0.25
+# ... VÀ Lệch 20 phiên ở giá lúc báo < −20% (âm: CW tụt hẳn so với CS cả 20 phiên chứ không chỉ hôm nay). Người dùng chốt
+# 03/11/2026 (thử −25% trước): 9 cảnh báo đã ghi 02–03/11 còn 4 (CHPG2636 −47%, CHPG2637 −68%, CHPG2642 −22%, CVPB2624 −24%).
+# Không tính được thì vẫn báo, như lệch (người dùng chốt 30/10/2026).
+NGUONG_LECH_20_GIAM_MANH = 0.20
 # Lịch sử giá CW để tìm mốc lệch chỉ đổi 1 lần/ngày, mà trang Cảnh báo hỏi mỗi phút: nhớ theo (mã, ngày)
 BO_NHO_LICH_SU_CW: dict = {}
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026

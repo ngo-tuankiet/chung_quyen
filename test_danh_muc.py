@@ -688,10 +688,10 @@ def test_cw_giam_manh_bien_va_lech_tinh_tay():
         P0_GIAM, 25000, date(2026, 10, 16), 2400, 24000, HOM_NAY, 20000, 2, date(2027, 2, 17), 0.04
     )
     assert abs(lech[0] - (2400 / 2592.496 - 1)) < 1e-5
-    # Lệch 20 phiên phải < −25% (siết 03/11/2026); ở đây mốc 20 phiên trùng mốc lệch (chỉ 1 phiên trước hôm nay) nên = lệch:
-    # khớp 2.000 (−33,3%): lệch −22,9% ≤ −15% nhưng Lệch 20p −22,9% -> KHÔNG báo. Biên −25% ở 0,75 × 2.592,5 = 1.944,4:
-    # 1.940 (−25,2%) báo, 1.950 (−24,8%) không
-    assert giam(2000) == [] and len(giam(1940)) == 1 and giam(1950) == []
+    # Lệch 20 phiên phải < −20% (siết 03/11/2026); ở đây mốc 20 phiên trùng mốc lệch (chỉ 1 phiên trước hôm nay) nên = lệch:
+    # khớp 2.100 (−30%): lệch −19,0% ≤ −15% nhưng Lệch 20p −19,0% -> KHÔNG báo. Biên −20% ở 0,8 × 2.592,5 = 2.074,0:
+    # 2.070 (−20,2%) báo, 2.080 (−19,8%) không
+    assert giam(2100) == [] and len(giam(2070)) == 1 and giam(2080) == []
     # khớp 1.900 (−36,7%) với CS 24.000: lệch = 1.900 / 2.592,5 − 1 = −26,7% -> báo
     g = giam(1900)[0]
     assert math.isclose(g["giam"], 1900 / 3000 - 1) and math.isclose(g["cs_pt"], -0.04) and g["kl"] == 50_000
@@ -723,8 +723,8 @@ def test_cw_giam_manh_moc_phien_du_thanh_khoan_va_mat_gia_theo_thoi_gian():
     assert giam_manh(_bang_giam(2710, ref_cw=3260, gia_cs=25000), lich_cw, ls) == []  # lệch 2.710 / 2.706,9 − 1 = +0,1%
     # Lệch 20 phiên ở giá lúc báo: mốc = phiên đầu khớp ≥ 10.000 CW trong 20 phiên là 14/10 (IV 40%, VPB 25.500); lẽ ra hôm nay
     # = BS(25.000, 121 ngày, 40%) / 2: d1 = 1,1416, d2 = 0,9113 -> 25.000 × 0,8732 − 20.000 × 0,98683 × 0,8189 = 5.667 -> 2.833,5/CW
-    # TCPH bán 2.170: lệch = 2.170 / 2.706,9 − 1 = −19,8% nhưng Lệch 20p = 2.170 / 2.833,5 − 1 = −23,4% (chưa tới −25%) -> không báo
-    assert giam_manh(_bang_giam(2170, ref_cw=3260, gia_cs=25000), lich_cw, ls) == []
+    # TCPH bán 2.280: lệch = 2.280 / 2.706,9 − 1 = −15,8% nhưng Lệch 20p = 2.280 / 2.833,5 − 1 = −19,5% (chưa tới −20%) -> không báo
+    assert giam_manh(_bang_giam(2280, ref_cw=3260, gia_cs=25000), lich_cw, ls) == []
     # 2.100: lệch = 2.100 / 2.706,9 − 1 = −22,4% (mốc 15/10), Lệch 20p = 2.100 / 2.833,5 − 1 = −25,9% -> báo
     g = giam_manh(_bang_giam(2100, ref_cw=3260, gia_cs=25000), lich_cw, ls)[0]
     assert abs(g["lech"] - (2100 / 2706.878 - 1)) < 1e-5 and g["moc"] == "2026-10-15"
@@ -791,7 +791,7 @@ def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
             and "CVPB2615" in noi_dung
             and "-36,7%" in noi_dung
             and "lệch -26,7% so với mức lẽ ra theo CS từ phiên 16/10" in noi_dung
-            and "Lệch 20 phiên < −25%" in noi_dung
+            and "Lệch 20 phiên < −20%" in noi_dung
         )
         assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # mỗi mã tối đa 1 tin/ngày
         # file cho trang web: còn giữ mã đã báo trong ngày
