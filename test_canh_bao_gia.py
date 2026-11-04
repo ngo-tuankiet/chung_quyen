@@ -107,6 +107,22 @@ def test_cw_lech_re_ngoai_top_30_chi_bao_khi_khong_dat_qua_20_theo_hv():
     assert x["gia"] == 2000 and x["iv"] != x["iv"] and abs(x["dat_re"] - (2000 / 2154.703 - 1)) < 1e-4  # iv NaN
 
 
+def test_cw_lech_re_dung_gia_mua_du_5_trieu():
+    # Audit 04/11/2026 (người dùng chốt dùng giá mua đủ 5 triệu như giảm mạnh): sổ lệnh 100 CW @1.500 + 2.500 @2.000.
+    # Trước: báo ở 1.500, lệch 1.500 / 2.592,9 − 1 = −42,1%. Nay: 1.500 × 100 = 0,15 tr chưa đủ -> mua đủ ở 2.000:
+    # lệch 2.000 / 2.592,9 − 1 = −22,9%, đắt/rẻ theo HV 30% 2.000 / 2.252,4 − 1 = −11,2%
+    b = bang_cw(2000)
+    b["CVPB2615"][2]["askPrices"] = [{"price": 1500, "volume": 100}, {"price": 2000, "volume": 2500}]
+    x = CB.cw_lech_re(DF_QUET.assign(**{"Biến động %/năm": [30.0]}), b, HOM_NAY, HOM_NAY)[0]
+    assert (
+        x["gia"] == 2000
+        and abs(x["lech"] - (2000 / 2592.867 - 1)) < 1e-4
+        and abs(x["dat_re"] - (2000 / 2252.385 - 1)) < 1e-5
+    )
+    b["CVPB2615"][2]["askPrices"] = [{"price": 1500, "volume": 100}]  # chỉ có lô lẻ: không có giá mua được -> không báo
+    assert CB.cw_lech_re(DF_QUET, b, HOM_NAY, HOM_NAY) == []
+
+
 def test_cw_lech_re_top_30_khong_can_dieu_kien_dinh_gia():
     # Người dùng chốt 03/11/2026: CW thuộc 30 dòng đầu danh sách Chứng quyền thì "top 30 hoặc định giá rẻ" là đủ. Số liệu như
     # biên 20% ở trên: chào bán 2.710 đắt 20,3% theo HV 30%, lệch −18,4%: hạng 31 không báo, hạng 30 thì báo, ghi top.
@@ -262,12 +278,23 @@ def test_hdtl_lech_tinh_tay():
 
 def test_gia_xet_khop_le_dung_gia_giao_dich_duoc():
     so_lenh = {
-        "askPrices": [{"price": 1050, "volume": 100}],
-        "bidPrices": [{"price": 990, "volume": 100}, {"price": "ATC"}],
+        "askPrices": [{"price": 1100, "volume": 5000}, {"price": 1050, "volume": 100}],
+        "bidPrices": [{"price": 990, "volume": 100}, {"price": "ATC"}, {"price": 980, "volume": 6000}],
     }
-    # khớp cuối 1.000 × 100 = 0,1 triệu < 5 triệu: khớp lẻ -> xuống tới: giá chào bán; lên tới: giá chờ mua
+    # khớp cuối 1.000 × 100 = 0,1 triệu < 5 triệu: khớp lẻ -> giá giao dịch đủ 5 triệu ngay (người dùng chốt 04/11/2026):
+    # xuống tới: 1.050 × 100 = 0,105 tr + 1.100 × 5.000 = 5,5 tr -> 1.100; lên tới: 990 × 100 + 980 × 6.000 = 5,98 tr -> 980
     bg = ({}, {"matchPrice": 1000, "matchVol": 100}, so_lenh)
-    assert CB.gia_xet(bg, "duoi") == 1050 and CB.gia_xet(bg, "tren") == 990
+    assert CB.gia_xet(bg, "duoi") == 1100 and CB.gia_xet(bg, "tren") == 980
+    # audit 04/11/2026: mức "≤ 750", sổ lệnh 100 @720 + 10.000 @900 -> mua đủ 5 triệu ở 900: chưa chạm (trước báo chạm ở 720)
+    le = (
+        {},
+        {"matchPrice": 700, "matchVol": 100},
+        {"askPrices": [{"price": 720, "volume": 100}, {"price": 900, "volume": 10_000}]},
+    )
+    assert CB.gia_xet(le, "duoi") == 900 and not CB.da_cham(CB.gia_xet(le, "duoi"), "duoi", 750)
+    assert (
+        CB.gia_xet(({}, {"matchPrice": 0}, {"askPrices": [{"price": 720, "volume": 100}]}), "duoi") is None
+    )  # không đủ 5 tr
     assert CB.gia_xet(({}, {"matchPrice": 1000, "matchVol": 5000}, so_lenh), "duoi") == 1000  # đúng 5 triệu: giá khớp
     # HĐTL: 1 HĐ ở 1.858 điểm = 185,8 triệu: giá khớp luôn dùng được
     assert CB.gia_xet(({}, {"matchPrice": 1858, "matchVol": 1}, {}), "tren", P.HE_SO_NHAN) == 1858

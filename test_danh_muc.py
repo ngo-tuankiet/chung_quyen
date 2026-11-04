@@ -918,12 +918,16 @@ def test_gia_mua_nay_va_da_hoi_tinh_tay():
     import web_canh_bao
     import web_cw
 
-    # Giá mua nay = chào bán thấp nhất 2.600 (mức 2.700 bỏ qua); VPB khớp 24.000, HV 30%, r 4%, còn 121 ngày:
-    # giá hợp lý = 2.252,385 (như test_cw_giam_manh_bien_va_lech_tinh_tay) -> đắt 2.600 / 2.252,385 − 1 = +15,4%
+    # Giá mua nay = giá phải trả để mua đủ 5 triệu (người dùng chốt 04/11/2026): 2.600 × 500 = 1,3 triệu chưa đủ, cộng
+    # 2.700 × 2.000 = 5,4 triệu -> 2.700. VPB khớp 24.000, HV 30%, r 4%, còn 121 ngày: giá hợp lý = 2.252,385
+    # (như test_cw_giam_manh_bien_va_lech_tinh_tay) -> đắt 2.700 / 2.252,385 − 1 = +19,9%
     b = _bang_giam(2000, gia_cs=24000)
-    b["CVPB2615"][2]["askPrices"] = [{"price": 2700, "volume": 1000}, {"price": 2600, "volume": 500}]
+    b["CVPB2615"][2]["askPrices"] = [{"price": 2700, "volume": 2000}, {"price": 2600, "volume": 500}]
     nay = web_canh_bao.gia_nay({"CVPB2615": {}}, b, DF, HOM_NAY)
-    assert nay["CVPB2615"][0] == 2600 and math.isclose(nay["CVPB2615"][1], 0.154)
+    assert nay["CVPB2615"][0] == 2700 and abs(nay["CVPB2615"][1] - (2700 / 2252.385 - 1)) < 1e-5
+    b2 = _bang_giam(2000, gia_cs=24000)
+    b2["CVPB2615"][2]["askPrices"] = [{"price": 2600, "volume": 500}]  # sổ lệnh chỉ 1,3 triệu: chưa mua được, ô "—"
+    assert web_canh_bao.gia_nay({"CVPB2615": {}}, b2, DF, HOM_NAY) == {}
     assert web_canh_bao.gia_nay({"CVPB2615": {}}, {}, DF, HOM_NAY) == {}  # bảng giá lỗi
     assert web_canh_bao.gia_nay({"CVPB2615": {}}, b, None, HOM_NAY) == {}  # chưa có lần quét
     g = {
@@ -941,8 +945,8 @@ def test_gia_mua_nay_va_da_hoi_tinh_tay():
     }
     # 2.600 / 3.000 − 1 = −13,3%: không còn giảm quá 20% -> dòng mờ "đã hồi"; đắt/rẻ lúc báo → nay
     html = web_cw.muc_giam_manh({"CVPB2615": g}, nay)
-    assert '<tr class="da-hoi">' in html and "2.600 (-13,3%) đã hồi" in html
-    assert '<span class="duong">Rẻ 11,2%</span> → <span class="am">Đắt 15,4%</span>' in html
+    assert '<tr class="da-hoi">' in html and "2.700 (-10,0%) đã hồi" in html
+    assert '<span class="duong">Rẻ 11,2%</span> → <span class="am">Đắt 19,9%</span>' in html
     # đúng −20% (2.400) cũng là đã hồi vì cảnh báo cần giảm QUÁ 20%; 2.300 (−23,3%) thì chưa
     assert '<tr class="da-hoi">' in web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2400, 0.066)})
     con = web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2300, 0.021)})

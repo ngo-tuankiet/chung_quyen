@@ -863,7 +863,10 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   ghi số sau thuế; ETF chi tiết cột lệnh 50 triệu ở giá bình quân (`gia_mua_lenh`); basis năm hóa tính từ ngày của giá; Hướng dẫn
   ghi đúng tin Discord (có số tiền ở tin CW đắt và báo cáo 14:00). **B1 làm 04/11/2026:** Đòn bẩy, Delta (cột, trang chi tiết, số cp
   "theo delta" trong tin CW đắt) tính ở IV của giá (Hull: Greeks ở đúng σ cho ra giá); ví dụ S 20.000, K 24.000, n 2, 90 ngày,
-  giá 500: HV 30% cho 2,8x, IV 56,4% cho 6,3x (thực tế CS +1% thì CW +6,47%). **Chờ người dùng chọn (nhóm B):** CW rẻ, Giá mua nay, mức giá tự đặt dùng giá mua đủ 5 triệu như giảm mạnh; CW rẻ cho đắt ≤ 20% theo
+  giá 500: HV 30% cho 2,8x, IV 56,4% cho 6,3x (thực tế CS +1% thì CW +6,47%). **B2 làm 04/11/2026:** CW rẻ bất thường, Giá mua nay / "đã hồi" và mức giá tự đặt (khi khớp cuối là lô lẻ) dùng giá phải trả
+  để mua (≤) / bán (≥) đủ 5 triệu (`danh_muc.gia_du`) như cảnh báo giảm mạnh; ví dụ sổ lệnh 100 CW @1.500 + 2.500 @2.000: CW rẻ trước
+  báo lệch −42,1% ở 1.500, nay −22,9% ở 2.000; mức "≤ 750" với 100 @720 + 10.000 @900 trước báo chạm, nay chưa chạm. Trang chi tiết
+  vẫn dùng giá chào bán thấp nhất. **Chờ người dùng chọn (nhóm B):** CW rẻ cho đắt ≤ 20% theo
   HV trong khi Danh mục coi đắt ≥ 15% là Nên bán (cùng CW có thể bị báo ngược nhau); ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
   ròng ≥ 2%; "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

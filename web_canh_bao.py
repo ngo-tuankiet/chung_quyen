@@ -123,7 +123,14 @@ def muc_cw(ds, df):
             [
                 ("Mã CW", False, "Bấm để mở trang chi tiết"),
                 ("Mã CS", False, "Cổ phiếu cơ sở"),
-                ("Giá chào bán", True, "Giá thấp nhất đang bán ra: giá bạn mua được ngay (đ)"),
+                (
+                    "Giá chào bán",
+                    True,
+                    (
+                        f"Giá phải trả để mua đủ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu ngay (cộng dồn từ giá bán thấp nhất; "
+                        "vài trăm CW giá thấp ở đầu sổ không tính) (đ)"
+                    ),
+                ),
                 (
                     "Lẽ ra",
                     True,
@@ -338,7 +345,10 @@ def muc_muc_gia(ds, da_cham, tom_tat=""):
                 (
                     "Giá bây giờ",
                     True,
-                    f"Giá khớp; lệnh khớp cuối dưới {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu thì dùng giá chào bán (≤) / chờ mua (≥)",
+                    (
+                        f"Giá khớp; lệnh khớp cuối dưới {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu thì dùng giá phải trả để mua (≤) / "
+                        f"bán (≥) đủ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu ngay"
+                    ),
                 ),
                 ("Cách mức", True, "Giá bây giờ / mức − 1"),
                 ("Trạng thái", False, "Lịch 5 phút trong giờ giao dịch ghi lại lần chạm đầu tiên trong ngày"),
@@ -476,17 +486,23 @@ def tin_canh_bao(luc=None):
 
 
 def gia_nay(ds, bg, df, hom_nay):
-    """Mã CW -> (giá mua nay, đắt/rẻ nay) tính đúng như trang chi tiết (C.dinh_gia, HV và r của lần quét) để 2 nơi cùng số.
-    Thiếu bảng giá hay dòng quét của mã thì bỏ mã đó (ô hiện —)."""
+    """Mã CW -> (giá mua nay, đắt/rẻ nay). Giá mua nay = giá phải trả để mua đủ 5 triệu (danh_muc.gia_ban_du), cùng quy tắc
+    với cảnh báo giảm mạnh nên dòng "đã hồi" khớp tiêu chí báo (người dùng chốt 04/11/2026; trang chi tiết dùng giá chào bán
+    thấp nhất nên có thể khác khi lô đầu sổ nhỏ). Đắt/rẻ so với giá hợp lý theo HV và r của lần quét (C.so_voi_gia_bs).
+    Thiếu bảng giá, dòng quét hoặc sổ lệnh không đủ 5 triệu thì bỏ mã đó (ô hiện —)."""
     kq = {}
     for ma in ds:
         h = df[df["Mã CW"] == ma] if df is not None else ()
         if ma not in bg or not len(h) or h.iloc[0]["Mã CS"] not in bg:
             continue
-        h = h.iloc[0]
+        h, (ny, _, so_lenh) = h.iloc[0], bg[ma]
+        gia = danh_muc.gia_ban_du(so_lenh)
+        if not gia:
+            continue
         r = float(h["r %"]) / 100 if "r %" in h else C.LAI_SUAT_PHI_RUI_RO
-        g = C.dinh_gia(*bg[ma], C.gia_hien_tai(*bg[h["Mã CS"]]), float(h["Biến động %/năm"]) / 100, hom_nay, r)
-        kq[ma] = (g["Giá mua"], g["Đắt/rẻ %"] / 100)
+        T = (datetime.strptime(ny["maturityDate"], "%Y%m%d").date() - hom_nay).days / C.NGAY_MOT_NAM
+        S, hv = C.gia_hien_tai(*bg[h["Mã CS"]]), float(h["Biến động %/năm"]) / 100
+        kq[ma] = (gia, C.so_voi_gia_bs(gia, S, ny["exercisePrice"], T, r, hv, C.doc_ty_le(ny["exerciseRatio"])))
     return kq
 
 

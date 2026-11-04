@@ -193,13 +193,16 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
         if not float(h["Giá mua"]) * float(h.get("KL chào bán") or 0) >= MIN_GIA_TRI_MUA:
             continue
         ny, _, so_lenh = bang_gia[ma]
-        ban, cs = C.muc_so_lenh(so_lenh, "askPrices"), ny.get("underlyingSymbol") or h["Mã CS"]
+        cs = ny.get("underlyingSymbol") or h["Mã CS"]
         gd_cuoi, dao_han = doc_ngay(ny.get("lastTradingDate")), doc_ngay(ny.get("maturityDate"))
-        if not ban or cs not in bang_gia or not gd_cuoi or not dao_han:
+        # giá phải trả để mua đủ MIN_GIA_TRI_MUA như cảnh báo giảm mạnh: 100 CW giá thấp ở đầu sổ không mua lại được (người dùng
+        # chốt 04/11/2026). Lệch, IV, đắt/rẻ, Lệch 20p đều tính ở giá này; sổ lệnh không đủ thì không có giá mua được
+        gia = D.gia_ban_du(so_lenh, MIN_GIA_TRI_MUA)
+        if not gia or cs not in bang_gia or not gd_cuoi or not dao_han:
             continue
         if (gd_cuoi - hom_nay).days < C.MIN_NGAY_GD_CUOI_LUOT:
             continue
-        S, gia = C.gia_hien_tai(*bang_gia[cs]), min(g for g, _ in ban)
+        S = C.gia_hien_tai(*bang_gia[cs])
         r = float(h["r %"]) / 100 if not pd.isna(h.get("r %")) else C.LAI_SUAT_PHI_RUI_RO
         K, ty_le = ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"])
         lech = C.lech_theo_cs(
@@ -417,17 +420,13 @@ def doc_form_muc(form):
 
 def gia_xet(ban_ghi, chieu, he_so=1):
     """Giá dùng để xét 1 mức: giá khớp gần nhất nếu lệnh khớp đó ≥ MIN_GIA_TRI_MUA đồng; khớp lẻ (hoặc chưa khớp) thì giá
-    giao dịch được ngay: chiều 'duoi' lấy giá chào bán thấp nhất (mua được), chiều 'tren' lấy giá chờ mua cao nhất (bán
-    được) — cùng quy tắc khớp lẻ người dùng chốt 30/10/2026. Không có giá nào -> None."""
+    giao dịch được đủ MIN_GIA_TRI_MUA ngay (D.gia_du): chiều 'duoi' = giá phải trả để mua đủ, chiều 'tren' = giá bán đủ (từ
+    04/11/2026; trước lấy giá tốt nhất dù chỉ 100 CW). Sổ lệnh không đủ / không có giá nào -> None."""
     _, khop, so_lenh = ban_ghi
     gia = khop.get("matchPrice") or 0
     if gia and gia * (khop.get("matchVol") or 0) * he_so >= MIN_GIA_TRI_MUA:
         return gia
-    if chieu == "duoi":
-        ban = C.muc_so_lenh(so_lenh, "askPrices")
-        return min(g for g, _ in ban) if ban else None
-    mua = C.muc_so_lenh(so_lenh, "bidPrices")
-    return max(g for g, _ in mua) if mua else None
+    return D.gia_du(so_lenh, "askPrices" if chieu == "duoi" else "bidPrices", MIN_GIA_TRI_MUA, he_so)
 
 
 def da_cham(gia, chieu, muc):

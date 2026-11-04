@@ -121,8 +121,9 @@ def muc_giam_manh(ds, nay=None):
         "Đắt/rẻ (so với giá hợp lý theo biến động 1 năm của CS) và Lệch 20p tính ở giá lúc báo, nên có thể khác số trong danh sách "
         "chứng quyền (tính lúc quét). Kiểm mỗi 5 phút trong giờ khớp lệnh, số liệu ở lần kiểm mới nhất."
         + (
-            " <b>Giá mua nay</b> = giá chào bán thấp nhất lúc mở trang, Đắt/rẻ sau dấu → tính ở giá đó (cùng số với trang chi "
-            f'tiết). Dòng mờ ghi "đã hồi": giá mua nay không còn thấp hơn tham chiếu quá {danh_muc.NGUONG_GIAM_MANH:.0%}, '
+            f" <b>Giá mua nay</b> = giá phải trả để mua đủ {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu lúc mở trang "
+            "(cùng quy tắc với cảnh báo; trang chi tiết dùng giá chào bán thấp nhất nên có thể khác khi lô đầu sổ nhỏ), Đắt/rẻ "
+            f'sau dấu → tính ở giá đó. Dòng mờ ghi "đã hồi": giá mua nay không còn thấp hơn tham chiếu quá {danh_muc.NGUONG_GIAM_MANH:.0%}, '
             "cảnh báo đã hết tác dụng."
             if nay is not None
             else ""
@@ -130,7 +131,8 @@ def muc_giam_manh(ds, nay=None):
         + "</p>"
         '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Mã CS</th><th class="so">Giảm</th><th class="so">Giá khớp / TC</th>'
         + (
-            '<th class="so" title="Giá chào bán thấp nhất lúc mở trang (% so với tham chiếu)">Giá mua nay</th>'
+            f'<th class="so" title="Giá phải trả để mua đủ {so(cw_scanner.GIA_TRI_KHOP_TOI_THIEU / 1e6)} triệu lúc mở trang (% so '
+            'với tham chiếu)">Giá mua nay</th>'
             if nay is not None
             else ""
         )

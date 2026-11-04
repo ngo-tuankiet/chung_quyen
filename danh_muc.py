@@ -587,16 +587,22 @@ def tai_bang_gia(ds_ma, df, cho=15):
     return {**bang, **C.lay_bang_gia(sorted(thieu), cho=cho)} if thieu else bang
 
 
-def gia_ban_du(so_lenh, gia_tri=C.GIA_TRI_KHOP_TOI_THIEU):
-    """Mức chào bán mà 1 lệnh mua đủ `gia_tri` đồng phải trả tới (cộng dồn từ giá bán 1); sổ lệnh không đủ -> None.
-    Giá bán 1 chỉ vài trăm CW (CHPG2636 02/11/2026: 100 CW giá 150 = 15 nghìn đồng) không phải giá mua được (người dùng chốt 02/11/2026).
-    """
+def gia_du(so_lenh, ben="askPrices", gia_tri=C.GIA_TRI_KHOP_TOI_THIEU, he_so=1):
+    """Mức giá mà 1 lệnh `gia_tri` đồng phải đi tới, cộng dồn từ giá tốt nhất của 1 bên sổ lệnh: bên bán ('askPrices', giá tăng
+    dần) = giá mua đủ, bên mua ('bidPrices', giá giảm dần) = giá bán đủ. he_so: đồng / 1 đơn vị giá (HĐTL tính bằng điểm).
+    Sổ lệnh không đủ -> None. Giá tốt nhất chỉ vài trăm CW (CHPG2636 02/11/2026: 100 CW giá 150 = 15 nghìn đồng) không phải giá
+    giao dịch được (người dùng chốt 02/11/2026 cho giảm mạnh; 04/11/2026 cho CW rẻ, Giá mua nay, mức giá tự đặt)."""
     tong = 0
-    for g, kl in sorted(C.muc_so_lenh(so_lenh, "askPrices")):
-        tong += g * kl
+    for g, kl in sorted(C.muc_so_lenh(so_lenh, ben), reverse=ben == "bidPrices"):
+        tong += g * kl * he_so
         if tong >= gia_tri:
             return g
     return None
+
+
+def gia_ban_du(so_lenh, gia_tri=C.GIA_TRI_KHOP_TOI_THIEU):
+    """Giá phải trả để mua đủ `gia_tri` đồng (gia_du bên bán)."""
+    return gia_du(so_lenh, "askPrices", gia_tri)
 
 
 def moc_lech(gia_cw, kl_cw, gia_cs, truoc):
