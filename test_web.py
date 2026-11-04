@@ -41,6 +41,18 @@ def test_nut_quet_theo_tab():
     assert 'action="/quet"' not in W.trang("x", "", "/etf")  # đang quét: ẩn nút
 
 
+def test_huong_dan_ghi_dung_tin_discord():
+    import danh_muc
+    import web_huong_dan
+
+    # mục Câu hỏi liệt kê đúng các loại trong danh_muc.BAT_THUONG (audit 04/11/2026: trước ghi cả "gần giá thực hiện", "IV bất
+    # thường" vốn chỉ hiện trên web, và "không gửi số tiền" dù tin CW đắt có số tiền)
+    assert set(danh_muc.BAT_THUONG) <= set(web_huong_dan.TEN_BAO)
+    trang = web_huong_dan.trang_huong_dan()
+    assert all(web_huong_dan.TEN_BAO[k] in trang for k in danh_muc.BAT_THUONG) and "không gửi số tiền" not in trang
+    assert 'href="#canh-bao"' in trang  # mục lục có mục 11 Cảnh báo
+
+
 def test_quet_tat_ca_mot_buoc_loi_van_chay_buoc_sau():
     da_chay = []
 

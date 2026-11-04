@@ -2,8 +2,16 @@
 
 import chiet_khau
 import cw_scanner
+import danh_muc
 import web_chung as W  # doc_ket_qua và trạng thái LOI/NHAT_KY/LOI_DANH_MUC đọc qua module: test patch được, handler gán được
 from web_chung import COT, ESC, KET_LUAN, huy_hieu, so, trang
+
+# tên các loại cảnh báo Discord (danh_muc.BAT_THUONG) cho mục Câu hỏi thường gặp, theo thứ tự ưu tiên của lý do bán
+TEN_BAO = {
+    **danh_muc.LY_DO_BAN,
+    "khong_nguoi_mua": "không ai đặt mua",
+    "khong_co_gia": "mã không còn trên bảng giá",
+}
 
 
 # ============ TRANG HƯỚNG DẪN ============
@@ -28,6 +36,7 @@ def trang_huong_dan():
         ("truoc-khi-mua", "5 câu tự hỏi trước khi mua"),
         ("etf", "Trang 📊 ETF: mua quỹ dưới NAV"),
         ("phai-sinh", "Trang 📉 Phái sinh: hợp đồng tương lai VN30, VN100"),
+        ("canh-bao", "Trang 🔔 Cảnh báo: giá lệch bất thường và mức giá tự đặt"),
         ("hoi-dap", "Câu hỏi thường gặp"),
     ]
     phan = [
@@ -63,7 +72,7 @@ def trang_huong_dan():
 
     phan.append(
         '<section class="the" id="5-buoc"><h2>3. Dùng trang web trong 5 bước</h2><ol>'
-        '<li><b>Bấm "🔄 Quét"</b> ở góc phải <a href="/">trang chính</a> và chờ 1-3 phút. Nên quét <b>sau 15:00</b> các ngày giao dịch để có giá đóng cửa.</li>'
+        '<li><b>Bấm "🔄 Quét"</b> ở góc phải <a href="/">trang chính</a> và chờ 1-3 phút. Lịch tự động quét lúc 14:00 (trước phiên ATC, giá trong phiên); muốn có giá đóng cửa thì bấm quét <b>sau 14:45</b>.</li>'
         "<li><b>Xem 4 ô số</b> ở đầu trang: có bao nhiêu mã <i>Nên xem xét</i>, <i>Theo dõi</i>, <i>Bỏ qua</i> và bao nhiêu mã mới phát hành.</li>"
         '<li><b>Xem bảng "Nên xem xét"</b>: đây là các mã đạt cả 4 tiêu chí. '
         '<b>Bấm vào tiêu đề cột để sắp xếp</b> (ví dụ bấm "So với giá hợp lý" để mã rẻ nhất lên đầu). '
@@ -207,8 +216,11 @@ def trang_huong_dan():
             "Theo dõi CW đang nắm ở đâu?",
             (
                 'Trang "💼 Danh mục": nhập lệnh mua/bán, xem lãi/lỗ nếu bán ngay, mức tiếp xúc với từng cổ phiếu cơ sở và '
-                "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo được gửi lên Discord (chỉ mã, %, giá, lý do; không gửi số tiền) khi vừa xuất hiện: "
-                "còn ít ngày tới ngày giao dịch cuối, cổ phiếu gần giá thực hiện, chạm chốt lời/cắt lỗ, không ai đặt mua, IV bất thường, phát hành thêm."
+                "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo <b>bất thường</b> được gửi lên Discord khi vừa xuất hiện "
+                f"({', '.join(TEN_BAO.get(k, k) for k in sorted(danh_muc.BAT_THUONG, key=list(TEN_BAO).index))}; "
+                'và CW giảm mạnh dù bạn không nắm). Tin chỉ có mã, %, giá và lý do, <b>trừ</b> tin "CW đắt hơn mô hình" (ghi số tiền '
+                "bán hết thu về để so với chuyển sang cổ phiếu) và báo cáo 14:00 mỗi ngày (lãi/lỗ bằng tiền của mã đang giữ). "
+                "Cổ phiếu gần giá thực hiện, IV bất thường, lệch so với CS và mức 🟡 Cân nhắc bán chỉ hiện trên web."
             ),
         ),
         (

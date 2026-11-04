@@ -466,7 +466,8 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                 "dao_han": dao_han,
             }
         )
-        # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord)
+        # Cảnh báo: nội dung chỉ có mã, %, giá - không có số tiền, khối lượng (tin gửi lên máy chủ Discord); riêng cw_dat ghi số
+        # tiền bán hết thu về để so với chuyển sang cổ phiếu (người dùng muốn, dùng riêng; Hướng dẫn mục Câu hỏi ghi rõ)
         if con_ngay is not None and con_ngay <= CANH_BAO_NGAY_GD_CUOI:
             canh_bao.append((ma, "gd_cuoi", f"còn {con_ngay} ngày tới ngày giao dịch cuối {ngay_gd_cuoi:%d/%m/%Y}"))
         con_phien = (

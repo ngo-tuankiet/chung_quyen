@@ -6,7 +6,8 @@ ETF, VN30F, VN100F) mà vẫn an toàn; ETF lệch giá thì phòng hộ bằng 
 Mọi giá đem so là giá MUA ĐƯỢC trong sổ lệnh, không phải giá khớp: nến giật do khớp lẻ không mua lại được (CVNM2616 30/10/2026).
 - CW: giá chào bán thấp hơn giá "lẽ ra" theo cổ phiếu cơ sở (CS) ≥ NGUONG_LECH_CW. IV mốc = IV của giá chào bán lúc quét gần
   nhất (giá tổ chức phát hành tự yết), tính lại theo giá CS bây giờ (cw_scanner.lech_theo_cs). Phải có ≥ MIN_GIA_TRI_MUA đồng
-  chào bán ở các mức rẻ đó, và IV ở giá chào bán bây giờ không cao hơn trung vị IV các CW cùng CS (rẻ so với chính nó chưa đủ).
+  chào bán ở các mức rẻ đó, và thuộc SO_TOP_CW_RE dòng đầu danh sách hoặc không đắt hơn giá hợp lý theo HV quá MAX_DAT_RE_CW_RE
+  (rẻ so với chính nó chưa đủ; người dùng chốt 04/11/2026, thay điều kiện IV ≤ trung vị cùng mã).
   Không phòng hộ được (Việt Nam chưa cho bán khống cổ phiếu).
 - ETF: đúng ngưỡng 🟢 của trang ETF (≥ MIN_GIA_TRI_CHAO_BAN đồng chào bán ở giá đủ lãi ròng ≥ NGUONG_LAI_RONG nếu về iNAV), trừ
   quỹ lúc nào cũng rẻ như vậy (như cảnh báo trong phiên). Quỹ VN30 / VN100 kèm số HĐTL cần bán để phòng hộ (Hull ch. 3).

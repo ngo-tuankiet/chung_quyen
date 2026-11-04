@@ -299,7 +299,7 @@ bash ~/cw_scanner/cai_lich_quet.sh
 ### Linux — cron
 Chạy `crontab -e` rồi thêm 1 dòng (giờ theo múi giờ máy, đặt máy về giờ Việt Nam):
 ```
-15 15 * * 1-5  /bin/bash /duong_dan/cw_scanner/chay_quet_tu_dong.sh >> /duong_dan/cw_scanner/log.txt 2>&1
+0 14 * * 1-5  /bin/bash /duong_dan/cw_scanner/chay_quet_tu_dong.sh >> /duong_dan/cw_scanner/log.txt 2>&1
 ```
 Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scanner_sao_luu/`), nhật ký trong `log.txt`.
 
@@ -373,7 +373,7 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   bảng ghi số lúc báo (80 đ, khớp thật ~1,23 triệu CW 09:16–09:45) còn tổ chức phát hành nâng giá chào bán lên 130 đ lúc ~09:50
   (từ 10:00 chỉ khớp lô 100 CW). Trang Cảnh báo thêm cột *Giá mua nay* (giá chào bán thấp nhất lúc mở trang, % so tham chiếu) và
   *Đắt/rẻ lúc báo → nay* (`web_canh_bao.gia_nay`: đúng `C.dinh_gia` với HV, r của lần quét như trang chi tiết). Giá mua nay không
-  còn thấp hơn tham chiếu quá 15% thì dòng mờ, ghi "đã hồi" (chỉ hiển thị, tiêu chí báo không đổi). Lưu ý CW giá rất thấp (giá
+  còn thấp hơn tham chiếu quá `NGUONG_GIAM_MANH` (15% lúc đó, 20% từ 03/11) thì dòng mờ, ghi "đã hồi" (chỉ hiển thị, tiêu chí báo không đổi). Lưu ý CW giá rất thấp (giá
   hợp lý vài chục đồng): 1 bước giá CS đổi đắt/rẻ cả chục điểm (CACB2621: ACB 20.250 → Đắt 120,1%, 20.200 → Đắt 131,9%), nên 2
   trang mở cách nhau vài giây có thể lệch nhau đúng chừng đó.
 
@@ -726,7 +726,7 @@ lệnh còn lại sau ATC (chênh lệch giá mua–bán có thể rộng hơn t
        (FUEIP100 trung vị CL tín hiệu −8,8% → CL lúc mua −8,1%) — không mua được ở đó nếu chờ NAV chính thức.
     3. Khoảng cách A–B lặp lại ở mọi nhóm: phần lời (nếu có) chỉ nằm ở việc mua **đúng lúc trong phiên** với giá chào bán thật — cần
        `ket_qua/inav_*.csv` mới kiểm được. Mẫu nhóm cao vẫn nhỏ (8–18 lệnh).
-- Việc tiếp (chưa làm, cần người dùng chọn): giữ `BAT_CANH_BAO_TRONG_PHIEN = False` và ngưỡng 2%; để `ket_qua/inav_*.csv` tích lũy vài tuần rồi
+- Việc tiếp (chưa làm, cần người dùng chọn): ngưỡng 2% (cảnh báo trong phiên đã bật, `BAT_CANH_BAO_TRONG_PHIEN = True`, xem trên); để `ket_qua/inav_*.csv` tích lũy vài tuần rồi
   kiểm kịch bản A bằng giá chào bán và iNAV thật trong phiên (cả ngưỡng tuyệt đối lẫn tương đối).
 
 Chấm điểm theo P/E chỉ số đã bỏ (người dùng không chọn tiêu chí "chỉ số rẻ"); P/E, P/B của 10 chỉ số có ở VNDirect
@@ -829,7 +829,7 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
 - **Kiểm chứng luật HĐTL 31/10/2026** (agent độc lập, nguồn VSDC/BTC/HNX qua CTCK): hệ số nhân 100.000, bước 0,1, biên độ ±7%; ký quỹ
   ban đầu 17% cả 8 HĐ (VSDC Phụ lục 4, hiệu lực 16/10/2026); thuế 0,1% × giá × 100.000 × IM / 2 mỗi chiều và lúc đáo hạn (TT 87/2026);
   phí Sở 2.700 đ/HĐ/chiều; phí bù trừ VSDC 2.550 đ/HĐ khớp mỗi chiều và **phí vị thế theo ngày đã bỏ từ 05/05/2025** (QĐ 1541/QĐ-BTC,
-  TT 83/2024) — `phai_sinh.PHI_VI_THE_HD_NGAY` còn tính 2.550 đ/ngày (đã báo phiên Phái sinh); giá thanh toán cuối cùng = trung bình 30
+  TT 83/2024) — `phai_sinh.PHI_VI_THE_HD_NGAY` đã về 0 (Phần 9); giá thanh toán cuối cùng = trung bình 30
   phút cuối bỏ 3 cao + 3 thấp (không phải giá đóng cửa). Một vòng mở + đóng ≈ 0,47–0,51 điểm, chưa tính chênh lệch mua–bán.
 - **Mức giá tự đặt** (`muc_gia.csv`, gitignore, ghi tạm rồi đổi tên + .bak): CW, cổ phiếu, ETF (đồng; dưới 100 là nghìn đồng như Danh
   mục) và HĐTL (điểm; bí danh VN30F1M -> mã KRX qua `listingInfo.ticker` của Vietcap, không cần vnstock). Mức gấp > 10 lần hoặc
@@ -856,3 +856,13 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   id mức bị dùng lại, chưa xét giá ATC, lỗi vnstock làm hỏng việc xét mức, ô phòng hộ khi HĐ chưa có giá chờ mua. Bác 5: sổ lệnh chéo
   trong ATC (không thấy trong 6 ngày dữ liệu), lãi ký quỹ (giả định mô hình, ghi ở trên), trùng tin Discord (đang tắt), treo máy chủ khi
   vnstock hết lượt và clickjacking (có từ trước ở mọi trang).
+- **Rà soát công thức 04/11/2026** (5 agent độc lập, chỉ đọc; đối chiếu Hull, ca tính tay): lõi Black-Scholes, IV, HV, giá vốn bình quân,
+  phí/thuế, chiết khấu ETF, giá HĐTL đúng chuẩn. Đã sửa (người dùng duyệt "A và C"): lệnh bán ghi lùi ngày làm số đang nắm âm bị chặn
+  lúc lưu; vị thế mới không mang ngưỡng chốt lời/cắt lỗ cũ; bán bớt thì các lần mua giảm cùng tỷ lệ (mốc CS lệch đi cùng giá vốn);
+  5 phiên thanh toán khi đáo hạn cuối tuần; mã ≤ 2 giá không làm sập lần quét; tiêu chí hòa vốn so số đã làm tròn; bảng giữ đến đáo hạn
+  ghi số sau thuế; ETF chi tiết cột lệnh 50 triệu ở giá bình quân (`gia_mua_lenh`); basis năm hóa tính từ ngày của giá; Hướng dẫn
+  ghi đúng tin Discord (có số tiền ở tin CW đắt và báo cáo 14:00). **Chờ người dùng chọn (nhóm B):** Đòn bẩy/Delta theo IV thay HV
+  (lệch tới ~2,3 lần ở CW IV xa HV); CW rẻ, Giá mua nay, mức giá tự đặt dùng giá mua đủ 5 triệu như giảm mạnh; CW rẻ cho đắt ≤ 20% theo
+  HV trong khi Danh mục coi đắt ≥ 15% là Nên bán (cùng CW có thể bị báo ngược nhau); ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
+  ròng ≥ 2%; "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).
