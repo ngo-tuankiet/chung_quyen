@@ -873,5 +873,9 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   (giá chào bán / giá hợp lý so với giá bán ngay sau phí / giá trị giữ sau thuế) nên sát ngưỡng vẫn có thể trùng. Biên tính tay
   (test): giá hợp lý 2.252,4 -> 2.590 (đắt 14,99%) báo, 2.600 (15,4%) không. **B4 làm 04/11/2026:** ETF Discord trong phiên dùng ngưỡng lãi ròng ≥ 2% như trang (trước giá ≤ iNAV × 0,98).
   **B5 làm 04/11/2026:** S·e^(rT) (q = 0) ở trang Cảnh báo, tin cảnh báo HĐTL và Hướng dẫn gọi là "cận trên (chưa trừ cổ tức)",
-  không gọi "giá hợp lý", khớp tab Phái sinh (chưa có q nên không tính giá hợp lý); logic tín hiệu không đổi. Nhóm B xong. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  không gọi "giá hợp lý", khớp tab Phái sinh (chưa có q nên không tính giá hợp lý); logic tín hiệu không đổi. Nhóm B xong.
+  **Sau rà soát (04/11/2026):** sổ lệnh SSI có chữ ATO/ATC không còn làm dừng lần chạy 5 phút (`chiet_khau.so_duong`); tin chốt lời /
+  cắt lỗ khi không ai mua ghi "giá khớp gần nhất (không có người mua)"; lịch sử giá CW (mốc lệch, Lệch 20p) nhớ ra file
+  `ket_qua/nho_lich_su_cw_<ngày>.json`, mỗi CW tải vnstock 1 lần/ngày thay vì mỗi lần chạy 5 phút (đo: lần đầu 0,34 giây, lần
+  sau 0 lượt gọi). Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

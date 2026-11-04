@@ -49,8 +49,11 @@ NGUONG_LECH_GIAM_MANH = 0.15
 # 03/11/2026 (thử −25% trước): 9 cảnh báo đã ghi 02–03/11 còn 4 (CHPG2636 −47%, CHPG2637 −68%, CHPG2642 −22%, CVPB2624 −24%).
 # Không tính được thì vẫn báo, như lệch (người dùng chốt 30/10/2026).
 NGUONG_LECH_20_GIAM_MANH = 0.20
-# Lịch sử giá CW để tìm mốc lệch chỉ đổi 1 lần/ngày, mà trang Cảnh báo hỏi mỗi phút: nhớ theo (mã, ngày)
+# Lịch sử giá CW để tìm mốc lệch chỉ đổi 1 lần/ngày, mà trang Cảnh báo hỏi mỗi phút: nhớ theo (mã, ngày). Lịch 5 phút là tiến
+# trình mới mỗi lần (RAM luôn rỗng) nên còn ghi ra file ngày: mỗi CW chỉ tải vnstock 1 lần/ngày (trước ~54 lần/ngày, rà soát
+# 04/11/2026). Chỉ nhớ giá CW: giá CS đã điều chỉnh có thể đổi ngược khi có sự kiện quyền nên không nhớ kiểu này.
 BO_NHO_LICH_SU_CW: dict = {}
+THU_MUC_NHO_CW = C.THU_MUC_KET_QUA  # nho_lich_su_cw_<ngày>.json: {mã: [{ngày: giá đồng}, {ngày: KL}]}
 GUI_DISCORD_GIAM_MANH = True  # người dùng cho phép gửi Discord 30/10/2026
 CANH_BAO_LECH = 0.15  # báo khi CW lệch ≥ 15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất), cả hai chiều
 # Trạng thái bán của mỗi vị thế (KE_HOACH Phần 5, "Khi nào bán"): chỉ hiện trên web, không gửi Discord
@@ -614,18 +617,34 @@ def moc_lech(gia_cw, kl_cw, gia_cs, truoc):
     return max(du, default=None)
 
 
+def doc_nho_cw(file):
+    """Nội dung file nhớ lịch sử CW trong ngày; chưa có hoặc hỏng (sửa tay, ghi dở) thì coi như chưa nhớ gì -> {}."""
+    try:
+        return json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # chỉ là bộ nhớ tạm: đọc không được thì tải lại từ vnstock
+        return {}
+
+
 def lich_su_cw_nho(ma, gia, hom_nay):
-    """(giá, KL) theo ngày của CW (C.lich_su_cw), nhớ theo (mã, ngày) vì trang Cảnh báo hỏi mỗi phút. Mất mạng / hết lượt gọi
-    vnstock: in cảnh báo, trả ({}, {}) và không nhớ (lần sau tải lại); chỉ mã này không tính được lệch, các mã khác vẫn chạy.
-    """
+    """(giá, KL) theo ngày của CW (C.lich_su_cw), nhớ theo (mã, ngày) trong RAM và file THU_MUC_NHO_CW của ngày đó: trang
+    Cảnh báo hỏi mỗi phút, lịch 5 phút là tiến trình mới mỗi lần. Mất mạng / hết lượt gọi vnstock: in cảnh báo, trả ({}, {})
+    và không nhớ (lần sau tải lại); chỉ mã này không tính được lệch, các mã khác vẫn chạy."""
     if (ma, hom_nay) in BO_NHO_LICH_SU_CW:
         return BO_NHO_LICH_SU_CW[(ma, hom_nay)]
+    file = THU_MUC_NHO_CW / f"nho_lich_su_cw_{hom_nay}.json"
+    if ma in (da_nho := doc_nho_cw(file)):
+        BO_NHO_LICH_SU_CW[(ma, hom_nay)] = kq = tuple(da_nho[ma])
+        return kq
     try:
         kq = C.lich_su_cw(ma, gia)
     except Exception as e:  # noqa: BLE001
         print(f"  [!] {ma}: chưa tải được lịch sử giá ({str(e)[:80]}), không tính được lệch so với CS")
         return {}, {}
     BO_NHO_LICH_SU_CW[(ma, hom_nay)] = kq
+    # đọc lại ngay trước khi ghi (trang web và lịch 5 phút có thể cùng ghi), ghi tạm rồi đổi tên: không để file dở
+    tam = file.with_suffix(f".{os.getpid()}.tmp")
+    tam.write_text(json.dumps({**doc_nho_cw(file), ma: list(kq)}, ensure_ascii=False), encoding="utf-8")
+    tam.replace(file)
     return kq
 
 

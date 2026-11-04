@@ -852,6 +852,8 @@ def test_cw_giam_manh_nho_lich_su_va_loi_mang():
         D.cw_giam_manh(DF_NHOM, b, HOM_NAY, LS_GIAM)
         assert len(D.cw_giam_manh(DF_NHOM, b, HOM_NAY, LS_GIAM)) == 1 and lay.call_count == 1  # trang web hỏi mỗi phút
     with (
+        tempfile.TemporaryDirectory() as tmp,  # chưa có file nhớ của ngày: phải gọi vnstock (đang mất mạng)
+        mock.patch.object(D, "THU_MUC_NHO_CW", Path(tmp)),
         mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
         mock.patch.object(cw_scanner, "lay_gia_dong_cua", side_effect=ConnectionError("mất mạng")),
         mock.patch("sys.stdout", new=io.StringIO()) as in_ra,
@@ -862,7 +864,33 @@ def test_cw_giam_manh_nho_lich_su_va_loi_mang():
         assert math.isnan(g["lech"]) and math.isnan(g["lech_20"]) and g["moc"] == ""
         assert "CVPB2615: chưa tải được lịch sử giá" in in_ra.getvalue()
         assert "chưa tính được lệch so với CS" in D.noi_dung_giam_manh(g)
-        assert D.BO_NHO_LICH_SU_CW == {}  # lỗi thì không nhớ: lần sau tải lại
+        assert D.BO_NHO_LICH_SU_CW == {} and not any(Path(tmp).iterdir())  # lỗi thì không nhớ: lần sau tải lại
+
+
+def test_lich_su_cw_nho_ghi_file_moi_ngay_tai_1_lan():
+    # Lịch 5 phút là tiến trình mới mỗi lần (RAM rỗng): lần 2 trong ngày đọc file, không gọi vnstock (rà soát 04/11/2026)
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        mock.patch.object(D, "THU_MUC_NHO_CW", Path(tmp)),
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=lich_su_vnstock(LICH_CW_GIAM)) as lay,
+    ):
+        a = D.lich_su_cw_nho("CVPB2615", 2000, HOM_NAY)
+        D.BO_NHO_LICH_SU_CW.clear()
+        assert D.lich_su_cw_nho("CVPB2615", 2000, HOM_NAY) == a and lay.call_count == 1
+        assert a[0]["2026-10-19"] == 2000 and a[1]["2026-10-16"] == 50_000  # giá đồng, KL
+        D.BO_NHO_LICH_SU_CW.clear()
+        D.lich_su_cw_nho("CVPB2615", 2000, HOM_NAY + timedelta(days=1))  # ngày mới: tải lại
+        assert lay.call_count == 2
+        (Path(tmp) / f"nho_lich_su_cw_{HOM_NAY}.json").write_text(
+            "hỏng", encoding="utf-8"
+        )  # file hỏng: tải lại, ghi đè
+        D.BO_NHO_LICH_SU_CW.clear()
+        assert D.lich_su_cw_nho("CVPB2615", 2000, HOM_NAY) == a and lay.call_count == 3
+        assert sorted(p.name for p in Path(tmp).iterdir()) == [
+            f"nho_lich_su_cw_{HOM_NAY}.json",
+            f"nho_lich_su_cw_{HOM_NAY + timedelta(days=1)}.json",
+        ]  # không để lại file tạm
 
 
 def test_kiem_tra_bao_cw_giam_manh_ca_khi_khong_co_vi_the():
