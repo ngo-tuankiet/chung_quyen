@@ -167,13 +167,15 @@ def ban_ghi_cua(ma, bang_gia):
 
 
 # ============ CW, ETF, HĐTL LỆCH ============
-def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
+def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
     """CW có giá chào bán thấp hơn giá lẽ ra theo CS ≥ NGUONG_LECH_CW và ≥ MIN_GIA_TRI_MUA đồng chào bán ở các mức rẻ đó.
     Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán), CW lúc quét không có giá chào bán thật
     (IV mốc phải từ giá tổ chức phát hành yết) và CW mà IV ở giá chào bán bây giờ vẫn cao hơn trung vị IV các CW cùng CS lúc quét
     (cột "IV cùng mã %"; không có trung vị hoặc giá dưới mức tối thiểu, không giải được IV, thì vẫn báo). CW trong SO_TOP_CW_RE
     dòng đầu df (thứ tự file quét = trang Chứng quyền: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV đó.
-    Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %; top: CW thuộc SO_TOP_CW_RE dòng đầu."""
+    Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %; top: CW thuộc SO_TOP_CW_RE dòng đầu; dat_re: giá chào bán so với
+    giá hợp lý theo HV (như cột Đắt/rẻ); re_cung_ma: so với giá nếu yết ở IV trung vị cùng mã; lech_20: Lệch 20 phiên ở giá chào
+    bán (cần lich_su = giá CS lúc quét, D.doc_lich_su; không có thì NaN; lịch sử CW tải vnstock, nhớ theo ngày)."""
     if df is None or df.empty:
         return []
     top = set(df["Mã CW"].head(SO_TOP_CW_RE))
@@ -213,6 +215,11 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
         if mua_duoc < MIN_GIA_TRI_MUA:
             continue
         cho_mua = C.gia_cho_mua(so_lenh)
+        T, hv = (dao_han - hom_nay).days / C.NGAY_MOT_NAM, h.get("Biến động %/năm")
+        lech_20 = math.nan
+        if lich_su and cs in lich_su:
+            gia_cw, kl_cw = D.lich_su_cw_nho(ma, gia, hom_nay)
+            lech_20 = D.lech_20_o_gia(gia_cw, kl_cw, dict(lich_su[cs]), gia, S, hom_nay, K, ty_le, dao_han, r)
         kq.append(
             {
                 "ma": ma,
@@ -229,6 +236,11 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay):
                 "iv": iv * 100 if iv is not None else math.nan,
                 "iv_tv": float(iv_tv) if pd.notna(iv_tv) else math.nan,
                 "top": ma in top,
+                "dat_re": C.so_voi_gia_bs(gia, S, K, T, r, float(hv) / 100, ty_le) if pd.notna(hv) else math.nan,
+                "re_cung_ma": (
+                    C.so_voi_gia_bs(gia, S, K, T, r, float(iv_tv) / 100, ty_le) if pd.notna(iv_tv) else math.nan
+                ),
+                "lech_20": lech_20,
             }
         )
     return sorted(kq, key=lambda x: x["lech"])

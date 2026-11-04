@@ -115,6 +115,13 @@ def black_scholes_call(S: float, K: float, T: float, r: float, sigma: float) -> 
     return gia, phan_phoi_chuan(d1)
 
 
+def so_voi_gia_bs(gia_cw: float, S: float, K: float, T: float, r: float, sigma: float, ty_le: float) -> float:
+    """Giá 1 CW / giá Black-Scholes 1 CW ở biến động sigma − 1 (âm = rẻ hơn). sigma = HV: cột Đắt/rẻ; sigma = IV trung vị
+    cùng mã: rẻ hơn các CW cùng CS bao nhiêu. Giá mô hình ≈ 0 (CW quá xa giá thực hiện) -> inf."""
+    mo_hinh = black_scholes_call(S, K, T, r, sigma)[0] / ty_le
+    return gia_cw / mo_hinh - 1 if mo_hinh > 0 else math.inf
+
+
 def bien_dong_ngam_dinh(gia_cw: float, S: float, K: float, T: float, r: float, ty_le: float) -> float | None:
     """Mức biến động mà giá CW trên thị trường đang 'ngầm định' (giải ngược Black-Scholes). None nếu không giải được."""
     muc_tieu, thap, cao = gia_cw * ty_le, IV_THAP_NHAT, IV_CAO_NHAT

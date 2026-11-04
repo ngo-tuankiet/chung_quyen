@@ -588,6 +588,31 @@ def moc_lech(gia_cw, kl_cw, gia_cs, truoc):
     return max(du, default=None)
 
 
+def lich_su_cw_nho(ma, gia, hom_nay):
+    """(giá, KL) theo ngày của CW (C.lich_su_cw), nhớ theo (mã, ngày) vì trang Cảnh báo hỏi mỗi phút. Mất mạng / hết lượt gọi
+    vnstock: in cảnh báo, trả ({}, {}) và không nhớ (lần sau tải lại); chỉ mã này không tính được lệch, các mã khác vẫn chạy.
+    """
+    if (ma, hom_nay) in BO_NHO_LICH_SU_CW:
+        return BO_NHO_LICH_SU_CW[(ma, hom_nay)]
+    try:
+        kq = C.lich_su_cw(ma, gia)
+    except Exception as e:  # noqa: BLE001
+        print(f"  [!] {ma}: chưa tải được lịch sử giá ({str(e)[:80]}), không tính được lệch so với CS")
+        return {}, {}
+    BO_NHO_LICH_SU_CW[(ma, hom_nay)] = kq
+    return kq
+
+
+def lech_20_o_gia(gia_cw, kl_cw, gia_cs, gia, S, hom_nay, K, ty_le, dao_han, r):
+    """Lệch 20 phiên ở giá CW `gia`, giá CS `S` hôm nay; mốc như cột "Lệch 20 phiên" lúc quét (20 phiên trước hôm nay + hôm nay
+    = 21 điểm). Không có mốc -> NaN."""
+    truoc = {d: g for d, g in gia_cw.items() if d < str(hom_nay)}
+    moc = C.lech_20_phien(truoc, kl_cw, gia_cs, K, ty_le, dao_han, r, C.SO_PHIEN_LECH - 1)[0]
+    if not moc:
+        return math.nan
+    return C.lech_theo_cs(gia_cw[moc], gia_cs[moc], date.fromisoformat(moc), gia, S, hom_nay, K, ty_le, dao_han, r)[0]
+
+
 def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
     """CW thuộc NHOM_THEO_DOI_GIAM có giá hôm nay giảm quá NGUONG_GIAM_MANH so với giá tham chiếu và lệch so với CS
     ≤ −NGUONG_LECH_GIAM_MANH (riêng CW bị bán, không phải do đòn bẩy) và Lệch 20 phiên < −NGUONG_LECH_20_GIAM_MANH.
@@ -625,27 +650,14 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
         K, ty_le = ny["exercisePrice"], C.doc_ty_le(ny["exerciseRatio"])
         lech, moc, lech_20 = math.nan, None, math.nan
         if S and dao_han and cs in lich_su:
-            try:
-                gia_cw, kl_cw = BO_NHO_LICH_SU_CW.get((ma, hom_nay)) or C.lich_su_cw(ma, gia)
-            # mất mạng / hết lượt gọi vnstock: chỉ mã này không tính được lệch (vẫn báo), các mã khác và danh mục vẫn chạy
-            except Exception as e:  # noqa: BLE001
-                print(f"  [!] {ma}: chưa tải được lịch sử giá ({str(e)[:80]}), không tính được lệch so với CS")
-                gia_cw, kl_cw = {}, {}
-            else:
-                BO_NHO_LICH_SU_CW[(ma, hom_nay)] = gia_cw, kl_cw
+            gia_cw, kl_cw = lich_su_cw_nho(ma, gia, hom_nay)
             gia_cs = dict(lich_su[cs])
             moc = moc_lech(gia_cw, kl_cw, gia_cs, str(hom_nay))
             if moc:
                 lech = C.lech_theo_cs(
                     gia_cw[moc], gia_cs[moc], date.fromisoformat(moc), gia, S, hom_nay, K, ty_le, dao_han, r
                 )[0]
-            # Lệch 20 phiên ở giá lúc báo: mốc như cột "Lệch 20 phiên" (20 phiên trước hôm nay + hôm nay = 21 điểm, như lúc quét)
-            truoc = {d: g for d, g in gia_cw.items() if d < str(hom_nay)}
-            moc_20 = C.lech_20_phien(truoc, kl_cw, gia_cs, K, ty_le, dao_han, r, C.SO_PHIEN_LECH - 1)[0]
-            if moc_20:
-                lech_20 = C.lech_theo_cs(
-                    gia_cw[moc_20], gia_cs[moc_20], date.fromisoformat(moc_20), gia, S, hom_nay, K, ty_le, dao_han, r
-                )[0]
+            lech_20 = lech_20_o_gia(gia_cw, kl_cw, gia_cs, gia, S, hom_nay, K, ty_le, dao_han, r)
         if round(lech, 9) > -NGUONG_LECH_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo
             continue
         if round(lech_20, 9) >= -NGUONG_LECH_20_GIAM_MANH:  # NaN: so sánh luôn sai -> vẫn báo (như lệch)
@@ -653,10 +665,7 @@ def cw_giam_manh(df, bang_gia, hom_nay, lich_su):
         # Đắt/rẻ ở giá lúc báo, cùng công thức cột "Đắt/rẻ %" của lần quét (C.dinh_gia): giá hợp lý theo HV 1 năm của CS
         hv, dat_re = h.get("Biến động %/năm"), math.nan
         if S and dao_han and pd.notna(hv):
-            hop_ly = (
-                C.black_scholes_call(S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, float(hv) / 100)[0] / ty_le
-            )
-            dat_re = gia / hop_ly - 1 if hop_ly > 0 else math.inf
+            dat_re = C.so_voi_gia_bs(gia, S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, float(hv) / 100, ty_le)
         ket_qua.append(
             {
                 "ma": ma,

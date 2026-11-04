@@ -112,6 +112,39 @@ def test_cw_lech_re_top_30_khong_can_dieu_kien_iv():
     assert CB.cw_lech_re(ngoai_top(df, 0), bang_cw(2400), HOM_NAY, HOM_NAY) == []
 
 
+def test_cw_lech_re_cot_so_cung_ma_dat_re_lech_20_tinh_tay():
+    import danh_muc as D
+    import web_canh_bao
+
+    # Chào bán 2.160 khi VPB 24.000, còn 121 ngày, r 4% (e^(−0,0133) = 0,98683):
+    # (A) Đắt/rẻ theo HV 30%: d1 = 1,2187, d2 = 1,0459 -> 24.000 × 0,8885 − 20.000 × 0,98683 × 0,8522 = 4.504,8 -> 2.252,4/CW
+    #     -> 2.160 / 2.252,4 − 1 = −4,1% (rẻ)
+    # (B) So cùng mã, IV trung vị 25%: d1 = 1,4307, d2 = 1,2868 -> 24.000 × 0,9237 − 20.000 × 0,98683 × 0,9009 = 4.388,9
+    #     -> 2.194,5/CW -> 2.160 / 2.194,5 − 1 = −1,6%
+    assert abs(C.so_voi_gia_bs(2160, 24000, 20000, 121 / 365, 0.04, 0.30, 2) - (2160 / 2252.385 - 1)) < 1e-6
+    assert C.so_voi_gia_bs(100, 15000, 20000, 0, 0.04, 0.30, 2) == float("inf")  # hết hạn ngoài tiền: giá mô hình 0
+    df = DF_QUET.assign(**{"IV cùng mã %": [25.0], "Biến động %/năm": [30.0]})
+    # Lệch 20 phiên: mốc 16/10 CW khớp 50.000 ở BS(25.000, 124 ngày, IV 50%) / 2 = 3.013,2 khi VPB 25.000; lẽ ra hôm nay
+    # (VPB 24.000, 121 ngày, IV 50%) = 2.592,5 (như test_danh_muc) -> 2.160 / 2.592,5 − 1 = −16,7%
+    p0 = C.black_scholes_call(25000, 20000, 124 / 365, 0.04, 0.50)[0] / 2
+    lich_cw = pd.DataFrame(
+        {"time": ["2026-10-16", "2026-10-19"], "close": [p0 / 1000, 2.16], "volume": [50_000, 50_000]}
+    )
+    lich_su = {"VPB": [["2026-10-16", 25000], ["2026-10-19", 24000]]}
+    with (
+        mock.patch.dict(D.BO_NHO_LICH_SU_CW, clear=True),
+        mock.patch.object(C, "lay_gia_dong_cua", return_value=lich_cw),
+    ):
+        x = CB.cw_lech_re(df, bang_cw(2160), HOM_NAY, HOM_NAY, lich_su)[0]
+    assert abs(x["dat_re"] - (2160 / 2252.385 - 1)) < 1e-5 and abs(x["re_cung_ma"] - (2160 / 2194.470 - 1)) < 1e-5
+    assert abs(x["lech_20"] - (2160 / 2592.496 - 1)) < 1e-5
+    html = web_canh_bao.muc_cw([x], df)
+    assert "Rẻ 1,6%" in html and "Rẻ 4,1%" in html and "-16,7%" in html and "So cùng mã" in html
+    # không truyền lịch sử CS (hoặc thiếu HV, trung vị): ô "—", không gọi vnstock
+    y = CB.cw_lech_re(DF_QUET, bang_cw(2160), HOM_NAY, HOM_NAY)[0]
+    assert all(y[k] != y[k] for k in ("dat_re", "re_cung_ma", "lech_20"))  # NaN
+
+
 def test_so_hd_phong_ho_tinh_tay():
     # Hull ch. 3: N* = β·V_A / V_F. Lệnh ETF 50 triệu, HĐ ở 1.858 điểm × 100.000 = 185,8 triệu -> 0,2691 HĐ
     assert abs(CB.so_hd_phong_ho(50_000_000, 1858) - 50_000_000 / 185_800_000) < 1e-12

@@ -34,6 +34,12 @@ def o(v, le=0, dau=False, hau_to="", mau=False):
     return f'<td class="so{lop}" data-v="{v}">{so(v, le, dau)}{hau_to}</td>'
 
 
+def o_dat_re(v):
+    """Ô Đắt/rẻ (W.dat_re: chữ Rẻ/Đắt kèm màu), data-v để sắp xếp."""
+    chu, lop = W.dat_re(v * 100)
+    return f'<td class="so {lop}" data-v="{v if math.isfinite(v) else -1e18}">{chu}</td>'
+
+
 def bang(tieu_de, hang):
     """Bảng sắp xếp được: tieu_de = [(chữ, là cột số, giải thích)], hang = [chuỗi <tr>...</tr>]."""
     dau = "".join(
@@ -102,6 +108,9 @@ def muc_cw(ds, df):
             + o(x["lech"] * 100, 1, True, "%", True)
             + o(x["iv"], 0, False, "%")
             + o(x["iv_tv"], 0, False, "%")
+            + o_dat_re(x["re_cung_ma"])
+            + o_dat_re(x["dat_re"])
+            + o(x["lech_20"] * 100, 1, True, "%", True)
             + o(x["mua_duoc"] / 1e6, 1)
             + o(x["cho_mua"])
             + o(x["spread"] * 100, 1, False, "%")
@@ -129,6 +138,30 @@ def muc_cw(ds, df):
                         "Trung vị IV các CW khác cùng CS lúc quét. Chỉ báo khi IV không cao hơn số này: rẻ so với chính nó "
                         f"mà vẫn đắt hơn CW cùng mã thì không phải món hời. CW ghi 'top {CB.SO_TOP_CW_RE}' (thuộc "
                         f"{CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền) không cần điều kiện này"
+                    ),
+                ),
+                (
+                    "So cùng mã",
+                    True,
+                    (
+                        "Giá chào bán so với giá Black-Scholes nếu CW được yết ở IV trung vị các CW cùng CS (cột TV cùng mã): "
+                        "rẻ/đắt hơn cách thị trường đang định giá các CW khác cùng cổ phiếu"
+                    ),
+                ),
+                (
+                    "Đắt/rẻ HV",
+                    True,
+                    (
+                        "Giá chào bán so với giá hợp lý theo biến động 1 năm của CS (cùng cách tính cột Đắt/rẻ ở danh sách). "
+                        "Cả nhóm CW cùng mã yết IV cao hơn HV thì rẻ hơn cùng mã mà vẫn đắt theo HV"
+                    ),
+                ),
+                (
+                    "Lệch 20p",
+                    True,
+                    (
+                        "Lệch 20 phiên ở giá chào bán bây giờ (cùng cách tính với cảnh báo CW giảm mạnh): âm = 20 phiên qua CW "
+                        "không theo kịp CS, dương = CW đã chạy nhanh hơn CS"
                     ),
                 ),
                 ("Mua được (tr)", True, f"Giá trị đang chào bán ở các mức rẻ hơn giá lẽ ra từ {nguong}% (triệu đồng)"),
@@ -344,7 +377,11 @@ def tinh_canh_bao(luc):
     hom_nay = luc.date()
     du_lieu, loi = lay_du_lieu()
     bg, ssi, df = du_lieu["bang_gia"], du_lieu["ssi"], du_lieu["df"]
-    cw = CB.cw_lech_re(df, bg, du_lieu["ngay_quet"], hom_nay) if bg and df is not None else []
+    cw = (
+        CB.cw_lech_re(df, bg, du_lieu["ngay_quet"], hom_nay, danh_muc.doc_lich_su(du_lieu["ngay_quet"]))
+        if bg and df is not None
+        else []
+    )
     phien = sorted({ny.get("tradingDate") for ny, *_ in bg.values() if ny.get("tradingDate")})
     dong_cua = not phien or phien[-1] != str(hom_nay) or not danh_muc.trong_gio_khop_lenh(luc)
     hd = CB.hdtl_lech(

@@ -795,6 +795,11 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   (không giải được IV) thì vẫn báo. Bảng thêm cột IV và TV cùng mã. Tính tay (test): chào bán 2.160 khi VPB 24.000 -> IV 20,8%
   (σ 20% cho 2.154,7 đ), lệch −16,7%: trung vị 25% -> báo, 20% -> không. Chưa kiểm chứng điều kiện này có giữ được tín hiệu
   tốt nào không (chưa lưu lịch sử tin CW rẻ).
+  **Thêm 3 cột 04/11/2026 (người dùng yêu cầu, chỉ hiển thị):** *So cùng mã* = giá chào bán / giá Black-Scholes ở IV trung vị
+  cùng mã − 1 (`C.so_voi_gia_bs`, "rẻ hơn thị trường" theo cách thị trường yết các CW khác cùng CS); *Đắt/rẻ HV* = như cột
+  Đắt/rẻ của danh sách; *Lệch 20p* = Lệch 20 phiên ở giá chào bán bây giờ (`D.lech_20_o_gia`, cùng cách với cảnh báo giảm
+  mạnh; lịch sử CW tải vnstock lần đầu mở trang mỗi ngày, `D.lich_su_cw_nho`). Hai cột đầu có thể ngược nhau: 04/11 09:56 cả
+  4 CW FPT được báo đều rẻ hơn cùng mã 49–70% nhưng đắt hơn giá hợp lý theo HV 24–265%, vì CW FPT yết IV ~54% trong khi HV 31%.
 - **ETF mua được dưới iNAV** (`etf_duoi_inav`): đúng ngưỡng 🟢 trang ETF (người dùng chọn): ≥ `MIN_GIA_TRI_CHAO_BAN` chào bán ở giá
   đủ lãi ròng ≥ `NGUONG_LAI_RONG` nếu về iNAV, bỏ quỹ có mức thường lệch 1 năm ≤ −`NGUONG_GIAM_SO_INAV` (như cảnh báo trong phiên).
   **Phòng hộ** (người dùng yêu cầu): quỹ VN30 / VN100 bán HĐTL tháng gần, N* = β·V_A / V_F (Hull ch. 3; β = 1 vì quỹ bám cùng chỉ
