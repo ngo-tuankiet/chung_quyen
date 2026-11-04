@@ -147,6 +147,37 @@ def muc_giam_manh(ds, nay=None):
 
 
 # ============ TRANG CHI TIẾT ============
+def muc_neu_giu(P, S, K, ty_le, cs, ngay_dao_han):
+    """Mục "Nếu giữ đến ngày đáo hạn": lãi/lỗ 1 CW mua ở giá P (đã gồm phí mua) theo các mức CS thay đổi, nhận về sau thuế
+    0,1% trên giá trị danh nghĩa CS (C.tien_dao_han), nên Nhận về − giá vốn = Lãi/lỗ."""
+    C = cw_scanner
+    phi_chu, thue_chu = so(C.PHI_GIAO_DICH * 100, 2), so(C.THUE_BAN * 100, 1)
+    gia_von = P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
+    dong = []
+    for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
+        gia_cs = S * (1 + thay_doi / 100)
+        nhan_ve = C.tien_dao_han(
+            gia_cs, K, ty_le
+        )  # sau thuế 0,1% trên giá trị danh nghĩa CS: Nhận về − giá vốn = Lãi/lỗ
+        lai = nhan_ve - gia_von
+        lop = "duong" if lai > 0 else ("am" if lai < 0 else "")
+        dong.append(
+            f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'
+            f'<td class="so">{so(gia_cs)}</td><td class="so">{so(nhan_ve)}</td><td class="so {lop}">{so(lai, 0, True)}</td>'
+            f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td></tr>'
+        )
+    m_neu_giu = (
+        f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
+        f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
+        f"Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền (thuế tính trên giá trị cổ phiếu, không trên tiền nhận về). "
+        "Lỗ tối đa gần bằng toàn bộ tiền mua CW; nếu giá thanh toán chỉ nhỉnh hơn giá thực hiện vài chục đồng thì thuế có thể "
+        f'lớn hơn tiền nhận, lỗ nhỉnh hơn một chút.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
+        f'<th class="so">Nhận về / CW sau thuế (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
+        f'</tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
+    )
+    return m_neu_giu
+
+
 def trang_chi_tiet(ma, von=VON_MAC_DINH):
     df, ngay = W.doc_ket_qua()
     if df is None or ma not in set(df["Mã CW"]):
@@ -445,30 +476,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         + "</section>"
     )
 
-    # Kịch bản lãi/lỗ khi đáo hạn
-    gia_von = P * (1 + C.PHI_GIAO_DICH)  # giá vốn 1 CW đã gồm phí mua
-    dong = []
-    for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
-        gia_cs = S * (1 + thay_doi / 100)
-        nhan_ve = C.tien_dao_han(
-            gia_cs, K, ty_le
-        )  # sau thuế 0,1% trên giá trị danh nghĩa CS: Nhận về − giá vốn = Lãi/lỗ
-        lai = nhan_ve - gia_von
-        lop = "duong" if lai > 0 else ("am" if lai < 0 else "")
-        dong.append(
-            f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'
-            f'<td class="so">{so(gia_cs)}</td><td class="so">{so(nhan_ve)}</td><td class="so {lop}">{so(lai, 0, True)}</td>'
-            f'<td class="so {lop}">{so(lai / gia_von * 100, 0, True)}%</td></tr>'
-        )
-    m_neu_giu = (
-        f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
-        f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
-        f"Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền (thuế tính trên giá trị cổ phiếu, không trên tiền nhận về). "
-        "Lỗ tối đa gần bằng toàn bộ tiền mua CW; nếu giá thanh toán chỉ nhỉnh hơn giá thực hiện vài chục đồng thì thuế có thể "
-        f'lớn hơn tiền nhận, lỗ nhỉnh hơn một chút.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
-        f'<th class="so">Nhận về / CW sau thuế (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
-        f'</tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
-    )
+    m_neu_giu = muc_neu_giu(P, S, K, ty_le, cs, ngay_dao_han)
 
     # So sánh các CW cùng mã cơ sở
     cung_cs = df[df["Mã CS"] == cs].sort_values("IV − HV", na_position="last")

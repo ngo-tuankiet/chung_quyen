@@ -430,6 +430,17 @@ def test_tien_dao_han_thue_tren_gia_tri_danh_nghia():
     assert cw_scanner.tien_dao_han(32_020, 32_000, 3) < 0  # lãi 20 đ < thuế 32 đ: thuế lớn hơn tiền nhận
 
 
+def test_muc_neu_giu_nhan_ve_sau_thue():
+    import web_cw
+
+    # Mua 1.000 đ/CW (+ phí 0,15% = 1.001,5), CS 30.000, K 20.000, tỷ lệ 2. CS giữ nguyên: nhận về sau thuế
+    # (30.000 − 20.000 − 0,1% × 30.000) / 2 = 4.985 (không phải 5.000), lãi 4.985 − 1.001,5 = +3.983,5 -> "+3.984"
+    html = web_cw.muc_neu_giu(1000, 30_000, 20_000, 2, "VPB", date(2027, 2, 17))
+    hang = html.split("hang-goc")[1].split("</tr>")[0]
+    assert '<td class="so">4.985</td>' in hang and "+3.984" in hang
+    assert "Nhận về / CW sau thuế (đ)" in html and "17/02/2027" in html
+
+
 def test_he_so_don_vi():
     # vnstock trả nghìn đồng: CW 870 đ / 0,87 -> 1.000; chỉ số 1.892.980 (×1.000) / 1.892,98 -> 1.000; cùng đơn vị -> 1
     assert cw_scanner.he_so_don_vi(870, 0.87) == 1000 and cw_scanner.he_so_don_vi(24_500, 24.45) == 1000
