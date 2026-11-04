@@ -246,7 +246,8 @@ def trang_huong_dan():
         '<section class="the" id="canh-bao"><h2>11. Trang 🔔 Cảnh báo: giá lệch bất thường và mức giá tự đặt</h2><ul>'
         "<li>Chỉ hiện chỗ giá <b>đang mua được</b> lệch bất thường lúc mở trang (so giá chào bán / chờ mua trong sổ lệnh, cần ≥ 5 "
         "triệu ở mức rẻ đó; nến giật vì lô lẻ không tính): <b>CW</b> rẻ hơn giá lẽ ra theo cổ phiếu cơ sở từ 15% và thuộc 30 "
-        "dòng đầu danh sách Chứng quyền hoặc giá thấp hơn giá hợp lý theo biến động 1 năm (CW đắt bị hạ bớt giá vẫn là CW đắt), "
+        "dòng đầu danh sách Chứng quyền hoặc giá không đắt hơn giá hợp lý theo biến động 1 năm quá 20% (CW đắt bị hạ bớt giá vẫn "
+        "là CW đắt), "
         "<b>ETF</b> mua "
         "được dưới iNAV đủ lãi ròng ≥ 2%, <b>hợp đồng tương lai</b> đắt / rẻ so với giá hợp lý sau chi phí.</li>"
         "<li><b>Phòng hộ ETF</b>: quỹ VN30 / VN100 bán hợp đồng tương lai cùng chỉ số để lãi/lỗ không phụ thuộc thị trường lên xuống; "

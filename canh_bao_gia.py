@@ -37,10 +37,12 @@ import phai_sinh as P
 
 # ============ CẤU HÌNH ============
 NGUONG_LECH_CW = D.NGUONG_LECH_GIAM_MANH  # 15%: cùng ngưỡng lệch của cảnh báo CW giảm mạnh (người dùng chốt 30/10/2026)
-# Ngoài lệch, CW phải đạt 1 trong 2: thuộc ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) HOẶC định giá rẻ theo HV
-# (giá chào bán < giá hợp lý, cột Đắt/rẻ HV ra "Rẻ"). Người dùng chốt 03/11/2026 "top 30 hoặc IV định giá rẻ", nói rõ 04/11/2026
-# sau khi thấy 6 CW FPT đắt 21–845% theo HV vẫn được báo vì bản 03/11 hiểu "IV rẻ" là IV ≤ trung vị cùng mã.
+# Ngoài lệch, CW phải đạt 1 trong 2: thuộc ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) HOẶC giá chào bán không
+# đắt hơn giá hợp lý theo HV quá MAX_DAT_RE_CW_RE (cột Đắt/rẻ HV). Người dùng chốt 03/11/2026 "top 30 hoặc IV định giá rẻ", nói
+# rõ 04/11/2026 sau khi thấy 6 CW FPT đắt 21–845% theo HV vẫn được báo (bản 03/11 hiểu "IV rẻ" là IV ≤ trung vị cùng mã), rồi
+# nới từ "rẻ" (< 0) lên "đắt tối đa 20%" cùng ngày.
 SO_TOP_CW_RE = 30
+MAX_DAT_RE_CW_RE = 0.20
 MIN_GIA_TRI_MUA = (
     C.GIA_TRI_KHOP_TOI_THIEU
 )  # 5 triệu đồng: ít hơn là lô lẻ, không phải cơ hội thật (người dùng chốt 30/10/2026)
@@ -172,7 +174,8 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
     """CW có giá chào bán thấp hơn giá lẽ ra theo CS ≥ NGUONG_LECH_CW và ≥ MIN_GIA_TRI_MUA đồng chào bán ở các mức rẻ đó.
     Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán), CW lúc quét không có giá chào bán thật
     (IV mốc phải từ giá tổ chức phát hành yết). CW còn lại phải thuộc SO_TOP_CW_RE dòng đầu df (thứ tự file quét = trang Chứng
-    quyền: Nên xem xét trước, IV − HV thấp trước) HOẶC có giá chào bán thấp hơn giá hợp lý theo HV (dat_re < 0; thiếu HV: không báo).
+    quyền: Nên xem xét trước, IV − HV thấp trước) HOẶC có giá chào bán không đắt hơn giá hợp lý theo HV quá MAX_DAT_RE_CW_RE
+    (dat_re; thiếu HV: không báo).
     Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %; top: CW thuộc SO_TOP_CW_RE dòng đầu; dat_re: giá chào bán so với
     giá hợp lý theo HV (như cột Đắt/rẻ); re_cung_ma: so với giá nếu yết ở IV trung vị cùng mã; lech_20: Lệch 20 phiên ở giá chào
     bán (cần lich_su = giá CS lúc quét, D.doc_lich_su; không có thì NaN; lịch sử CW tải vnstock, nhớ theo ngày)."""
@@ -204,11 +207,11 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
         if not round(lech, 9) <= -NGUONG_LECH_CW:  # NaN: không tính được giá lẽ ra -> bỏ
             continue
         # rẻ so với chính nó chưa đủ: TCPH hạ một IV quá cao thì CW vẫn đắt (CFPT2638 02/11/2026: lệch −72% mà IV còn 61%,
-        # HV 31%) -> ngoài top 30 chỉ báo khi định giá rẻ theo HV (người dùng chốt 03–04/11/2026, thay điều kiện IV ≤ trung vị
+        # HV 31%) -> ngoài top 30 chỉ báo khi không đắt quá 20% theo HV (người dùng chốt 03–04/11/2026, thay điều kiện IV ≤ trung vị
         # cùng mã của 02/11: 04/11 cả nhóm CW FPT yết IV ~54% so với HV 31% nên "rẻ hơn cùng mã" vẫn đắt 21–845%)
         T, hv, iv_tv = (dao_han - hom_nay).days / C.NGAY_MOT_NAM, h.get("Biến động %/năm"), h.get("IV cùng mã %")
         dat_re = C.so_voi_gia_bs(gia, S, K, T, r, float(hv) / 100, ty_le) if pd.notna(hv) else math.nan
-        if ma not in top and not dat_re < 0:  # NaN (thiếu HV): không biết rẻ -> không báo
+        if ma not in top and not round(dat_re, 9) <= MAX_DAT_RE_CW_RE:  # NaN (thiếu HV): không biết đắt rẻ -> không báo
             continue
         iv = C.bien_dong_ngam_dinh(gia, S, K, T, r, ty_le)
         le_ra = gia / (1 + lech)

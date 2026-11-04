@@ -787,6 +787,9 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   bán < giá hợp lý theo HV (Đắt/rẻ HV ra Rẻ; thiếu HV thì không báo). Điều kiện IV ≤ trung vị cùng mã (02/11) và cách hiểu
   "IV rẻ = IV ≤ trung vị" của bản 03/11 **bỏ**: 04/11 09:56 có 6 CW FPT lọt vì IV 33–51% thấp hơn trung vị 54%, nhưng cả nhóm CW
   FPT yết IV cao gần gấp đôi HV 31% nên 6 mã đắt 21–845% theo HV. CFPT2638 (IV 61%, HV 31%) vẫn bị loại theo cách mới.
+  **Nới cùng ngày (người dùng: "có thể đắt hơn 20% trở lại"):** điều kiện thứ hai thành Đắt/rẻ HV ≤ +20% (`MAX_DAT_RE_CW_RE`;
+  rẻ hoặc đắt tối đa 20,0%). Tính tay (test): lúc quét 3.700 khi VPB 25.000 (IV 84,1%), lẽ ra với VPB 24.000 = 3.322,8; giá hợp
+  lý HV 30% = 2.252,4: chào bán 2.700 (đắt 19,9%) báo, 2.710 (đắt 20,3%) không.
   **Nới 03/11/2026 (người dùng chốt "top 30 hoặc IV rẻ"):** CW thuộc 30 dòng đầu danh sách Chứng quyền (`SO_TOP_CW_RE`, thứ tự
   file quét: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV ≤ trung vị bên dưới; ngưỡng lệch giữ 15%. Bảng ghi
   "top 30" cạnh mã. Đo 03/11 13:27: chưa thêm mã nào (không CW top 30 nào lệch tới −15%); 2 mã đang báo CSHB2615 (40 đ),

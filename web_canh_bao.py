@@ -95,8 +95,8 @@ def muc_cw(ds, df):
     elif not ds:
         than = (
             f"<p>Hiện không có CW nào có giá chào bán thấp hơn mức lẽ ra theo CS từ {nguong}% trở lên mà mua được "
-            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu, và thuộc {CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền hoặc có giá "
-            "chào bán thấp hơn giá hợp lý theo biến động 1 năm của CS (cột Đắt/rẻ HV ra Rẻ).</p>"
+            f"≥ {so(CB.MIN_GIA_TRI_MUA / 1e6)} triệu, và thuộc {CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền hoặc giá chào "
+            f"bán không đắt hơn giá hợp lý theo biến động 1 năm của CS quá {so(CB.MAX_DAT_RE_CW_RE * 100)}% (cột Đắt/rẻ HV).</p>"
         )
     else:
         hang = [
@@ -149,8 +149,9 @@ def muc_cw(ds, df):
                     True,
                     (
                         "Giá chào bán so với giá hợp lý theo biến động 1 năm của CS (cùng cách tính cột Đắt/rẻ ở danh sách). "
-                        f"Chỉ báo khi ra Rẻ, trừ CW ghi 'top {CB.SO_TOP_CW_RE}' (thuộc {CB.SO_TOP_CW_RE} dòng đầu danh sách "
-                        "Chứng quyền): rẻ so với chính nó mà vẫn đắt theo HV thì không phải món hời"
+                        f"Chỉ báo khi Rẻ hoặc Đắt tối đa {so(CB.MAX_DAT_RE_CW_RE * 100)}%, trừ CW ghi 'top {CB.SO_TOP_CW_RE}' "
+                        f"(thuộc {CB.SO_TOP_CW_RE} dòng đầu danh sách Chứng quyền): rẻ so với chính nó mà vẫn đắt theo HV thì "
+                        "không phải món hời"
                     ),
                 ),
                 (
