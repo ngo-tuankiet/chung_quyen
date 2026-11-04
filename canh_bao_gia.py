@@ -41,9 +41,11 @@ NGUONG_LECH_CW = D.NGUONG_LECH_GIAM_MANH  # 15%: cùng ngưỡng lệch của c�
 # Ngoài lệch, CW phải đạt 1 trong 2: thuộc ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) HOẶC giá chào bán không
 # đắt hơn giá hợp lý theo HV quá MAX_DAT_RE_CW_RE (cột Đắt/rẻ HV). Người dùng chốt 03/11/2026 "top 30 hoặc IV định giá rẻ", nói
 # rõ 04/11/2026 sau khi thấy 6 CW FPT đắt 21–845% theo HV vẫn được báo (bản 03/11 hiểu "IV rẻ" là IV ≤ trung vị cùng mã), rồi
-# nới từ "rẻ" (< 0) lên "đắt tối đa 20%" cùng ngày.
+# nới từ "rẻ" (< 0) lên "đắt tối đa 20%" cùng ngày, rồi hạ về 15% = ngưỡng "CW đắt" của Danh mục (D.NGUONG_CW_DAT) để cùng một
+# CW không vừa "rẻ bất thường" ở đây vừa "🔴 Nên bán: CW đắt" ở Danh mục (rà soát 04/11/2026, người dùng chọn). Hai bên đo hơi
+# khác (đây: giá chào bán / giá hợp lý; Danh mục: giá bán ngay sau phí / giá trị giữ sau thuế) nên ở sát ngưỡng vẫn có thể trùng.
 SO_TOP_CW_RE = 30
-MAX_DAT_RE_CW_RE = 0.20
+MAX_DAT_RE_CW_RE = D.NGUONG_CW_DAT
 MIN_GIA_TRI_MUA = (
     C.GIA_TRI_KHOP_TOI_THIEU
 )  # 5 triệu đồng: ít hơn là lô lẻ, không phải cơ hội thật (người dùng chốt 30/10/2026)

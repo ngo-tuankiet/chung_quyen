@@ -791,7 +791,7 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   bán < giá hợp lý theo HV (Đắt/rẻ HV ra Rẻ; thiếu HV thì không báo). Điều kiện IV ≤ trung vị cùng mã (02/11) và cách hiểu
   "IV rẻ = IV ≤ trung vị" của bản 03/11 **bỏ**: 04/11 09:56 có 6 CW FPT lọt vì IV 33–51% thấp hơn trung vị 54%, nhưng cả nhóm CW
   FPT yết IV cao gần gấp đôi HV 31% nên 6 mã đắt 21–845% theo HV. CFPT2638 (IV 61%, HV 31%) vẫn bị loại theo cách mới.
-  **Nới cùng ngày (người dùng: "có thể đắt hơn 20% trở lại"):** điều kiện thứ hai thành Đắt/rẻ HV ≤ +20% (`MAX_DAT_RE_CW_RE`;
+  **Nới cùng ngày (người dùng: "có thể đắt hơn 20% trở lại"; hạ về 15% tối 04/11, xem rà soát cuối Phần 10):** điều kiện thứ hai thành Đắt/rẻ HV ≤ +20% (`MAX_DAT_RE_CW_RE`;
   rẻ hoặc đắt tối đa 20,0%). Tính tay (test): lúc quét 3.700 khi VPB 25.000 (IV 84,1%), lẽ ra với VPB 24.000 = 3.322,8; giá hợp
   lý HV 30% = 2.252,4: chào bán 2.700 (đắt 19,9%) báo, 2.710 (đắt 20,3%) không.
   **Nới 03/11/2026 (người dùng chốt "top 30 hoặc IV rẻ"):** CW thuộc 30 dòng đầu danh sách Chứng quyền (`SO_TOP_CW_RE`, thứ tự
@@ -866,7 +866,9 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   giá 500: HV 30% cho 2,8x, IV 56,4% cho 6,3x (thực tế CS +1% thì CW +6,47%). **B2 làm 04/11/2026:** CW rẻ bất thường, Giá mua nay / "đã hồi" và mức giá tự đặt (khi khớp cuối là lô lẻ) dùng giá phải trả
   để mua (≤) / bán (≥) đủ 5 triệu (`danh_muc.gia_du`) như cảnh báo giảm mạnh; ví dụ sổ lệnh 100 CW @1.500 + 2.500 @2.000: CW rẻ trước
   báo lệch −42,1% ở 1.500, nay −22,9% ở 2.000; mức "≤ 750" với 100 @720 + 10.000 @900 trước báo chạm, nay chưa chạm. Trang chi tiết
-  vẫn dùng giá chào bán thấp nhất. **Chờ người dùng chọn (nhóm B):** CW rẻ cho đắt ≤ 20% theo
-  HV trong khi Danh mục coi đắt ≥ 15% là Nên bán (cùng CW có thể bị báo ngược nhau); ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
+  vẫn dùng giá chào bán thấp nhất. **B3 làm 04/11/2026:** CW rẻ ngoài top 30 chỉ báo khi đắt ≤ 15% theo HV
+  (`MAX_DAT_RE_CW_RE = D.NGUONG_CW_DAT`, trước 20%) để không ngược với "🔴 Nên bán: CW đắt ≥ 15%" của Danh mục; hai bên đo hơi khác
+  (giá chào bán / giá hợp lý so với giá bán ngay sau phí / giá trị giữ sau thuế) nên sát ngưỡng vẫn có thể trùng. Biên tính tay
+  (test): giá hợp lý 2.252,4 -> 2.590 (đắt 14,99%) báo, 2.600 (15,4%) không. **Chờ người dùng chọn (nhóm B):** ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
   ròng ≥ 2%; "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

@@ -83,9 +83,10 @@ def ngoai_top(df, so_dong=CB.SO_TOP_CW_RE):
     return pd.concat([pd.DataFrame({"Mã CW": [f"CXXX26{i:02d}" for i in range(so_dong)]}), df], ignore_index=True)
 
 
-def test_cw_lech_re_ngoai_top_30_chi_bao_khi_khong_dat_qua_20_theo_hv():
+def test_cw_lech_re_ngoai_top_30_chi_bao_khi_khong_dat_qua_15_theo_hv():
     # CFPT2638 02/11/2026: lệch −72% so với giá lúc quét nhưng IV ở giá chào bán bây giờ vẫn 61% (HV 31%): TCPH chỉ đang hạ một
-    # IV quá cao, CW vẫn đắt. Người dùng chốt 04/11/2026: ngoài top 30 phải không đắt hơn giá hợp lý theo HV quá 20%.
+    # IV quá cao, CW vẫn đắt. Người dùng chốt 04/11/2026: ngoài top 30 phải không đắt hơn giá hợp lý theo HV quá 15% (= ngưỡng
+    # "CW đắt" của Danh mục).
     # Tính tay: chào bán 2.160 khi VPB 24.000, 121 ngày, r 4%, lệch −16,7%, mua được 2.160 × 2.500 = 5,4 triệu:
     # HV 30% -> giá hợp lý 2.252,4 (d1 = 1,2187, d2 = 1,0459) -> rẻ 4,1% -> báo;
     # HV 20% -> d1 = 1,7560, d2 = 1,6409 -> 24.000 × 0,9605 − 20.000 × 0,98683 × 0,9496 = 4.309,4 -> 2.154,7 -> đắt 0,25% -> báo
@@ -97,11 +98,12 @@ def test_cw_lech_re_ngoai_top_30_chi_bao_khi_khong_dat_qua_20_theo_hv():
     assert abs(re(20.0)[0]["dat_re"] - (2160 / 2154.703 - 1)) < 1e-4
     assert len(re(30.0, tv=20.0)) == 1  # IV 20,8% cao hơn trung vị cùng mã 20% không còn là lý do bỏ
     assert re(float("nan")) == []  # thiếu HV: không biết đắt rẻ -> không báo
-    # Biên 20%: lúc quét chào bán 3.700 khi VPB 25.000 (IV giải ngược 84,1%) -> lẽ ra với VPB 24.000 = 3.322,8.
-    # 2.700: lệch −18,7%, so giá hợp lý HV 30% 2.252,4 đắt 19,9% -> báo; 2.710: lệch −18,4% nhưng đắt 20,3% -> không
+    # Biên 15%: lúc quét chào bán 3.700 khi VPB 25.000 (IV giải ngược 84,1%) -> lẽ ra với VPB 24.000 = 3.322,8.
+    # 2.590: lệch −22,1%, so giá hợp lý HV 30% 2.252,4 đắt 14,99% -> báo; 2.600: lệch −21,8% nhưng đắt 15,4% -> không
+    assert CB.MAX_DAT_RE_CW_RE == CB.D.NGUONG_CW_DAT == 0.15
     quet = DF_QUET.assign(**{"Giá mua": [3700.0]})
-    assert abs(re(30.0, ban=2700, quet=quet)[0]["dat_re"] - (2700 / 2252.385 - 1)) < 1e-5
-    assert re(30.0, ban=2710, quet=quet) == []
+    assert abs(re(30.0, ban=2590, quet=quet)[0]["dat_re"] - (2590 / 2252.385 - 1)) < 1e-5
+    assert re(30.0, ban=2600, quet=quet) == []
     # 2.000 dưới giá trị tối thiểu (24.000 − 20.000 × e^(−0,0133)) / 2 = 2.131,7: không giải được IV, rẻ hơn mọi mức HV -> báo
     x = re(20.0, ban=2000)[0]
     assert x["gia"] == 2000 and x["iv"] != x["iv"] and abs(x["dat_re"] - (2000 / 2154.703 - 1)) < 1e-4  # iv NaN
@@ -125,11 +127,11 @@ def test_cw_lech_re_dung_gia_mua_du_5_trieu():
 
 def test_cw_lech_re_top_30_khong_can_dieu_kien_dinh_gia():
     # Người dùng chốt 03/11/2026: CW thuộc 30 dòng đầu danh sách Chứng quyền thì "top 30 hoặc định giá rẻ" là đủ. Số liệu như
-    # biên 20% ở trên: chào bán 2.710 đắt 20,3% theo HV 30%, lệch −18,4%: hạng 31 không báo, hạng 30 thì báo, ghi top.
+    # biên 15% ở trên: chào bán 2.600 đắt 15,4% theo HV 30%, lệch −21,8%: hạng 31 không báo, hạng 30 thì báo, ghi top.
     df = DF_QUET.assign(**{"Giá mua": [3700.0], "IV cùng mã %": [20.0], "Biến động %/năm": [30.0]})
-    assert CB.cw_lech_re(ngoai_top(df), bang_cw(2710), HOM_NAY, HOM_NAY) == []
-    x = CB.cw_lech_re(ngoai_top(df, CB.SO_TOP_CW_RE - 1), bang_cw(2710), HOM_NAY, HOM_NAY)[0]
-    assert x["top"] and abs(x["dat_re"] - (2710 / 2252.385 - 1)) < 1e-5 and x["iv_tv"] == 20.0
+    assert CB.cw_lech_re(ngoai_top(df), bang_cw(2600), HOM_NAY, HOM_NAY) == []
+    x = CB.cw_lech_re(ngoai_top(df, CB.SO_TOP_CW_RE - 1), bang_cw(2600), HOM_NAY, HOM_NAY)[0]
+    assert x["top"] and abs(x["dat_re"] - (2600 / 2252.385 - 1)) < 1e-5 and x["iv_tv"] == 20.0
     # top 30 vẫn phải lệch ≤ −15%: chào bán 2.900 (lệch 2.900 / 3.322,8 − 1 = −12,7%) -> không
     assert CB.cw_lech_re(ngoai_top(df, 0), bang_cw(2900), HOM_NAY, HOM_NAY) == []
 
