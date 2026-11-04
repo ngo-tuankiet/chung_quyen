@@ -272,9 +272,10 @@ def muc_hdtl(ds):
     ky_quy = P.ky_quy_ban_dau(ds[0]["gia"], ds[0]["chi_so"]) if math.isfinite(ds[0]["gia"]) else math.nan
     return (
         f'<section class="the"><h2>Hợp đồng tương lai VN30F / VN100F ({sum(1 for x in ds if x["tin_hieu"])} tín hiệu)</h2>'
-        '<p class="phu">Giá hợp lý = chỉ số × e^(r·T) với r = '
+        '<p class="phu"><b>Cận trên</b> = chỉ số × e^(r·T) với r = '
         f"{so(C.LAI_SUAT_PHI_RUI_RO * 100, 1)}%/năm, T = số ngày tới ngày GD cuối / 365, chưa trừ cổ tức (Hull ch. 5): đây là "
-        "mức cao nhất HĐTL đáng có. <b>Đắt</b> = giá chờ mua của HĐTL cao hơn giá hợp lý cộng chi phí cả 2 chân: bán HĐTL + "
+        "mức cao nhất HĐTL đáng có, không phải giá hợp lý (chưa có số cổ tức VN30 chắc chắn, như tab Phái sinh). <b>Đắt</b> = giá "
+        "chờ mua của HĐTL cao hơn cận trên cộng chi phí cả 2 chân: bán HĐTL + "
         "mua đủ 1 HĐ (≈ chỉ số × 100.000 đ) ETF cùng chỉ số tốn ít nhất (cột ETF; bỏ quỹ lúc nào cũng rẻ hơn NAV) rồi giữ đến "
         "đáo hạn thì khóa được phần chênh, không phụ thuộc thị trường lên xuống (Lãi khóa, điểm/HĐ, đã trừ phí + thuế 2 chân; "
         "ETF đang rẻ hơn iNAV coi như vẫn rẻ lúc bán, cao hơn iNAV coi như mất phần cao hơn; cổ tức ETF nhận thêm và lãi bỏ lỡ "
@@ -299,8 +300,12 @@ def muc_hdtl(ds):
                 ("Chào bán", True, "Giá thấp nhất đang bán: mua HĐ được ngay ở giá này"),
                 ("Chỉ số", True, "Giá chỉ số (nến ngày VCI)"),
                 ("Basis", True, "Khớp − chỉ số (điểm)"),
-                ("Hợp lý", True, "Chỉ số × e^(rT), chưa trừ cổ tức"),
-                ("Lệch", True, "Khớp − giá hợp lý (điểm)"),
+                (
+                    "Cận trên",
+                    True,
+                    "Chỉ số × e^(rT), chưa trừ cổ tức: mức cao nhất HĐTL đáng có, không phải giá hợp lý",
+                ),
+                ("Lệch", True, "Khớp − cận trên (điểm)"),
                 ("Chi phí", True, "Chi phí 1 HĐ giữ đến đáo hạn, quy ra điểm"),
                 (
                     "Lãi khóa",
@@ -310,7 +315,7 @@ def muc_hdtl(ds):
                 ("KL", True, "Khối lượng khớp trong phiên (HĐ)"),
                 ("OI", True, "Số HĐ đang mở"),
                 ("GD cuối", False, "Ngày giao dịch cuối (thứ Năm thứ ba của tháng đáo hạn)"),
-                ("Tín hiệu", False, "Đắt / rẻ bất thường so với giá hợp lý sau chi phí"),
+                ("Tín hiệu", False, "Đắt / rẻ bất thường so với cận trên sau chi phí"),
             ],
             hang,
         )
@@ -459,7 +464,7 @@ def tin_canh_bao(luc=None):
                 f"hd-{x['tin_hieu']}",
                 ma,
                 f"HĐTL {'đắt' if x['tin_hieu'] == 'dat' else 'rẻ'}: {ma}",
-                f"giá {so(x['gia'], 1)}, hợp lý {so(x['hop_ly'], 1)}, lệch {so(x['lech'], 1, True)} điểm"
+                f"giá {so(x['gia'], 1)}, cận trên (chưa trừ cổ tức) {so(x['hop_ly'], 1)}, lệch {so(x['lech'], 1, True)} điểm"
                 + (f", lãi khóa {so(x['lai_khoa'], 1, True)} điểm" if math.isfinite(x["lai_khoa"]) else ""),
                 f"/phai-sinh/{ma}" if P.MAU_MA_HD.fullmatch(ma) else "/canh-bao",
             )

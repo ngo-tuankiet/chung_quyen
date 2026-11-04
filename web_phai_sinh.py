@@ -55,7 +55,8 @@ GIAI_THICH = (
     "gần 0 lúc đó. <b>Basis năm hóa</b> = ln(giá HĐ / chỉ số) / thời gian còn lại (năm): theo lý thuyết cost-of-carry "
     "(Hull ch. 5) bằng lãi suất phi rủi ro r trừ tỷ suất cổ tức q của rổ chỉ số. Basis năm hóa thấp hơn r nhiều = thị trường đang "
     "trả giá HĐ thấp (cổ tức sắp chia, tâm lý bi quan); cao hơn r = trả giá cao. Chưa có số q chắc chắn nên trang không tính giá "
-    f"hợp lý. 1 điểm = {so(P.HE_SO_NHAN)} đ/hợp đồng. Hợp đồng ít giao dịch (KL phiên vài hợp đồng) thì giá đóng cửa có thể lệch "
+    "hợp lý; trang Cảnh báo chỉ dùng <b>cận trên</b> chỉ số × e^(rT) (q = 0) để bắt HĐ đắt bất thường. "
+    f"1 điểm = {so(P.HE_SO_NHAN)} đ/hợp đồng. Hợp đồng ít giao dịch (KL phiên vài hợp đồng) thì giá đóng cửa có thể lệch "
     "xa giá thật, basis nhiễu."
 )
 

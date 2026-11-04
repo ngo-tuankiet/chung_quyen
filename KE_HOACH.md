@@ -872,5 +872,6 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   (`MAX_DAT_RE_CW_RE = D.NGUONG_CW_DAT`, trước 20%) để không ngược với "🔴 Nên bán: CW đắt ≥ 15%" của Danh mục; hai bên đo hơi khác
   (giá chào bán / giá hợp lý so với giá bán ngay sau phí / giá trị giữ sau thuế) nên sát ngưỡng vẫn có thể trùng. Biên tính tay
   (test): giá hợp lý 2.252,4 -> 2.590 (đắt 14,99%) báo, 2.600 (15,4%) không. **B4 làm 04/11/2026:** ETF Discord trong phiên dùng ngưỡng lãi ròng ≥ 2% như trang (trước giá ≤ iNAV × 0,98).
-  **Chờ người dùng chọn (nhóm B):** "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  **B5 làm 04/11/2026:** S·e^(rT) (q = 0) ở trang Cảnh báo, tin cảnh báo HĐTL và Hướng dẫn gọi là "cận trên (chưa trừ cổ tức)",
+  không gọi "giá hợp lý", khớp tab Phái sinh (chưa có q nên không tính giá hợp lý); logic tín hiệu không đổi. Nhóm B xong. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

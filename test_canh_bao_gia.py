@@ -480,6 +480,7 @@ def test_trang_co_du_lieu():
         "E1VFVN30" in html and "+2,68%" in html and "0,25 HĐ VN30F1M" in html
     )  # phòng hộ: 50 triệu / (2.040 × 100.000) = 0,245 HĐ
     assert "VN30F1M" in html and "41I1GB000" in html and "Đắt: bán HĐ + mua ETF" in html  # HĐTL đắt
+    assert "Cận trên" in html and ">Hợp lý<" not in html  # S·e^(rT) chưa trừ cổ tức: cận trên, không gọi là giá hợp lý
     assert "<script>alert" not in html
 
 
@@ -499,6 +500,7 @@ def test_tin_canh_bao():
     assert "lệch -22,9% so với giá lẽ ra theo VPB" in cw["noi_dung"] and cw["link"] == "/cw/CVPB2615"
     assert "lãi ròng nếu về iNAV +2,68%" in tin[ngay + "etf|E1VFVN30"]["noi_dung"]
     assert tin[ngay + "hd-dat|VN30F1M"]["link"] == "/phai-sinh/VN30F1M"
+    assert "cận trên (chưa trừ cổ tức)" in tin[ngay + "hd-dat|VN30F1M"]["noi_dung"]
     # mức "≥ 2.000": giá xét là giá chờ mua 2.040 (bán được ngay)
     assert tin[ngay + "muc|3"]["noi_dung"] == "giá 2.040,0 ≥ mức 2.000,0 (chốt lời)"
     assert tin[ngay + "dm-cat_lo|CVPB2615"] == {
