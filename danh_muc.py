@@ -352,7 +352,8 @@ def canh_bao_cw_dat(so_luong, gia_bid, S, K, ty_le, dao_han, hom_nay, r, sigma, 
         return ""
     so_cw_khac = int(((df["Mã CS"] == cs) & (df["Mã CW"] != ma) & df["IV %"].notna()).sum())
     thu_ve = so_luong * g["ban_ngay"]
-    du_so, theo_delta = lo_100(so_luong / ty_le), lo_100(so_luong / ty_le * C.black_scholes_call(S, K, T, r, sigma)[1])
+    # delta ở IV của giá chờ mua (giá đang bán ra), cùng cách cột Delta / Đòn bẩy (audit 04/11/2026)
+    du_so, theo_delta = lo_100(so_luong / ty_le), lo_100(so_luong / ty_le * C.black_scholes_call(S, K, T, r, iv)[1])
     return (
         f"CW đắt hơn mô hình {pt(g['ban_ngay'] / g['giu_mh'] - 1)} (bán ngay {so(g['ban_ngay'])} đ/CW, giữ theo mô hình "
         f"{so(g['giu_mh'])} đ); IV khi bán {iv * 100:.0f}% > trung vị {tv:.0f}% của {so_cw_khac} CW {cs}. "

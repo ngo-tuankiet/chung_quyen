@@ -291,9 +291,8 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     m_nen = W.muc_nen(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None)))
 
     # Các chỉ số chính
-    delta = C.black_scholes_call(S, K, T, r, sigma_ls)[
-        1
-    ]  # N(d1): giá trị quyền trên 1 cổ phiếu tăng bao nhiêu khi cổ phiếu tăng 1 đ
+    # N(d1) ở IV của giá mua như cột Delta (không giải được IV thì HV): quyền trên 1 cổ phiếu tăng bao nhiêu khi cổ phiếu tăng 1 đ
+    delta = C.black_scholes_call(S, K, T, r, iv if iv is not None else sigma_ls)[1]
     so_sanh_bd = (
         (
             f"IV − HV = {so(iv_hv, 1, True)} điểm → thị trường đang định giá CW "

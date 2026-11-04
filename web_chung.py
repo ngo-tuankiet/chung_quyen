@@ -110,12 +110,18 @@ COT = [
     (
         "Đòn bẩy",
         "so",
-        "Cổ phiếu tăng (hoặc giảm) 1% thì CW tăng (hoặc giảm) khoảng bấy nhiêu %. Đòn bẩy cao: lãi nhanh nhưng lỗ cũng nhanh.",
+        (
+            "Cổ phiếu tăng (hoặc giảm) 1% thì CW tăng (hoặc giảm) khoảng bấy nhiêu % (giữ IV của giá mua; không giải được IV thì "
+            "theo biến động lịch sử). Đòn bẩy cao: lãi nhanh nhưng lỗ cũng nhanh."
+        ),
     ),
     (
         "Delta",
         "so",
-        "Từ 0 đến 1: cổ phiếu tăng 1 đ thì giá trị quyền trên 1 cổ phiếu tăng bấy nhiêu đ. Gần 1: CW bám sát cổ phiếu; gần 0: gần như không phản ứng.",
+        (
+            "Từ 0 đến 1: cổ phiếu tăng 1 đ thì giá trị quyền trên 1 cổ phiếu tăng bấy nhiêu đ (tính ở IV của giá mua). Gần 1: CW bám "
+            "sát cổ phiếu; gần 0: gần như không phản ứng."
+        ),
     ),
     ("KL khớp", "so", "Số CW đã khớp lệnh trong phiên. Càng nhiều càng dễ mua/bán đúng giá."),
     (

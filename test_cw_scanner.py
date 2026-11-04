@@ -451,6 +451,26 @@ def test_bien_dong_lich_su_qua_it_gia_chi_bo_ma_do():
             raise AssertionError("phải báo lỗi để main bỏ riêng mã này")
 
 
+def test_don_bay_delta_tinh_o_iv_cua_gia_mua():
+    # Audit 04/11/2026 (người dùng duyệt): S 20.000, K 24.000, tỷ lệ 2, còn 90 ngày, r 4%, giá mua 500, HV 30%.
+    # IV giải từ 500 = 56,45%: d1 = −0,4751, N(d1) = 0,3173 -> đòn bẩy 0,3173 × 20.000 / (500 × 2) = 6,35 -> 6,3
+    # (theo HV: d1 = −1,0832, N(d1) = 0,1394 -> 2,8x, trong khi giữ IV mà CS +1% thì CW +6,47%)
+    ny = {
+        "exercisePrice": 24000,
+        "exerciseRatio": "2:1",
+        "maturityDate": "20270117",
+        "refPrice": 500,
+        "underlyingSymbol": "VPB",
+        "issuerName": "TEST",
+        "listedShare": 10_000_000,
+        "lastTradingDate": "20270113",
+    }
+    so_lenh = {"askPrices": [{"price": 500, "volume": 20_000}], "bidPrices": [{"price": 490, "volume": 20_000}]}
+    kq = dinh_gia(ny, {"matchPrice": 500, "accumulatedVolume": 50_000}, so_lenh, 20000, 0.30, date(2026, 10, 19), 0.04)
+    assert kq["Ngày còn lại"] == 90 and abs(kq["IV %"] - 56.4) < 0.1
+    assert kq["Delta"] == 0.32 and kq["Đòn bẩy"] == 6.3
+
+
 def test_tieu_chi_hoa_von_so_so_da_lam_tron():
     # CS tăng để hòa vốn = (K + giá mua × tỷ lệ) / S − 1 = (26.193,105 + 1.250 × 1,5863) / 24.500 − 1 = 0,150040:
     # cột CSV ghi 15,0 và trang chi tiết đánh ✓ "≤ 15%", nên kết luận cũng không được tính trượt tiêu chí này

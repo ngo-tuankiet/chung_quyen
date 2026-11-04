@@ -465,12 +465,15 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
     ngay_con_lai = (datetime.strptime(ny["maturityDate"], "%Y%m%d").date() - hom_nay).days
     T = ngay_con_lai / NGAY_MOT_NAM
 
-    gia_quyen_chon, delta = black_scholes_call(S, K, T, r, sigma)
+    gia_quyen_chon = black_scholes_call(S, K, T, r, sigma)[0]
     gia_hop_ly = gia_quyen_chon / ty_le  # 1 CW chỉ bằng 1/tỷ lệ của 1 quyền chọn trên 1 cổ phiếu
     chenh_lech = P_mua / gia_hop_ly - 1 if gia_hop_ly > 0 else math.inf
     tang_de_hoa_von = (K + P_mua * ty_le) / S - 1
     iv = bien_dong_ngam_dinh(P_mua, S, K, T, r, ty_le)
     duoi_toi_thieu = P_mua * ty_le < can_duoi(S, K, T, r)
+    # Delta, đòn bẩy ở IV của giá mua (Hull: Greeks lấy ở đúng mức σ cho ra giá đang chia), không ở HV: CW có IV xa HV
+    # lệch tới ~2,3 lần (audit 04/11/2026, người dùng duyệt). Không giải được IV thì dùng HV
+    delta = black_scholes_call(S, K, T, r, iv if iv is not None else sigma)[1]
     ghi_chu_iv = (
         ""
         if iv is not None

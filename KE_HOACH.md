@@ -231,7 +231,7 @@ CTCB2619   TCB           121     980        1068      -8.2                   5.2
 | Giá hợp lý | Giá Black-Scholes | VND cho 1 CW |
 | Đắt/rẻ % | (Giá mua / Giá hợp lý − 1) × 100 | **Âm = rẻ hơn mô hình**, dương = đắt hơn. Chỉ để tham khảo, tiêu chí dùng IV − HV |
 | CS tăng % để hòa vốn | (K + Giá mua × n) / S − 1 | CS phải tăng bấy nhiêu đến lúc đáo hạn mới hòa vốn |
-| Đòn bẩy | delta × S / (Giá mua × n) | CS tăng 1% thì CW tăng khoảng bấy nhiêu % (và giảm cũng vậy) |
+| Đòn bẩy | delta × S / (Giá mua × n), delta = N(d1) ở **IV của giá mua** (từ 04/11/2026; không giải được IV thì HV) | CS tăng 1% thì CW tăng khoảng bấy nhiêu % (và giảm cũng vậy), giữ nguyên mức giá TCPH đang yết |
 | Biến động %/năm | σ lịch sử (HV) của cổ phiếu cơ sở | Càng cao, CW càng "đáng giá" theo mô hình |
 | IV % | Biến động ngầm định giải ngược từ Giá mua | Mức dao động mà giá CW đang "giả định" |
 | IV − HV | (IV − σ lịch sử) × 100, điểm % | **Âm = rẻ**, dương = đắt. So sánh được giữa CW gần và xa giá thực hiện; bảng xếp theo cột này và đây là tiêu chí 2 (≤ +3 điểm) |
@@ -861,8 +861,9 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   lúc lưu; vị thế mới không mang ngưỡng chốt lời/cắt lỗ cũ; bán bớt thì các lần mua giảm cùng tỷ lệ (mốc CS lệch đi cùng giá vốn);
   5 phiên thanh toán khi đáo hạn cuối tuần; mã ≤ 2 giá không làm sập lần quét; tiêu chí hòa vốn so số đã làm tròn; bảng giữ đến đáo hạn
   ghi số sau thuế; ETF chi tiết cột lệnh 50 triệu ở giá bình quân (`gia_mua_lenh`); basis năm hóa tính từ ngày của giá; Hướng dẫn
-  ghi đúng tin Discord (có số tiền ở tin CW đắt và báo cáo 14:00). **Chờ người dùng chọn (nhóm B):** Đòn bẩy/Delta theo IV thay HV
-  (lệch tới ~2,3 lần ở CW IV xa HV); CW rẻ, Giá mua nay, mức giá tự đặt dùng giá mua đủ 5 triệu như giảm mạnh; CW rẻ cho đắt ≤ 20% theo
+  ghi đúng tin Discord (có số tiền ở tin CW đắt và báo cáo 14:00). **B1 làm 04/11/2026:** Đòn bẩy, Delta (cột, trang chi tiết, số cp
+  "theo delta" trong tin CW đắt) tính ở IV của giá (Hull: Greeks ở đúng σ cho ra giá); ví dụ S 20.000, K 24.000, n 2, 90 ngày,
+  giá 500: HV 30% cho 2,8x, IV 56,4% cho 6,3x (thực tế CS +1% thì CW +6,47%). **Chờ người dùng chọn (nhóm B):** CW rẻ, Giá mua nay, mức giá tự đặt dùng giá mua đủ 5 triệu như giảm mạnh; CW rẻ cho đắt ≤ 20% theo
   HV trong khi Danh mục coi đắt ≥ 15% là Nên bán (cùng CW có thể bị báo ngược nhau); ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
   ròng ≥ 2%; "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

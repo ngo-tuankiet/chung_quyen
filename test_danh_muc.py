@@ -283,8 +283,10 @@ def test_canh_bao_cw_dat_chuyen_sang_co_phieu():
     )
     noi_dung = cb(bid(1.2), cung_ma([20, 25, 30]))  # +20% so với mô hình, IV > trung vị 25% -> báo
     assert noi_dung.startswith("CW đắt hơn mô hình +2") and "trung vị 25% của 3 CW VPB" in noi_dung
-    # 1.000 CW / tỷ lệ 2 = 500 cp ≈ 12.500.000 đ; theo delta N(d1) × 500 làm tròn lô 100
-    delta = cw_scanner.black_scholes_call(25000, 20000, T, 0.04, 0.30)[1]
+    # 1.000 CW / tỷ lệ 2 = 500 cp ≈ 12.500.000 đ; theo delta N(d1) × 500 làm tròn lô 100, delta ở IV của giá chờ mua (63%)
+    # như cột Delta / Đòn bẩy, không ở HV 30% (audit 04/11/2026)
+    iv_ban = cw_scanner.bien_dong_ngam_dinh(bid(1.2), 25000, 20000, T, 0.04, 2)
+    delta = cw_scanner.black_scholes_call(25000, 20000, T, 0.04, iv_ban)[1]
     assert "đủ số 500 cp ≈ 12.500.000 đ" in noi_dung and f"theo delta {D.so(D.lo_100(500 * delta))} cp" in noi_dung
     assert f"Bán hết thu ≈ {D.so(1000 * bid(1.2) * 0.9975)} đ" in noi_dung
     assert cb(bid(1.1), cung_ma([20, 25, 30])) == ""  # chỉ +10%
