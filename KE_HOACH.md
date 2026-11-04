@@ -783,6 +783,10 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   IV mốc 50,0% (3.000 đ khi VPB 25.000), VPB 24.000 -> lẽ ra 2.593 đ; chào bán 2.000 -> −22,9%, có 2.000 × 2.500 = 5 triệu -> có.
   Mốc phải là giá yết thật: lúc quét có ≥ 5 triệu chào bán (Giá mua × KL chào bán), lô lẻ thổi IV mốc lên thì hôm sau báo
   "rẻ" giả. Không phòng hộ được (chưa bán khống cổ phiếu); có thể là TCPH chủ động hạ IV (ACBS, Vietcap) chứ không phải bán nhầm.
+  **Sửa 04/11/2026 (người dùng nói rõ "phải đủ 1 trong 2 điều kiện"):** ngoài lệch ≤ −15%, CW phải thuộc top 30 **hoặc** giá chào
+  bán < giá hợp lý theo HV (Đắt/rẻ HV ra Rẻ; thiếu HV thì không báo). Điều kiện IV ≤ trung vị cùng mã (02/11) và cách hiểu
+  "IV rẻ = IV ≤ trung vị" của bản 03/11 **bỏ**: 04/11 09:56 có 6 CW FPT lọt vì IV 33–51% thấp hơn trung vị 54%, nhưng cả nhóm CW
+  FPT yết IV cao gần gấp đôi HV 31% nên 6 mã đắt 21–845% theo HV. CFPT2638 (IV 61%, HV 31%) vẫn bị loại theo cách mới.
   **Nới 03/11/2026 (người dùng chốt "top 30 hoặc IV rẻ"):** CW thuộc 30 dòng đầu danh sách Chứng quyền (`SO_TOP_CW_RE`, thứ tự
   file quét: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV ≤ trung vị bên dưới; ngưỡng lệch giữ 15%. Bảng ghi
   "top 30" cạnh mã. Đo 03/11 13:27: chưa thêm mã nào (không CW top 30 nào lệch tới −15%); 2 mã đang báo CSHB2615 (40 đ),

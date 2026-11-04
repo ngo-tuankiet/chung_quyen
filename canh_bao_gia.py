@@ -37,8 +37,9 @@ import phai_sinh as P
 
 # ============ CẤU HÌNH ============
 NGUONG_LECH_CW = D.NGUONG_LECH_GIAM_MANH  # 15%: cùng ngưỡng lệch của cảnh báo CW giảm mạnh (người dùng chốt 30/10/2026)
-# CW trong ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) không cần điều kiện IV ≤ trung vị cùng mã (người dùng chốt
-# 03/11/2026: "top 30 hoặc IV rẻ"; đo 03/11 13:27 chưa thêm mã nào vì không CW top 30 nào lệch tới −15%)
+# Ngoài lệch, CW phải đạt 1 trong 2: thuộc ngần này dòng đầu danh sách Chứng quyền (thứ tự file quét) HOẶC định giá rẻ theo HV
+# (giá chào bán < giá hợp lý, cột Đắt/rẻ HV ra "Rẻ"). Người dùng chốt 03/11/2026 "top 30 hoặc IV định giá rẻ", nói rõ 04/11/2026
+# sau khi thấy 6 CW FPT đắt 21–845% theo HV vẫn được báo vì bản 03/11 hiểu "IV rẻ" là IV ≤ trung vị cùng mã.
 SO_TOP_CW_RE = 30
 MIN_GIA_TRI_MUA = (
     C.GIA_TRI_KHOP_TOI_THIEU
@@ -170,9 +171,8 @@ def ban_ghi_cua(ma, bang_gia):
 def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
     """CW có giá chào bán thấp hơn giá lẽ ra theo CS ≥ NGUONG_LECH_CW và ≥ MIN_GIA_TRI_MUA đồng chào bán ở các mức rẻ đó.
     Bỏ CW còn < MIN_NGAY_GD_CUOI_LUOT ngày tới ngày GD cuối (sắp hết đường bán), CW lúc quét không có giá chào bán thật
-    (IV mốc phải từ giá tổ chức phát hành yết) và CW mà IV ở giá chào bán bây giờ vẫn cao hơn trung vị IV các CW cùng CS lúc quét
-    (cột "IV cùng mã %"; không có trung vị hoặc giá dưới mức tối thiểu, không giải được IV, thì vẫn báo). CW trong SO_TOP_CW_RE
-    dòng đầu df (thứ tự file quét = trang Chứng quyền: Nên xem xét trước, IV − HV thấp trước) không cần điều kiện IV đó.
+    (IV mốc phải từ giá tổ chức phát hành yết). CW còn lại phải thuộc SO_TOP_CW_RE dòng đầu df (thứ tự file quét = trang Chứng
+    quyền: Nên xem xét trước, IV − HV thấp trước) HOẶC có giá chào bán thấp hơn giá hợp lý theo HV (dat_re < 0; thiếu HV: không báo).
     Trả về [dict] xếp lệch sâu nhất trước; iv, iv_tv tính bằng %; top: CW thuộc SO_TOP_CW_RE dòng đầu; dat_re: giá chào bán so với
     giá hợp lý theo HV (như cột Đắt/rẻ); re_cung_ma: so với giá nếu yết ở IV trung vị cùng mã; lech_20: Lệch 20 phiên ở giá chào
     bán (cần lich_su = giá CS lúc quét, D.doc_lich_su; không có thì NaN; lịch sử CW tải vnstock, nhớ theo ngày)."""
@@ -204,18 +204,18 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
         if not round(lech, 9) <= -NGUONG_LECH_CW:  # NaN: không tính được giá lẽ ra -> bỏ
             continue
         # rẻ so với chính nó chưa đủ: TCPH hạ một IV quá cao thì CW vẫn đắt (CFPT2638 02/11/2026: lệch −72% mà IV còn 61%,
-        # HV 31%, trung vị 29 CW FPT khác 52%) -> chỉ báo khi IV không cao hơn trung vị cùng mã (người dùng chốt 02/11/2026)
-        iv, iv_tv = C.bien_dong_ngam_dinh(gia, S, K, (dao_han - hom_nay).days / C.NGAY_MOT_NAM, r, ty_le), h.get(
-            "IV cùng mã %"
-        )
-        if ma not in top and iv is not None and pd.notna(iv_tv) and iv * 100 > iv_tv:
+        # HV 31%) -> ngoài top 30 chỉ báo khi định giá rẻ theo HV (người dùng chốt 03–04/11/2026, thay điều kiện IV ≤ trung vị
+        # cùng mã của 02/11: 04/11 cả nhóm CW FPT yết IV ~54% so với HV 31% nên "rẻ hơn cùng mã" vẫn đắt 21–845%)
+        T, hv, iv_tv = (dao_han - hom_nay).days / C.NGAY_MOT_NAM, h.get("Biến động %/năm"), h.get("IV cùng mã %")
+        dat_re = C.so_voi_gia_bs(gia, S, K, T, r, float(hv) / 100, ty_le) if pd.notna(hv) else math.nan
+        if ma not in top and not dat_re < 0:  # NaN (thiếu HV): không biết rẻ -> không báo
             continue
+        iv = C.bien_dong_ngam_dinh(gia, S, K, T, r, ty_le)
         le_ra = gia / (1 + lech)
         mua_duoc = gia_tri_chao_ban_den(so_lenh, le_ra * (1 - NGUONG_LECH_CW))
         if mua_duoc < MIN_GIA_TRI_MUA:
             continue
         cho_mua = C.gia_cho_mua(so_lenh)
-        T, hv = (dao_han - hom_nay).days / C.NGAY_MOT_NAM, h.get("Biến động %/năm")
         lech_20 = math.nan
         if lich_su and cs in lich_su:
             gia_cw, kl_cw = D.lich_su_cw_nho(ma, gia, hom_nay)
@@ -236,7 +236,7 @@ def cw_lech_re(df, bang_gia, ngay_quet, hom_nay, lich_su=None):
                 "iv": iv * 100 if iv is not None else math.nan,
                 "iv_tv": float(iv_tv) if pd.notna(iv_tv) else math.nan,
                 "top": ma in top,
-                "dat_re": C.so_voi_gia_bs(gia, S, K, T, r, float(hv) / 100, ty_le) if pd.notna(hv) else math.nan,
+                "dat_re": dat_re,
                 "re_cung_ma": (
                     C.so_voi_gia_bs(gia, S, K, T, r, float(iv_tv) / 100, ty_le) if pd.notna(iv_tv) else math.nan
                 ),

@@ -245,9 +245,9 @@ def trang_huong_dan():
         "basis theo ngày. Phí, thuế, ký quỹ là giả định theo 1 công ty lớn: kiểm tra lại với công ty chứng khoán của bạn.</li></ul></section>"
         '<section class="the" id="canh-bao"><h2>11. Trang 🔔 Cảnh báo: giá lệch bất thường và mức giá tự đặt</h2><ul>'
         "<li>Chỉ hiện chỗ giá <b>đang mua được</b> lệch bất thường lúc mở trang (so giá chào bán / chờ mua trong sổ lệnh, cần ≥ 5 "
-        "triệu ở mức rẻ đó; nến giật vì lô lẻ không tính): <b>CW</b> rẻ hơn giá lẽ ra theo cổ phiếu cơ sở từ 15% mà IV không cao "
-        "hơn các CW cùng mã (CW đắt bị hạ bớt giá vẫn là CW đắt; CW trong 30 dòng đầu danh sách Chứng quyền thì không cần điều "
-        "kiện IV này), <b>ETF</b> mua "
+        "triệu ở mức rẻ đó; nến giật vì lô lẻ không tính): <b>CW</b> rẻ hơn giá lẽ ra theo cổ phiếu cơ sở từ 15% và thuộc 30 "
+        "dòng đầu danh sách Chứng quyền hoặc giá thấp hơn giá hợp lý theo biến động 1 năm (CW đắt bị hạ bớt giá vẫn là CW đắt), "
+        "<b>ETF</b> mua "
         "được dưới iNAV đủ lãi ròng ≥ 2%, <b>hợp đồng tương lai</b> đắt / rẻ so với giá hợp lý sau chi phí.</li>"
         "<li><b>Phòng hộ ETF</b>: quỹ VN30 / VN100 bán hợp đồng tương lai cùng chỉ số để lãi/lỗ không phụ thuộc thị trường lên xuống; "
         "1 hợp đồng ứng khoảng 186 triệu ETF nên lệnh nhỏ không phòng hộ trọn được. CW không phòng hộ được.</li>"
