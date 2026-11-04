@@ -51,12 +51,13 @@ def test_gia_mua_1_lenh_tinh_tay():
     assert math.isnan(CK.danh_gia_quy(ban_ghi())["CK 1 lệnh %"])
 
 
-def test_gia_tri_chao_ban_duoi_inav_tinh_tay():
-    # iNAV 10.000, ngưỡng −2% -> giá ≤ 9.800: 9.700 × 300 + 9.750 × 500 = 2.910.000 + 4.875.000 = 7.785.000; 9.900 không tính
-    assert CK.gia_tri_duoi_inav(ban_ghi()) == 7_785_000
-    assert CK.gia_tri_duoi_inav(ban_ghi(chao_ban=((9_800, 600),))) == 5_880_000  # đúng −2,0%: tính
-    assert CK.gia_tri_duoi_inav(ban_ghi(chao_ban=((9_801, 600),))) == 0  # −1,99%: chưa tới
-    assert CK.gia_tri_duoi_inav(ban_ghi(inav=0)) == 0
+def test_canh_bao_trong_phien_cung_nguong_lai_rong_voi_trang():
+    # Từ 04/11/2026 Discord dùng ngưỡng 🟢: lãi ròng 2% <=> giá ≤ iNAV × 0,9975 / (1,0015 × 1,02) = 9.764,8 khi iNAV 10.000.
+    # 9.780 × 1.000 (9,78 triệu, −2,2%): lãi ròng 9.975 / (9.780 × 1,0015) − 1 = 1,84% -> không (trước báo vì ≤ iNAV × 0,98);
+    # 9.760 × 1.000: lãi ròng 2,05% -> 9,76 triệu đạt
+    assert CK.danh_gia_quy(ban_ghi(chao_ban=((9_780, 1_000),)))["Mua được đạt ngưỡng (đ)"] == 0
+    assert CK.danh_gia_quy(ban_ghi(chao_ban=((9_760, 1_000),)))["Mua được đạt ngưỡng (đ)"] == 9_760_000
+    assert CK.danh_gia_quy(ban_ghi(inav=0))["Mua được đạt ngưỡng (đ)"] == 0
 
 
 def test_giu_may_thuc_trong_khung_gio():
@@ -199,7 +200,7 @@ def test_kiem_tra_trong_phien():
         dong = (Path(tmp) / "inav_2026-10-23.csv").read_text(encoding="utf-8-sig").splitlines()
         assert dong[0].startswith("Giờ,Mã,iNAV") and dong[1].startswith("10:00:00,E1VFVN30,33900")
         assert _chay(tmp, ssi, luc, url="")[0] == []  # chưa có webhook: không lưu trạng thái
-        # FUESSV30 bình thường cao hơn NAV +1,0%: chào bán 7,8 triệu ở giá ≤ iNAV −2% là bất thường -> báo.
+        # FUESSV30 bình thường cao hơn NAV +1,0%: chào bán 7,8 triệu ở giá đủ lãi ròng ≥ 2% (9.700, 9.750) là bất thường -> báo.
         # FUEIP100 cùng sổ lệnh nhưng thường đã −4,6%: rẻ như vậy là bình thường của nó -> không báo
         pd.DataFrame(
             {"Mã": ["FUEIP100", "FUESSV30"], "CL NAV trung vị 1N %": [-4.6, 1.0], "GTGD TB20 (tỷ)": [0.012, 0.24]}
@@ -209,7 +210,8 @@ def test_kiem_tra_trong_phien():
         tin = gui.call_args[0][0]
         assert bao == ["FUESSV30"] and gui.call_count == 1 and tin.startswith("**🔻 ETF giảm bất thường so với iNAV**")
         assert (
-            "🔻 **FUESSV30**: chào bán 9.700 × 300 CCQ, iNAV 10.000 (-3,0%) · có 8 triệu chào bán ở giá ≤ iNAV −2%"
+            "🔻 **FUESSV30**: chào bán 9.700 × 300 CCQ, iNAV 10.000 (-3,0%, lãi ròng nếu về iNAV +2,7%) · có 8 triệu chào bán "
+            "ở giá đủ lãi ròng ≥ 2%"
             " · thường lệch NAV +1,0% (trung vị 1 năm) · GTGD TB20 0,24 tỷ" in tin
         )
         assert "FUEIP100" not in tin and "E1VFVN30" not in tin  # E1VFVN30: chào bán cao hơn iNAV
@@ -220,6 +222,18 @@ def test_kiem_tra_trong_phien():
         assert (
             len((Path(tmp) / "inav_2026-10-23.csv").read_text(encoding="utf-8-sig").splitlines()) == 1 + 2 * 2 + 3 * 2
         )  # 2 lần 2 quỹ, 2 lần 3 quỹ
+
+
+def test_kiem_tra_trong_phien_chi_bao_khi_du_lai_rong():
+    # iNAV 10.000: FUEVN100 chào bán 9.780 × 1.000 (−2,2%, lãi ròng 1,84%) -> trước 04/11/2026 Discord báo, trang không hiện;
+    # nay không báo. FUEDCMID 9.760 × 1.000 (lãi ròng 2,05%, 9,76 triệu) -> báo
+    ssi = {
+        "FUEVN100": ban_ghi("FUEVN100", chao_ban=((9_780, 1_000),)),
+        "FUEDCMID": ban_ghi("FUEDCMID", chao_ban=((9_760, 1_000),)),
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        bao, gui, _ = _chay(tmp, ssi, datetime(2026, 10, 23, 10, 0))
+    assert bao == ["FUEDCMID"] and gui.call_count == 1 and "FUEVN100" not in gui.call_args[0][0]
 
 
 def test_lay_ssi_chi_nhan_ma_hop_le():

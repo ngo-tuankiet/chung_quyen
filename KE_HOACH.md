@@ -603,8 +603,10 @@ Không phải do chia cổ tức (21 quỹ không có sự kiện nào; E1VFVN30
 - Tự động: `bash cai_lich_quet.sh` cài lịch `vn.cw-scanner.etf` (`chay_etf_tu_dong.sh`, **9:40 thứ Hai–Sáu**, giữa phiên sáng; trước 23/10/2026
   là 15:30; ngày nghỉ bỏ qua, lỗi thì thử lại 2 lần rồi báo lỗi lên Discord) và `vn.cw-scanner.chiet-khau` (`kiem_tra_chiet_khau.sh`, **mỗi 5 phút trong giờ khớp lệnh**).
 - Lần chạy 5 phút ghi iNAV, giá chào bán, giá khớp của 21 quỹ vào `ket_qua/inav_YYYY-MM-DD.csv` (không nguồn nào lưu sẵn lịch sử iNAV).
-  **Cảnh báo Discord trong phiên: 🔻 ETF giảm bất thường so với iNAV** (`BAT_CANH_BAO_TRONG_PHIEN = True`; tiêu chí người dùng chốt 23/10/2026,
-  thay cảnh báo cũ "lãi ròng nếu về NAV ≥ 2%"): báo khi có ≥ 5 triệu (`MIN_GIA_TRI_CHAO_BAN`) đang chào bán ở giá ≤ iNAV × (1 − 2%)
+  **Cảnh báo Discord trong phiên: 🔻 ETF giảm bất thường so với iNAV** (`BAT_CANH_BAO_TRONG_PHIEN = True`; **từ 04/11/2026 dùng đúng ngưỡng
+  🟢 của trang**: ≥ 5 triệu đang chào bán ở giá đủ lãi ròng ≥ 2% nếu về iNAV, tức giá ≤ iNAV × 0,9765 — người dùng chọn ở đợt rà soát để
+  Discord và trang Cảnh báo không lệch nhau; ví dụ chào bán 9.780 khi iNAV 10.000: −2,2% nhưng lãi ròng 1,84%, nay không báo. Mô tả dưới
+  đây là quy tắc 23/10–04/11): báo khi có ≥ 5 triệu (`MIN_GIA_TRI_CHAO_BAN`) đang chào bán ở giá ≤ iNAV × (1 − 2%)
   (`NGUONG_GIAM_SO_INAV`) trong 3 mức chào bán tốt nhất, **trừ quỹ thường đã rẻ như vậy** (trung vị giá/NAV 1 năm ≤ −2% trong báo cáo ETF
   gần nhất: FUEIP100 ~−4,6%, FUEFCV50 ~−7,6%); quỹ chưa rõ mức thường vẫn báo. Ví dụ tính tay: iNAV 10.000, chào bán 9.700 × 300, 9.750 × 500,
   9.900 × 1.000 → mức ≤ 9.800: 2,91 + 4,875 = 7,785 triệu ≥ 5 triệu → báo. Mỗi quỹ tối đa 1 tin/ngày (trạng thái `canh_bao_chiet_khau.json`):
@@ -869,6 +871,6 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   vẫn dùng giá chào bán thấp nhất. **B3 làm 04/11/2026:** CW rẻ ngoài top 30 chỉ báo khi đắt ≤ 15% theo HV
   (`MAX_DAT_RE_CW_RE = D.NGUONG_CW_DAT`, trước 20%) để không ngược với "🔴 Nên bán: CW đắt ≥ 15%" của Danh mục; hai bên đo hơi khác
   (giá chào bán / giá hợp lý so với giá bán ngay sau phí / giá trị giữ sau thuế) nên sát ngưỡng vẫn có thể trùng. Biên tính tay
-  (test): giá hợp lý 2.252,4 -> 2.590 (đắt 14,99%) báo, 2.600 (15,4%) không. **Chờ người dùng chọn (nhóm B):** ETF Discord theo giá ≤ iNAV × 0,98, trang theo lãi
-  ròng ≥ 2%; "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  (test): giá hợp lý 2.252,4 -> 2.590 (đắt 14,99%) báo, 2.600 (15,4%) không. **B4 làm 04/11/2026:** ETF Discord trong phiên dùng ngưỡng lãi ròng ≥ 2% như trang (trước giá ≤ iNAV × 0,98).
+  **Chờ người dùng chọn (nhóm B):** "giá hợp lý" HĐTL ở Cảnh báo nhưng Phái sinh ghi không tính. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

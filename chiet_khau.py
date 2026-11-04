@@ -49,9 +49,11 @@ MAU_MA_QUY = re.compile(r"[A-Z0-9]{3,12}")  # mã do API trả về / URL đưa 
 # Cảnh báo trong phiên: chỉ bật khi iNAV của SSI cập nhật trong phiên (iNAV đứng yên mà giá chạy thì "chiết khấu" là ảo).
 # Đo phiên 23/10/2026 (ket_qua/inav_2026-10-23.csv): 16 lần ghi 10:09–11:25, iNAV cả 21 quỹ đổi ở mọi lần ghi -> bật.
 BAT_CANH_BAO_TRONG_PHIEN = True
-# Từ 23/10/2026 (người dùng chốt, thay cảnh báo "lãi ròng nếu về NAV ≥ 2%"): báo khi có ≥ MIN_GIA_TRI_CHAO_BAN đang chào bán
-# ở giá ≤ iNAV × (1 − NGUONG_GIAM_SO_INAV), trừ quỹ mà trung vị giá/NAV 1 năm đã ≤ −ngưỡng (FUEIP100 ~−4,6%, FUEFCV50 ~−7,6%:
-# rẻ như vậy là bình thường của chúng, không phải bất thường). Mỗi quỹ tối đa 1 tin/ngày.
+# Cảnh báo Discord trong phiên dùng đúng ngưỡng 🟢 của trang (≥ MIN_GIA_TRI_CHAO_BAN đang chào bán ở giá đủ lãi ròng
+# ≥ NGUONG_LAI_RONG nếu về iNAV) từ 04/11/2026 (rà soát, người dùng chọn: 23/10–04/11 báo theo giá ≤ iNAV × 0,98 nên Discord
+# báo những quỹ trang Cảnh báo không hiện, vd chào bán 9.780 khi iNAV 10.000: −2,2% nhưng lãi ròng chỉ 1,84%).
+# NGUONG_GIAM_SO_INAV nay chỉ để bỏ quỹ mà trung vị giá/NAV 1 năm đã ≤ −2% (FUEIP100 ~−4,6%, FUEFCV50 ~−7,6%: rẻ như vậy là
+# bình thường của chúng), dùng chung với trang Cảnh báo. Mỗi quỹ tối đa 1 tin/ngày.
 NGUONG_GIAM_SO_INAV = 0.02
 # Máy Mac tự ngủ (chạy pin, ngủ sau 1 phút) làm lỡ lần quét: 23/10/2026 ngủ 08:10–10:06, 13:07–13:53. Người dùng chọn để lịch
 # 5 phút giữ máy thức trong khung này (cả nghỉ trưa), mỗi lần thêm GIU_THUC_GIAY > 5 phút để nối liền lần sau
@@ -113,12 +115,6 @@ def danh_gia_quy(bg):
         "Mua được đạt ngưỡng (đ)": float(sum(g * v for g, v in ban if lai_rong_neu_ve_nav(g, inav) >= NGUONG_LAI_RONG)),
         "CK 1 lệnh %": round((gia_mua_lenh(bg) / inav - 1) * 100, 2),  # NaN nếu 3 mức không đủ 1 lệnh
     }
-
-
-def gia_tri_duoi_inav(bg, nguong=NGUONG_GIAM_SO_INAV):
-    """Tổng giá trị (đồng) đang chào bán ở các mức giá ≤ iNAV × (1 − nguong) trong 3 mức tốt nhất. Không có iNAV -> 0."""
-    inav = bg.get("iNAV") or 0
-    return float(sum(g * v for g, v in muc_chao_ban(bg) if inav > 0 and g <= inav * (1 - nguong)))
 
 
 def lam_sach_nav(dong):
@@ -305,7 +301,8 @@ def noi_dung_canh_bao(dat, luc, tham_khao=None):
     tham_khao = tham_khao or {}
     return f"**🔻 ETF giảm bất thường so với iNAV** ({luc:%H:%M %d/%m})\n" + "\n".join(
         f"🔻 **{ma}**: chào bán {D.so(dg['Giá chào bán'])} × {D.so(dg['KL chào bán'])} CCQ, iNAV {D.so(dg['iNAV'])} "
-        f"({_p(dg['Chiết khấu mua được %'])}) · có {D.so(gia_tri / 1e6)} triệu chào bán ở giá ≤ iNAV −{NGUONG_GIAM_SO_INAV:.0%}"
+        f"({_p(dg['Chiết khấu mua được %'])}, lãi ròng nếu về iNAV {_p(dg['Lãi ròng nếu về NAV %'])}) · có "
+        f"{D.so(gia_tri / 1e6)} triệu chào bán ở giá đủ lãi ròng ≥ {NGUONG_LAI_RONG:.0%}"
         + (
             f" · thường lệch NAV {_p(tham_khao[ma][0])} (trung vị 1 năm) · GTGD TB20 {_ty(tham_khao[ma][1])} tỷ"
             if ma in tham_khao
@@ -342,7 +339,8 @@ def kiem_tra_trong_phien(luon=False, luc=None):
     hom_nay = str(luc.date())
     da_bao = json.loads(FILE_DA_BAO.read_text(encoding="utf-8")) if FILE_DA_BAO.exists() else {}
     da_bao = {ma: ngay for ma, ngay in da_bao.items() if ngay == hom_nay}
-    gia_tri = {ma: gia_tri_duoi_inav(bg) for ma, bg in sorted(ssi.items()) if ma not in da_bao}
+    # cùng ngưỡng 🟢 với trang ETF / Cảnh báo: giá trị chào bán ở các mức đủ lãi ròng ≥ NGUONG_LAI_RONG nếu về iNAV
+    gia_tri = {ma: danh_gia_quy(bg)["Mua được đạt ngưỡng (đ)"] for ma, bg in sorted(ssi.items()) if ma not in da_bao}
     gia_tri = {ma: g for ma, g in gia_tri.items() if g >= MIN_GIA_TRI_CHAO_BAN}
     if not gia_tri:
         return []
