@@ -499,6 +499,50 @@ def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
         ] and web_chung.LOI_DANH_MUC == ""
 
 
+def test_trang_danh_muc_chot_va_trung_binh_gia():
+    import web_chung
+    import web_danh_muc
+
+    # giá chốt điền sẵn theo nghìn đồng: 80 đ -> "0,08" (ghi "80" sẽ bị doc_gia hiểu là 80.000 đ), 1.230 đ -> "1,23"
+    o = web_danh_muc.o_thao_tac("CVPB2615", 2700, 80, HOM_NAY)
+    assert (
+        'value="0,08"' in o
+        and D.doc_gia("0,08") == 80
+        and 'max="2700"' in o
+        and 'value="BAN"' in o
+        and 'value="MUA"' in o
+    )
+    assert D.doc_gia("1,23") == 1230 and 'value="1,23"' in web_danh_muc.o_thao_tac("CVPB2615", 100, 1230, HOM_NAY)
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),
+        mock.patch.object(web_chung, "doc_ket_qua", return_value=(DF, HOM_NAY)),
+        mock.patch.object(
+            cw_scanner,
+            "lay_bang_gia",
+            side_effect=lambda ds, cho=30: {
+                m: v for m, v in bang_gia_mau(700, 25000, HOM_NAY + timedelta(days=60)).items() if m in ds
+            },
+        ),
+    ):
+        D.ghi_lenh([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+        trang = web_danh_muc.trang_danh_muc()
+        assert "✕ Chốt" in trang and "+ Trung bình giá" in trang and 'value="0,7"' in trang  # giá chờ mua 700 đ
+        # + Trung bình giá: mua thêm 1.000 @900 -> giá vốn = (1.000 × 1.001,5 + 1.000 × 901,35) / 2.000 = 951,4
+        form = {"ngay": ["2026-10-02"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["1000"], "gia": ["0,9"]}
+        assert D.them_lenh(form, {"CVPB2615"}, HOM_NAY) == []
+        trang = web_danh_muc.trang_danh_muc()
+        assert "951,4" in trang and "Đã chốt (" not in trang
+        # ✕ Chốt hết 2.000 @700: 2.000 × (700 × 0,9975 − 951,425) = 2.000 × (698,25 − 951,425) = −506.350 đ
+        form = {"ngay": ["2026-10-03"], "ma_cw": ["CVPB2615"], "loai": ["BAN"], "so_luong": ["2000"], "gia": ["0,7"]}
+        assert D.them_lenh(form, {"CVPB2615"}, HOM_NAY) == []
+        trang = web_danh_muc.trang_danh_muc()
+        assert (
+            "✕ Đã chốt (1 mã)" in trang and "03/10/2026" in trang and "-506.350 đ" in trang and "Đang nắm" not in trang
+        )
+        assert "✕ Bán" in trang  # lịch sử lệnh đánh dấu lệnh bán
+
+
 def test_trang_danh_muc():
     import web_chung
     import web_danh_muc

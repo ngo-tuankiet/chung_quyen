@@ -24,6 +24,29 @@ def o_trang_thai(tt):
     return "<br>".join(dong)
 
 
+def o_thao_tac(ma, so_luong, gia_ban, hom_nay):
+    """Ô Thao tác của 1 vị thế: ✕ Chốt (lệnh bán, mặc định bán hết ở giá chờ mua tốt nhất) và + Trung bình giá (lệnh mua thêm).
+    Cả hai gửi về /danh-muc/them như form Thêm lệnh, nên kiểm tra (bán không vượt số đang nắm, lô 100, bước giá) và giá vốn
+    bình quân dùng chung danh_muc.them_lenh / tinh_vi_the."""
+
+    def form(nhan, loai, kl, gia, nut):
+        kl_max = f' max="{so_luong}"' if loai == "BAN" else ""
+        return (
+            f'<details class="thao-tac"><summary>{nhan}</summary><form method="post" action="/danh-muc/them" class="form-lenh">'
+            f'<input type="hidden" name="ma_cw" value="{ma}"><input type="hidden" name="loai" value="{loai}">'
+            f'<label>Ngày<input type="date" name="ngay" value="{hom_nay}" max="{hom_nay}" required></label>'
+            f'<label>Số lượng<input type="number" name="so_luong" min="100" step="100"{kl_max} value="{kl}" required></label>'
+            f'<label>Giá<input name="gia" inputmode="decimal" required size="7" value="{gia}" placeholder="0,87"></label>'
+            f'<button class="nut">{nut}</button></form></details>'
+        )
+
+    # điền sẵn theo nghìn đồng (0,08 = 80 đ) như app chứng khoán: danh_muc.doc_gia hiểu số < 100 là nghìn đồng
+    gia = f"{gia_ban / 1000:g}".replace(".", ",") if gia_ban else ""
+    return form("✕ Chốt", "BAN", so_luong, gia, "Lưu lệnh bán") + form(
+        "+ Trung bình giá", "MUA", "", "", "Lưu lệnh mua"
+    )
+
+
 def trang_danh_muc():
     """Danh mục CW đang nắm: thêm/xóa lệnh, vị thế và cảnh báo theo giá trực tiếp."""
     C, D = cw_scanner, danh_muc
@@ -48,8 +71,9 @@ def trang_danh_muc():
         )
         return trang("Danh mục", "".join(phan), "/danh-muc")
     vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
+    hom_nay = date.today()
 
-    m_canh_bao = m_dang_nam = m_lich_su = ""
+    m_canh_bao = m_dang_nam = m_da_chot = m_lich_su = ""
     # Vị thế đang nắm (giá trực tiếp)
     if vt:
         try:
@@ -80,7 +104,8 @@ def trang_danh_muc():
             ma = ESC(d["ma"])
             if not d["co_gia"]:
                 hang.append(
-                    f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td></td><td class="so">{so(d["so_luong"])}</td>'
+                    f'<tr><td><a href="/cw/{ma}">{ma}</a>{o_thao_tac(ma, d["so_luong"], None, hom_nay)}</td><td></td>'
+                    f'<td class="so">{so(d["so_luong"])}</td>'
                     f'<td class="so">{so(d["gia_von"], 1)}</td><td colspan="7">không có giá trực tiếp</td></tr>'
                 )
                 continue
@@ -89,8 +114,10 @@ def trang_danh_muc():
             ngay_gd = (
                 f"{d['ngay_gd_cuoi']:%d/%m/%Y}<br><small>còn {d['con_ngay']} ngày</small>" if d["ngay_gd_cuoi"] else "—"
             )
+            # ✕ Chốt / + Trung bình giá nằm dưới mã: bảng rộng hơn màn hình (cột Trạng thái dài), cột cuối phải kéo ngang mới thấy
+            thao_tac = o_thao_tac(ma, d["so_luong"], d["gia_ban"] if d["co_nguoi_mua"] else None, hom_nay)
             hang.append(
-                f'<tr><td><a href="/cw/{ma}">{ma}</a></td><td>{ESC(d["cs"])}</td><td class="so">{so(d["so_luong"])}</td>'
+                f'<tr><td><a href="/cw/{ma}">{ma}</a>{thao_tac}</td><td>{ESC(d["cs"])}</td><td class="so">{so(d["so_luong"])}</td>'
                 f'<td class="so">{so(d["gia_von"], 1)}</td><td class="so">{so(d["gia_ban"])}{"" if d["co_nguoi_mua"] else " <small class=am>không ai mua</small>"}</td>'
                 f'<td class="so {lop}">{so(d["lai"], 0, True)}<br><small>{so(d["lai_pct"] * 100, 1, True)}%</small></td>'
                 f'<td class="so">+{so(d["chot_loi"] * 100, 0)}% / −{so(d["cat_lo"] * 100, 0)}%</td>'
@@ -104,7 +131,9 @@ def trang_danh_muc():
             tiep_xuc[d["cs"]] = tiep_xuc.get(d["cs"], 0) + d["tiep_xuc"]
         von = sum(d["so_luong"] * d["gia_von"] for d in dong)
         m_dang_nam = (
-            f'<section class="the"><h2>Đang nắm ({len(dong)} mã)</h2><p class="phu">Giá: {nguon}.</p><div class="luoi-o">'
+            f'<section class="the"><h2>Đang nắm ({len(dong)} mã)</h2><p class="phu">Giá: {nguon}. Dưới mỗi mã: <b>✕ Chốt</b> ghi lệnh '
+            "bán (mặc định bán hết ở giá chờ mua tốt nhất, sửa được), <b>+ Trung bình giá</b> ghi lệnh mua thêm, giá vốn tự tính lại "
+            'bình quân.</p><div class="luoi-o">'
             + o_so(
                 "Tiền vốn đang nằm trong CW", f"{so(von / 1e6, 1)} triệu đ", "theo giá vốn bình quân, đã gồm phí mua"
             )
@@ -129,10 +158,25 @@ def trang_danh_muc():
             '<th class="so">Giá CS / giá TH</th><th>Ngày GD cuối</th><th class="so">Đòn bẩy</th><th>Trạng thái</th></tr></thead>'
             f'<tbody>{"".join(hang)}</tbody></table></div></section>'
         )
+    # Mã đã bán hết: dấu ✕, ngày bán cuối, lãi/lỗ đã chốt (đã trừ phí, thuế)
+    da_chot = sorted(m for m, v in tat_ca.items() if not v["so_luong"])
+    if da_chot:
+        ngay_ban = {m: max(d["ngay"] for d in ds if d["ma_cw"] == m and d["loai"] == "BAN") for m in da_chot}
+        hang = "".join(
+            f'<tr><td>✕ <a href="/cw/{ESC(m)}">{ESC(m)}</a></td><td>{ngay_ban[m][8:]}/{ngay_ban[m][5:7]}/{ngay_ban[m][:4]}</td>'
+            f'<td class="so {"duong" if tat_ca[m]["lai_da_chot"] >= 0 else "am"}">{so(tat_ca[m]["lai_da_chot"], 0, True)} đ</td></tr>'
+            for m in sorted(da_chot, key=lambda m: ngay_ban[m], reverse=True)
+        )
+        m_da_chot = (
+            f'<section class="the"><h2>✕ Đã chốt ({len(da_chot)} mã)</h2><p class="phu">Mã đã bán hết. Lãi/lỗ đã trừ phí, thuế, '
+            "theo giá vốn bình quân lúc bán.</p>"
+            '<div class="cuon"><table><thead><tr><th>Mã CW</th><th>Ngày bán cuối</th><th class="so">Lãi/lỗ đã chốt</th></tr></thead>'
+            f"<tbody>{hang}</tbody></table></div></section>"
+        )
     lai_chot = sum(v["lai_da_chot"] for v in tat_ca.values())
 
     # Thêm lệnh
-    hom_nay, ds_ma = date.today(), sorted(df["Mã CW"]) if df is not None else []
+    ds_ma = sorted(df["Mã CW"]) if df is not None else []
     m_them = (
         '<form method="post" action="/danh-muc/them" class="the form-lenh"><h2>Thêm lệnh</h2>'
         f'<label>Ngày<input type="date" name="ngay" value="{hom_nay}" max="{hom_nay}" required></label>'
@@ -156,7 +200,7 @@ def trang_danh_muc():
         )
         hang = "".join(
             f'<tr><td class="so">{d["id"]}</td><td>{d["ngay"][8:]}/{d["ngay"][5:7]}/{d["ngay"][:4]}</td><td>{ESC(d["ma_cw"])}</td>'
-            f'<td>{"Mua" if d["loai"] == "MUA" else "Bán"}</td><td class="so">{so(d["so_luong"])}</td><td class="so">{so(d["gia"])}</td>'
+            f'<td>{"Mua" if d["loai"] == "MUA" else "✕ Bán"}</td><td class="so">{so(d["so_luong"])}</td><td class="so">{so(d["gia"])}</td>'
             f'<td class="so">{nguong(d)}</td><td class="ly-do">{ESC(d["ghi_chu"])}</td>'
             f'<td><form method="post" action="/danh-muc/xoa" onsubmit="return confirm(\'Xóa lệnh số {d["id"]}?\')">'
             f'<input type="hidden" name="id" value="{d["id"]}"><button class="nut-nho">Xóa</button></form></td></tr>'
@@ -169,5 +213,5 @@ def trang_danh_muc():
             f'<th class="so">Giá</th><th class="so">Chốt / cắt</th><th>Ghi chú</th><th></th></tr></thead><tbody>{hang}</tbody></table></div></section>'
         )
     # Cảnh báo | Thêm lệnh cạnh nhau (người dùng chọn 30/10/2026), bảng Đang nắm và Lịch sử lệnh trải ngang
-    phan += [hang_doi(m_canh_bao, m_them), m_dang_nam, m_lich_su]
+    phan += [hang_doi(m_canh_bao, m_them), m_dang_nam, m_da_chot, m_lich_su]
     return trang("Danh mục", "".join(phan), "/danh-muc")

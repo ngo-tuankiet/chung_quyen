@@ -307,6 +307,10 @@ Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scann
 1. Trang **💼 Danh mục** trên web: nhập từng lệnh mua/bán (mã, ngày, số lượng, giá khớp; chốt lời/cắt lỗ riêng nếu muốn). Lệnh lưu trong
    `danh_muc.csv` (ghi an toàn: file tạm rồi đổi tên, bản trước ở `danh_muc.csv.bak`; mỗi ngày sao lưu 1 bản vào `~/cw_scanner_sao_luu/`).
    Giá vốn bình quân (đã gồm phí mua) như app công ty chứng khoán; lãi/lỗ tính **nếu bán ngay** ở giá chờ mua tốt nhất sau phí và thuế.
+   Thêm 04/11/2026: dưới mỗi mã ở bảng *Đang nắm* có **✕ Chốt** (ghi lệnh bán; điền sẵn bán hết ở giá chờ mua tốt nhất, theo nghìn
+   đồng 0,68 = 680 đ, sửa được) và **+ Trung bình giá** (ghi lệnh mua thêm, giá vốn tự tính lại bình quân). Hai nút dùng đúng kiểm
+   tra của form *Thêm lệnh* (bán không vượt số đang nắm, lô 100, bước giá 10 đ). Mã đã bán hết hiện ở mục **✕ Đã chốt** (ngày bán
+   cuối, lãi/lỗ đã chốt sau phí, thuế); lệnh bán trong Lịch sử lệnh ghi "✕ Bán".
 2. Tạo webhook: Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, dán vào `.env`:
    `DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...` (xem `.env.example`). Không có dòng này thì cảnh báo chỉ hiện trên web.
 3. `bash ~/cw_scanner/cai_lich_quet.sh` cài cả lịch kiểm tra danh mục **mỗi 5 phút** (chỉ trong giờ khớp lệnh 9:15–11:30, 13:00–14:45 thứ Hai–Sáu,

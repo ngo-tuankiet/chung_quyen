@@ -299,6 +299,8 @@ footer { color: var(--chu-phu); font-size: 12px; margin-top: 32px; }
 .form-ngang .nut { margin-top: 10px; padding: 7px 18px; }
 .form-lenh input, .form-lenh select { padding: 6px 8px; border: 1px solid var(--truc); border-radius: 6px; background: var(--be-mat); color: var(--chu); font: inherit; }
 .nut-nho { all: unset; cursor: pointer; color: var(--chu-am); font-size: 13px; text-decoration: underline; }
+.thao-tac { margin-top: 4px; } .thao-tac summary { cursor: pointer; color: var(--lien-ket); font-size: 13px; white-space: nowrap; }
+.thao-tac form { margin: 0 0 8px; } .thao-tac label { margin-top: 4px; }
 """
 
 JS = """
