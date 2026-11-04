@@ -46,7 +46,7 @@ def test_gia_von_binh_quan_va_lai_da_chot():
 def test_ban_qua_so_dang_nam_bao_loi():
     try:
         D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 100, 1000), lenh(2, "2026-10-02", "BAN", 200, 1000)])
-        assert False, "phải báo lỗi"
+        raise AssertionError("phải báo lỗi")
     except ValueError as e:
         assert "chỉ nắm 100" in str(e)
 
@@ -322,7 +322,7 @@ def test_chi_gui_canh_bao_vua_xuat_hien():
 def test_gui_discord():
     try:
         D.gui_discord("x", "https://vi-du.com/hook")
-        assert False, "phải từ chối URL không phải Discord"
+        raise AssertionError("phải từ chối URL không phải Discord")
     except ValueError:
         pass
     with mock.patch("urllib.request.urlopen") as mo:
@@ -498,7 +498,7 @@ def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
         )
         try:
             gui("https://trang-la.com")
-            assert False, "phải bị chặn"
+            raise AssertionError("phải bị chặn")
         except urllib.error.HTTPError as e:
             assert e.code == 403
         assert D.doc_lenh() == []
@@ -640,7 +640,7 @@ def test_trang_danh_muc():
         form = {"ngay": ["2026-10-01"], "ma_cw": ["CVPB2615"], "loai": ["MUA"], "so_luong": ["100"], "gia": ["1000"]}
         try:
             D.them_lenh(form, {"CVPB2615"}, HOM_NAY)
-            assert False, "phải từ chối ghi khi file hỏng"
+            raise AssertionError("phải từ chối ghi khi file hỏng")
         except ValueError:
             assert D.FILE_DANH_MUC.read_text(encoding="utf-8") == "hỏng"  # không bị ghi đè
 

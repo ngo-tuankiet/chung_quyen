@@ -15,7 +15,7 @@ LICH = pd.bdate_range("2026-01-05", periods=10)  # T2 05/01 … T6 16/01
 DK = {"ma": "CTST2601", "cs": "TST", "tcph": "X", "K": 20_000.0, "ty_le": 2.0}
 DK |= {"dao_han": date(2026, 12, 31), "gd_cuoi": date(2026, 12, 29)}
 # CW ngang giá: phiên a (05/01) IV 30%, phiên b (12/01, 5 phiên sau) CS +5% và TCPH hạ IV còn 27%
-GIA_CS = pd.Series(20_000.0, LICH).mask(LICH >= LICH[5], 21_000.0)
+GIA_CS = pd.Series(20_000.0, LICH).mask(LICH[5] <= LICH, 21_000.0)
 NAM = lambda d: (DK["dao_han"] - d.date()).days / 365
 GIA = pd.Series(C.black_scholes_call(20_000, 20_000, NAM(LICH[0]), 0.0, 0.30)[0] / 2, LICH)
 GIA.iloc[5] = C.black_scholes_call(21_000, 20_000, NAM(LICH[5]), 0.0, 0.27)[0] / 2
@@ -39,7 +39,7 @@ def test_cua_so():
 
 
 def test_cua_so_bo_loc():
-    assert chay(kl=KL.mask(LICH == LICH[5], 0.0)).empty  # phiên b CW không khớp: giá đóng cửa cũ
+    assert chay(kl=KL.mask(LICH[5] == LICH, 0.0)).empty  # phiên b CW không khớp: giá đóng cửa cũ
     assert chay(dk=DK | {"gd_cuoi": date(2026, 1, 20)}).empty  # phiên a còn 15 ngày tới GD cuối < 20
     assert chay(gia_cs=GIA_CS * 3).empty  # CS 60.000 so K 20.000: delta ≈ 1, ngoài DELTA_DO
 

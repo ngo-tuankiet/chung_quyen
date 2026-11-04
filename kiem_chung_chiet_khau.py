@@ -154,7 +154,7 @@ def lay_du_lieu():
             )
             continue
         gia, kl = E.chuoi_gia(df)
-        he_so = 10 ** round(math.log10(nav.median() / gia.median()))  # vnstock trả nghìn đồng -> đồng
+        he_so = C.he_so_don_vi(nav.median(), gia.median())  # vnstock trả nghìn đồng -> đồng
         du_lieu[ma] = (gia * he_so, kl, nav)
     return lich, du_lieu, canh_bao
 
@@ -240,16 +240,16 @@ def _o_so_sanh(lenh):
 
 def so_sanh(tt, sk):
     """Bảng so tín hiệu tuyệt đối với tương đối trên cùng dữ liệu: theo nhóm thanh khoản (cả 2 kịch bản) và theo quỹ (B)."""
-    nhom_cua, ds_kb = dict(zip(tt["Mã"], tt["Nhóm"])), ("B", "A")  # B là kịch bản chính, đặt trước
+    nhom_cua, ds_kb = dict(zip(tt["Mã"], tt["Nhóm"], strict=True)), ("B", "A")  # B là kịch bản chính, đặt trước
     chon = lambda kb, ten, so_phien: sk[(sk["Kịch bản"] == kb) & (sk["Tín hiệu"] == ten) & (sk["N"] == so_phien)]
     dong = []
     for nhom in [ten for _, ten in NHOM_THANH_KHOAN] + ["Tất cả"]:
         ma = [m for m, nh in nhom_cua.items() if nhom in (nh, "Tất cả")]
-        for so_phien in SO_PHIEN_GIU:
-            dong.append(
-                [nhom, str(so_phien)]
-                + [_o_so_sanh((x := chon(kb, ten, so_phien))[x["Mã"].isin(ma)]) for kb in ds_kb for ten in TIN_HIEU]
-            )
+        dong.extend(
+            [nhom, str(so_phien)]
+            + [_o_so_sanh((x := chon(kb, ten, so_phien))[x["Mã"].isin(ma)]) for kb in ds_kb for ten in TIN_HIEU]
+            for so_phien in SO_PHIEN_GIU
+        )
     dong_quy = [
         [h["Mã"], h["Nhóm"], _p(h["CL TV kỳ"])]
         + [
@@ -273,7 +273,7 @@ def so_sanh(tt, sk):
 def bao_cao(tt, tg, sk, canh_bao, hom_nay, loai="tuyệt đối"):
     """Báo cáo markdown cho 1 loại tín hiệu: giả định, (tương đối: so với tuyệt đối), bảng theo nhóm thanh khoản,
     bảng theo quỹ, cảnh báo dữ liệu. tg, sk chứa mọi loại tín hiệu (cột "Tín hiệu")."""
-    nhom_cua, sk_tat_ca = dict(zip(tt["Mã"], tt["Nhóm"])), sk
+    nhom_cua, sk_tat_ca = dict(zip(tt["Mã"], tt["Nhóm"], strict=True)), sk
     tg, sk = tg[tg["Tín hiệu"] == loai], sk[sk["Tín hiệu"] == loai]
     phan = [
         f"# Kiểm chứng ngưỡng chiết khấu NAV ETF — tín hiệu {loai} ({hom_nay:%d/%m/%Y})",

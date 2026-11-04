@@ -11,4 +11,11 @@ target-version = "py310"
 [tool.ruff.lint]
 # bộ luật mặc định (lỗi cú pháp, tên chưa định nghĩa, import thừa, so sánh sai kiểu...);
 # E731 (cấm gán lambda vào biến): dự án dùng lambda ngắn có chủ đích, đổi sang def chỉ làm code dài thêm
-ignore = ["E731"]
+# Thêm 04/11/2026 (rà soát): UP cú pháp mới, B lỗi hay gặp (zip phải strict: lệch độ dài là dữ liệu sai, phải báo), SIM/C4 viết
+# gọn, BLE bắt `except Exception` phải ghi rõ lý do (# noqa: BLE001), RUF100 noqa thừa, PERF, C901 không cho hàm rối thêm.
+# PERF203 (try trong vòng lặp): cố ý, mỗi mã lỗi thì bỏ mã đó chứ không dừng cả lần chạy.
+extend-select = ["UP", "B", "SIM", "C4", "BLE", "RUF100", "PERF", "C901"]
+ignore = ["E731", "PERF203"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20  # hàm rối nhất hiện tại (danh_gia_danh_muc) là 19: chặn không cho rối hơn, tách dần sau

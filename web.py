@@ -107,6 +107,31 @@ def nguon_hop_le(headers):
     return any(nguon == g or nguon.startswith(g + "/") for g in goc)
 
 
+def dung_trang(duong_dan, path):
+    """HTML của trang GET `duong_dan` hoặc None (404). Trang theo mã chỉ nhận mã đúng mẫu. Bảng dựng lúc gọi để test thay được
+    hàm trang (mock.patch.object(web, "trang_etf", ...))."""
+    tinh = {
+        "/": trang_chinh,
+        "/canh-bao": web_canh_bao.trang_canh_bao,
+        "/etf": trang_etf,
+        "/phai-sinh": trang_phai_sinh,
+        "/danh-muc": trang_danh_muc,
+        "/huong-dan": trang_huong_dan,
+        "/sap-ra-mat": lambda: trang_sap_ra_mat("tai_moi=1" in path),
+    }
+    if duong_dan in tinh:
+        return tinh[duong_dan]()
+    theo_ma = (
+        (r"/cw/([A-Z0-9]{4,12})", lambda ma: trang_chi_tiet(ma, doc_von(path))),
+        (r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", trang_etf_chi_tiet),
+        (r"/phai-sinh/(" + phai_sinh.MAU_MA_HD.pattern + ")", trang_phai_sinh_chi_tiet),
+    )
+    for mau, ham in theo_ma:
+        if m := re.fullmatch(mau, duong_dan):
+            return ham(m.group(1))
+    return None
+
+
 class XuLy(BaseHTTPRequestHandler):
     def do_GET(self):
         duong_dan = self.path.split("?")[0]
@@ -131,46 +156,7 @@ class XuLy(BaseHTTPRequestHandler):
             return
         # đang quét: mọi trang (trừ Hướng dẫn) chỉ hiện màn hình chờ, không đọc file kết quả đang ghi dở
         cho = W.trang_cho() if W.QUET["dang"] and duong_dan != "/huong-dan" else None
-        m = re.fullmatch(r"/cw/([A-Z0-9]{4,12})", duong_dan)  # chỉ nhận mã hợp lệ
-        m_etf = re.fullmatch(r"/etf/(" + chiet_khau.MAU_MA_QUY.pattern + ")", duong_dan)
-        m_ps = re.fullmatch(r"/phai-sinh/(" + phai_sinh.MAU_MA_HD.pattern + ")", duong_dan)  # chỉ nhận mã hợp lệ
-        noi_dung = cho or (
-            web_canh_bao.trang_canh_bao()
-            if duong_dan == "/canh-bao"
-            else (
-                trang_phai_sinh()
-                if duong_dan == "/phai-sinh"
-                else (
-                    trang_phai_sinh_chi_tiet(m_ps.group(1))
-                    if m_ps
-                    else (
-                        trang_etf()
-                        if duong_dan == "/etf"
-                        else (
-                            trang_etf_chi_tiet(m_etf.group(1))
-                            if m_etf
-                            else (
-                                trang_chinh()
-                                if duong_dan == "/"
-                                else (
-                                    trang_huong_dan()
-                                    if duong_dan == "/huong-dan"
-                                    else (
-                                        trang_danh_muc()
-                                        if duong_dan == "/danh-muc"
-                                        else (
-                                            trang_sap_ra_mat("tai_moi=1" in self.path)
-                                            if duong_dan == "/sap-ra-mat"
-                                            else trang_chi_tiet(m.group(1), doc_von(self.path)) if m else None
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
+        noi_dung = cho or dung_trang(duong_dan, self.path)
         self.send_response(200 if noi_dung else 404)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()

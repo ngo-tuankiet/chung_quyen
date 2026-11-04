@@ -11,12 +11,12 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 ## File
 | File | Làm gì | Hàm chính |
 |---|---|---|
-| `cw_scanner.py` | Lõi CW: lấy dữ liệu, Black-Scholes, IV/HV, 4 tiêu chí, lướt, lưu kết quả quét | `black_scholes_call`, `so_voi_gia_bs` (giá / giá BS ở 1 mức σ − 1), `bien_dong_ngam_dinh`, `lay_bang_gia` (API Vietcap), `lay_gia_dong_cua` (vnstock), `lich_su_cw` (giá CW đồng + KL), `bien_dong_lich_su`, `gia_mua`, `muc_so_lenh`, `lech_theo_cs`, `lech_20_phien`, `danh_gia`, `dinh_gia`, `luot_ngan_han`, `chon_luot`, `doc_he_so_iv`, `lai_kb_hieu_chinh`, `la_ngay_giao_dich`, `main` |
+| `cw_scanner.py` | Lõi CW: lấy dữ liệu, Black-Scholes, IV/HV, 4 tiêu chí, lướt, lưu kết quả quét | `he_so_don_vi` (nghìn đồng -> đồng), `black_scholes_call`, `so_voi_gia_bs` (giá / giá BS ở 1 mức σ − 1), `bien_dong_ngam_dinh`, `lay_bang_gia` (API Vietcap), `lay_gia_dong_cua` (vnstock), `lich_su_cw` (giá CW đồng + KL), `bien_dong_lich_su`, `gia_mua`, `muc_so_lenh`, `lech_theo_cs`, `lech_20_phien`, `danh_gia`, `dinh_gia`, `luot_ngan_han`, `chon_luot`, `doc_he_so_iv`, `lai_kb_hieu_chinh`, `la_ngay_giao_dich`, `main` |
 | `danh_muc.py` | Lệnh CW đang nắm (`danh_muc.csv`), vị thế, cảnh báo + báo cáo ngày qua Discord | `them_lenh`, `xoa_lenh`, `tinh_vi_the`, `danh_gia_danh_muc`, `kiem_tra`, `bao_cao_ngay`, `gui_discord`; CW giảm mạnh: `cw_giam_manh` (mốc `moc_lech`, giá `gia_ban_du`); dùng chung với CW rẻ: `lich_su_cw_nho` (nhớ theo ngày, RAM + file `ket_qua/nho_lich_su_cw_<ngày>.json`), `lech_20_o_gia`, `gia_du` (giá mua/bán đủ 5 triệu) |
 | `etf.py` | Báo cáo ETF: giá/NAV, chỉ số kỹ thuật, xếp hạng "rẻ hơn thường" | `lay_du_lieu` (VCI), `lay_nav`, `lap_bang`, `xep_hang`, `bao_cao_gon`, `chay` |
 | `chiet_khau.py` | Chiết khấu ETF so với iNAV (SSI), làm sạch NAV Vietcap IQ, cảnh báo trong phiên | `lai_rong_neu_ve_nav`, `gia_mua_lenh`, `danh_gia_quy`, `lam_sach_nav`, `bo_nav_loi`, `thong_ke_nav`, `kiem_tra_trong_phien` |
-| `web.py` | Máy chủ web localhost:8000: định tuyến GET/POST, chặn CSRF (`nguon_hop_le`), nút 🔄 Quét chạy nền (`VIEC_QUET` loại -> bước; đang quét mọi trang hiện `W.trang_cho`) | `XuLy`, `bat_dau_quet`, `chay_quet`, `bo_bo_nho` |
-| `web_chung.py` | Phần chung của web: CSS/JS, `trang` (khung + menu; trải hết chiều ngang, tự thu `p.phu` > 160 ký tự vào "ℹ Giải thích" trừ /huong-dan), `hang_doi` (2 mục cạnh nhau, < 1.100 px xếp 1 cột), `bieu_do_nen` + `bang_khop_lenh` (khớp lẻ < `cw_scanner.GIA_TRI_KHOP_TOI_THIEU` vẽ mờ), `do_sau_thi_truong`, `so`, `bang` (bảng CW, cột `COT`), `bieu_do`, `doc_ket_qua`, nút 🔄 Quét theo tab (`NUT_QUET`, `muc_quet`, màn hình chờ `trang_cho`), trạng thái `QUET`/`LOI_DANH_MUC` | |
+| `web.py` | Máy chủ web localhost:8000: định tuyến GET (`dung_trang`: bảng đường dẫn -> hàm trang) / POST, chặn CSRF (`nguon_hop_le`), nút 🔄 Quét chạy nền (`VIEC_QUET` loại -> bước; đang quét mọi trang hiện `W.trang_cho`) | `XuLy`, `bat_dau_quet`, `chay_quet`, `bo_bo_nho` |
+| `web_chung.py` | Phần chung của web: CSS/JS (đọc từ `giao_dien/trang.css`, `giao_dien/trang.js`, nhúng vào mọi trang), `trang` (khung + menu; trải hết chiều ngang, tự thu `p.phu` > 160 ký tự vào "ℹ Giải thích" trừ /huong-dan), `hang_doi` (2 mục cạnh nhau, < 1.100 px xếp 1 cột), `bieu_do_nen` + `bang_khop_lenh` (khớp lẻ < `cw_scanner.GIA_TRI_KHOP_TOI_THIEU` vẽ mờ), `do_sau_thi_truong`, `so`, `bang` (bảng CW, cột `COT`), `bieu_do`, `doc_ket_qua`, nút 🔄 Quét theo tab (`NUT_QUET`, `muc_quet`, màn hình chờ `trang_cho`), trạng thái `QUET`/`LOI_DANH_MUC` | |
 | `web_cw.py` | `/` danh sách CW (+ mục ⚠ giảm mạnh), `/cw/<mã>` chi tiết (+ nến H1/H4/D1 CW/CS), `/sap-ra-mat` | `trang_chinh`, `muc_giam_manh`, `trang_chi_tiet`, `trang_sap_ra_mat` (mục nến: `web_chung.muc_nen`, dùng chung với ETF) |
 | `web_luot.py` | Mục ⚡ Lướt trên trang chính (`/#luot`, cột `COT_LUOT`; `/luot-cw` chuyển hướng 301) | `muc_luot` |
 | `web_etf.py` | `/etf`, `/etf/<mã>` (giống trang CW: ô, Tóm tắt, kịch bản bán, nến quỹ + chỉ số, iNAV trong phiên, bám chỉ số) | `trang_etf`, `trang_etf_chi_tiet`, `bang_etf`, `so_lieu_truc_tiep`, `kich_ban_ban`, `muc_inav_trong_phien`, `muc_theo_kip_chi_so` |
@@ -59,7 +59,7 @@ Nhật ký: `log.txt`. Ngày nghỉ lễ: `la_ngay_giao_dich()` bỏ qua.
 | Thêm cột vào bảng CW | `cw_scanner.dinh_gia` (tính) → `web_chung.COT` (hiển thị) |
 | Trang 🔔 Cảnh báo giá, mức giá tự đặt | `canh_bao_gia.py` (công thức, ngưỡng đầu file, `GUI_DISCORD_MUC_GIA`) → `web_canh_bao.py` |
 | Bảng ⚡ Lướt | `cw_scanner.luot_ngan_han`/`chon_luot` → `web_luot.py` |
-| Một trang web | `web_<trang>.py`; menu, CSS, khung trang: `web_chung.py`; đường dẫn mới: `web.py::XuLy.do_GET` |
+| Một trang web | `web_<trang>.py`; menu, khung trang: `web_chung.py`; CSS/JS: `giao_dien/`; đường dẫn mới: `web.py::dung_trang` |
 | Cảnh báo / báo cáo Discord | `danh_muc.py` (CW), `etf.py`, `chiet_khau.py` (ETF) |
 | Ngưỡng ETF | đầu `etf.py`, `chiet_khau.py` |
 | Hệ số IV theo TCPH | chạy lại `kiem_chung_luot.py` rồi `kiem_chung_truyen_dan.py` |

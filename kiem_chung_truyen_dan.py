@@ -14,7 +14,6 @@ Bảng hệ số = trung vị theo (TCPH, chiều CS).
 """
 
 import functools
-import math
 import sys
 
 import numpy as np
@@ -72,7 +71,7 @@ def lay_bo_sung(lich, gia_cs, cw, su_kien):
     dk, gia, _ = next(x for x in cw if x[0]["gd_cuoi"] >= lich[-1].date())
     tho = L.chuoi(C.lay_gia_dong_cua(dk["ma"], L.SO_NGAY_LICH_SU, C.NGUON_GIA_CW), 1.0)[0]
     d = gia.index.intersection(tho.index)[-1]
-    he_so = 10 ** round(math.log10(gia[d] / tho[d]))
+    he_so = C.he_so_don_vi(gia[d], tho[d])
     ung_vien = [f"C{cs}{nam}{so:02d}" for cs in gia_cs for nam in L.NAM_DO_MA for so in L.SO_DO_MA]
     bang = {}
     for i in range(0, len(ung_vien), 400):
@@ -170,12 +169,12 @@ def mo_hinh_hieu_chinh(w, bang, r=C.LAI_SUAT_PHI_RUI_RO):
     """CW mô hình đổi (tỷ lệ) khi IV phiên b = IV a + β × CS đổi, β của (TCPH, chiều CS) có ≥ MIN_MAU_HE_SO_IV cửa sổ (còn lại
     β = 0: như mô hình gốc). Cùng công thức với cột hiệu chỉnh của trang ⚡ (cw_scanner.luot_ngan_han, d_iv)."""
     b = bang[bang["Cửa sổ β"] >= C.MIN_MAU_HE_SO_IV].set_index(["TCPH", "Chiều CS"])["β"]
-    beta = [b.get((t, c), 0.0) for t, c in zip(w["TCPH"], chieu(w["CS %"]))]
+    beta = [b.get((t, c), 0.0) for t, c in zip(w["TCPH"], chieu(w["CS %"]), strict=True)]
     return pd.Series(
         [
             C.black_scholes_call(S, K, T, r, iv + be * x)[0] / tl / g - 1
             for S, K, T, iv, be, x, tl, g in zip(
-                w["S b"], w["K"], w["T b"], w["IV a"], beta, w["CS %"], w["Tỷ lệ"], w["Giá a"]
+                w["S b"], w["K"], w["T b"], w["IV a"], beta, w["CS %"], w["Tỷ lệ"], w["Giá a"], strict=True
             )
         ],
         w.index,

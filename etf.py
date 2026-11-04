@@ -234,7 +234,7 @@ def lap_bang(ds_quy, ls_quy, ls_cs, bang_gia, hom_nay, ssi=None, ls_nav=None):
             continue
         ny, khop, _ = bang_gia[ma]
         gia_nay = C.gia_hien_tai(ny, khop)
-        he_so = 10 ** round(math.log10(gia_nay / float(df["close"].iloc[-1])))  # vnstock trả nghìn đồng -> đồng
+        he_so = C.he_so_don_vi(gia_nay, float(df["close"].iloc[-1]))  # vnstock trả nghìn đồng -> đồng
         gia, kl = chuoi_gia(df, he_so)
         gia, kl = gia.loc[:ngay], kl.loc[:ngay]
         hom_nay_co_khop = ny.get("tradingDate") == str(hom_nay) and khop.get("matchPrice")
@@ -331,7 +331,7 @@ def bao_cao(df, df_truoc, luc, ngay_gia, loi_nguon=()):
         )
     )
     if df_truoc is not None:
-        xh_truoc = dict(zip(df_truoc["Mã"], df_truoc["Xu hướng"]))
+        xh_truoc = dict(zip(df_truoc["Mã"], df_truoc["Xu hướng"], strict=True))
         doi = [
             f"{h['Mã']}: {xh_truoc[h['Mã']]} → **{h['Xu hướng']}**"
             for _, h in df.iterrows()

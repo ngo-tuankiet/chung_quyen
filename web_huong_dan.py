@@ -94,7 +94,8 @@ def trang_huong_dan():
         f"<tr><td>Thanh khoản</td><td>≥ {so(C.MIN_KHOI_LUONG)} CW khớp/phiên</td><td>Đủ người mua bán thì bạn mới bán ra được đúng giá khi cần.</td></tr>"
         "</tbody></table></div><p>"
         + " · ".join(
-            f"{huy_hieu(k)} {m}" for k, m in zip(KET_LUAN, ("đạt cả 4", "trượt 1 tiêu chí", "trượt từ 2 tiêu chí"))
+            f"{huy_hieu(k)} {m}"
+            for k, m in zip(KET_LUAN, ("đạt cả 4", "trượt 1 tiêu chí", "trượt từ 2 tiêu chí"), strict=True)
         )
         + '</p><p class="phu">Muốn đổi các mức trên: mở file <code>cw_scanner.py</code>, sửa phần <b>CẤU HÌNH</b> ở đầu file, lưu lại rồi bấm 🔄 Quét.</p></section>'
     )

@@ -417,7 +417,7 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
         S_mua = [([g for d, g in ls if d <= ngay] or [None])[-1] for ngay, _ in v.get("mua", [])]
         gia_chao, nguon_chao = C.gia_mua(ny, kl, so_lenh)
         if S_mua and None not in S_mua and gia_bid and nguon_chao == "ask" and dao_han:
-            S0 = sum(g * q for g, (_, q) in zip(S_mua, v["mua"])) / sum(q for _, q in v["mua"])
+            S0 = sum(g * q for g, (_, q) in zip(S_mua, v["mua"], strict=True)) / sum(q for _, q in v["mua"])
             lech, r_lech = C.lech_theo_cs(
                 v["gia_von"] / (1 + C.PHI_GIAO_DICH),
                 S0,

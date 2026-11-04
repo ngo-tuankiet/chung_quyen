@@ -214,7 +214,7 @@ def lay_du_lieu(hom_nay, ds_cs):
     gia_cs, su_kien = {}, {}
     for cs in ds_cs:
         df = C.lay_gia_dong_cua(cs, SO_NGAY_LICH_SU)
-        he_so = 10 ** round(math.log10(C.gia_hien_tai(*bang_cs[cs]) / float(df["close"].iloc[-1])))
+        he_so = C.he_so_don_vi(C.gia_hien_tai(*bang_cs[cs]), float(df["close"].iloc[-1]))
         gia_cs[cs], su_kien[cs] = chuoi(df, he_so)[0], ngay_su_kien(cs)
     lich = pd.DatetimeIndex(sorted(set().union(*(s.index for s in gia_cs.values()))))
     cw, he_so_cw, dem = [], set(), {"hết hạn trước dữ liệu": 0, "sự kiện sau GD cuối": 0}
@@ -238,7 +238,7 @@ def lay_du_lieu(hom_nay, ds_cs):
             canh_bao.append(f"{ma}: không lấy được giá ({str(e)[:80]})")
             continue
         if con_song and C.gia_hien_tai(ny, kl):
-            he_so_cw.add(10 ** round(math.log10(C.gia_hien_tai(ny, kl) / float(df["close"].iloc[-1]))))
+            he_so_cw.add(C.he_so_don_vi(C.gia_hien_tai(ny, kl), float(df["close"].iloc[-1])))
         cw.append((dk, df))
     if len(he_so_cw) != 1:  # đơn vị giá CW của vnstock phải nhất quán thì mới dùng chung cho CW đã hết hạn
         raise ValueError(f"hệ số đơn vị giá CW vnstock không nhất quán: {sorted(he_so_cw)}")
@@ -266,7 +266,7 @@ def kiem_tra_gdkhq(cw, gia_cs, su_kien, lich, r=C.LAI_SUAT_PHI_RUI_RO):
     for dk, gia, kl in cw:
         g = gia[kl > 0]
         s = gia_cs[dk["cs"]]
-        for a, b in zip(g.index[:-1], g.index[1:]):
+        for a, b in zip(g.index[:-1], g.index[1:], strict=True):
             if lich.get_loc(b) - lich.get_loc(a) != 1 or a not in s.index or b not in s.index:
                 continue
             iv = [

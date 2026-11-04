@@ -208,7 +208,7 @@ def test_chon_luot():
     )
     dat, loai = cw_scanner.chon_luot(df, date(2026, 10, 23))
     assert list(dat["Mã CW"]) == ["A", "G"]  # CS cần tăng ít nhất trước
-    ly_do = dict(zip(loai["Mã CW"], loai["Lý do loại lướt"]))
+    ly_do = dict(zip(loai["Mã CW"], loai["Lý do loại lướt"], strict=True))
     assert ly_do == {
         "B": "spread 6,0%",
         "C": "bên mua chỉ 10,0 triệu",
@@ -401,7 +401,7 @@ def test_lech_hien_tai_doi_don_vi_va_lay_phien_cuoi():
 def test_cot_lech_tren_web():
     import web_chung as web
 
-    df = pd.DataFrame([{c: math.nan for c in web.COT_SO_LUOT} for _ in range(3)])
+    df = pd.DataFrame([dict.fromkeys(web.COT_SO_LUOT, math.nan) for _ in range(3)])
     goc = {
         "Mã CW": "CA",
         "Mã CS": "VPB",
@@ -428,6 +428,18 @@ def test_tien_dao_han_thue_tren_gia_tri_danh_nghia():
     assert abs(cw_scanner.tien_dao_han(40_000, 32_000, 3) - 2653.333) < 1e-3
     assert cw_scanner.tien_dao_han(31_000, 32_000, 3) == 0  # không có lãi: không thực hiện, không thuế
     assert cw_scanner.tien_dao_han(32_020, 32_000, 3) < 0  # lãi 20 đ < thuế 32 đ: thuế lớn hơn tiền nhận
+
+
+def test_he_so_don_vi():
+    # vnstock trả nghìn đồng: CW 870 đ / 0,87 -> 1.000; chỉ số 1.892.980 (×1.000) / 1.892,98 -> 1.000; cùng đơn vị -> 1
+    assert cw_scanner.he_so_don_vi(870, 0.87) == 1000 and cw_scanner.he_so_don_vi(24_500, 24.45) == 1000
+    assert cw_scanner.he_so_don_vi(26_000, 26_100) == 1
+    for sai in ((0, 0.87), (870, 0), (float("nan"), 1.0), (-5, 1.0)):  # không đoán hệ số từ giá vô nghĩa
+        try:
+            cw_scanner.he_so_don_vi(*sai)
+        except ValueError:
+            continue
+        raise AssertionError(f"phải báo lỗi với {sai}")
 
 
 def test_bien_dong_lich_su_tinh_tay():
@@ -627,15 +639,15 @@ def test_bieu_do_nen_nhan_theo_khung():
 
     # D1: 30 nến ngày -> nhãn ngày thưa (≤ 10 nhãn) để không chồng chữ; tooltip chỉ có ngày
     ngay = [f"2026-{m:02d}-{d:02d} 00:00" for m, d in [(9, x) for x in range(1, 31)]]
-    html = W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 1) for g in ngay}, "X", "d1")
+    html = W.bieu_do_nen(ngay, dict.fromkeys(ngay, (100, 110, 90, 105, 1)), "X", "d1")
     # đóng 105 × KL 1 < 5 triệu: mọi nến khớp lẻ, vẽ mờ; KL 50.000 (5,25 triệu) thì không
     assert html.count('<g class="nen-le">') == len(ngay) and "khớp lẻ dưới 5 triệu" in html
-    assert 'nen-le"' not in W.bieu_do_nen(ngay, {g: (100, 110, 90, 105, 50_000) for g in ngay}, "X", "d1")
+    assert 'nen-le"' not in W.bieu_do_nen(ngay, dict.fromkeys(ngay, (100, 110, 90, 105, 50000)), "X", "d1")
     assert html.count('class="nhan-truc" x=') - html.count('text-anchor="end"') <= 10
     assert '<span data-i="0" hidden><b>01/09</b> Mở' in html
     # H1: tooltip có giờ; H4 mặc định: buổi sáng/chiều
     gio = ["2026-10-30 09:00", "2026-10-30 14:00"]
-    nen = {g: (100, 110, 90, 105, 1) for g in gio}
+    nen = dict.fromkeys(gio, (100, 110, 90, 105, 1))
     assert "<b>30/10 14:00</b> Mở" in W.bieu_do_nen(gio, nen, "X", "h1")
     assert "<b>30/10 buổi chiều</b> Mở" in W.bieu_do_nen(gio, nen, "X")
 
@@ -776,7 +788,7 @@ def test_tab_luot_gop_vao_trang_chung_quyen():
     try:
         with mock.patch.object(urllib.request.HTTPRedirectHandler, "redirect_request", return_value=None):
             urllib.request.urlopen(f"http://127.0.0.1:{may_chu.server_port}/luot-cw", timeout=5)
-        assert False, "phải chuyển hướng"
+        raise AssertionError("phải chuyển hướng")
     except urllib.error.HTTPError as e:
         assert e.code == 301 and e.headers["Location"] == "/#luot"
     finally:

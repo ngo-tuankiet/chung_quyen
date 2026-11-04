@@ -12,8 +12,8 @@ LICH = pd.bdate_range("2026-01-05", periods=10)  # T2 05/01 … T6 16/01
 # CW sâu trong tiền: S 30.000, K 10.000, tỷ lệ 1 -> giá ≈ S − K, giá trị thời gian gần 0
 DK = {"ma": "CTST2601", "cs": "TST", "tcph": "X", "K": 10_000.0, "ty_le": 1.0}
 DK |= {"dao_han": date(2026, 12, 31), "gd_cuoi": date(2026, 12, 29)}
-GIA_CS = pd.Series(30_000.0, LICH).mask(LICH >= LICH[5], 31_000.0)  # CS +3,33% từ 12/01
-GIA = pd.Series(20_010.0, LICH).mask(LICH == LICH[5], 21_005.0).mask(LICH == LICH[6], 21_105.0)
+GIA_CS = pd.Series(30_000.0, LICH).mask(LICH[5] <= LICH, 31_000.0)  # CS +3,33% từ 12/01
+GIA = pd.Series(20_010.0, LICH).mask(LICH[5] == LICH, 21_005.0).mask(LICH[6] == LICH, 21_105.0)
 KL = pd.Series(50_000.0, LICH)
 
 
@@ -43,10 +43,10 @@ def test_mo_phong_tinh_tay():
 
 def test_phien_ban_khong_khop_va_bo_loc():
     # 12/01 CW không khớp: giá cũ không bán được -> bán 13/01 ở 21.105 − 5 = 21.100, giữ 6 phiên
-    h = chay(kl=KL.mask(LICH == LICH[5], 0.0)).iloc[0]
+    h = chay(kl=KL.mask(LICH[5] == LICH, 0.0)).iloc[0]
     assert (h["Ngày bán"], h["Phiên giữ"]) == (LICH[6], 6)
     assert math.isclose(h["Lãi"], 21_100 * 0.9975 / (20_015 * 1.0015) - 1)
-    assert chay(kl=KL.mask(LICH == LICH[0], 5_000.0)).empty  # ngày vào khớp < MIN_KHOI_LUONG
+    assert chay(kl=KL.mask(LICH[0] == LICH, 5_000.0)).empty  # ngày vào khớp < MIN_KHOI_LUONG
     assert chay(spread=1_100).empty  # spread 1.100 / 20.010 = 5,5% > 5%
     assert chay(dk=DK | {"gd_cuoi": date(2026, 1, 20)}).empty  # còn 15 ngày tới GD cuối < 20
 
@@ -58,7 +58,7 @@ def test_mua_tre_1_phien():
     assert math.isclose(h["Lãi"], 21_100 * 0.9975 / (20_015 * 1.0015) - 1)  # +5,0002%
     assert math.isclose(h["Hòa vốn"], chay().iloc[0]["Hòa vốn"])  # điểm vẫn tính bằng giá ngày 05/01
     assert L.mo_phong(
-        DK, GIA, KL.mask(LICH == LICH[1], 0.0), GIA_CS, LICH, [LICH[0]], 5, 10, tre=1
+        DK, GIA, KL.mask(LICH[1] == LICH, 0.0), GIA_CS, LICH, [LICH[0]], 5, 10, tre=1
     ).empty  # 06/01 không khớp
 
 

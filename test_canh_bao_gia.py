@@ -372,7 +372,7 @@ def test_them_xoa_muc_va_kiem_tra_lich_5_phut():
             gui.side_effect = OSError("mất mạng")
             try:
                 CB.kiem_tra_muc_gia(luc=luc)
-                assert False, "lỗi gửi phải hiện ra"
+                raise AssertionError("lỗi gửi phải hiện ra")
             except OSError:
                 pass
             gui.side_effect = None
@@ -396,13 +396,13 @@ def test_them_xoa_muc_va_kiem_tra_lich_5_phut():
         )
         try:
             CB.doc_muc_gia()
-            assert False, "chiều sai phải báo lỗi rõ dòng, không làm sập trang"
+            raise AssertionError("chiều sai phải báo lỗi rõ dòng, không làm sập trang")
         except ValueError as e:
             assert "dòng số 1" in str(e)
         (Path(tmp) / "muc_gia.csv").write_text("sai,tieu,de\n", encoding="utf-8-sig")
         try:
             CB.doc_muc_gia()
-            assert False, "sai tiêu đề phải báo lỗi, không coi là rỗng"
+            raise AssertionError("sai tiêu đề phải báo lỗi, không coi là rỗng")
         except ValueError:
             pass
 
@@ -436,7 +436,7 @@ def test_trang_mo_duoc_khi_mat_mang_va_chan_post_trang_la():
             )
             try:
                 urllib.request.urlopen(yeu_cau, timeout=5)
-                assert False, "phải bị chặn"
+                raise AssertionError("phải bị chặn")
             except urllib.error.HTTPError as e:
                 assert e.code == 403
             assert CB.doc_muc_gia() == []

@@ -10,6 +10,7 @@ Nguồn:  SSI iBoard: iNAV, NAV T-1 chính thức, 3 bước giá mua/bán của
         Vietcap IQ: NAV/CCQ hằng ngày từ 09/2024 (trễ ~2 phiên, nhãn ngày lỗi -> lam_sach_nav).
 """
 
+import contextlib
 import csv
 import json
 import math
@@ -156,7 +157,7 @@ def thong_ke_nav(gia, nav, chi_so, ngay, inav=math.nan):
     - "CL NAV 1N trước": ở đúng mốc của lợi nhuận giá 1 năm (ngay − 12 tháng) để phép tách mục quỹ tụt khớp nhau.
     - "NAV so CS 1N": lợi nhuận NAV − lợi nhuận chỉ số trên CÙNG 2 ngày; tới hôm nay bằng iNAV (NAV Vietcap trễ ~2 phiên),
       không có iNAV thì tới ngày NAV cuối."""
-    kq = {k: math.nan for k in ("CL NAV trung vị 1N %", "CL NAV thấp nhất 1N %", "CL NAV 1N trước %", "NAV so CS 1N")}
+    kq = dict.fromkeys(("CL NAV trung vị 1N %", "CL NAV thấp nhất 1N %", "CL NAV 1N trước %", "NAV so CS 1N"), math.nan)
     if nav is None or nav.empty:
         return {**kq, "Ngày NAV cuối": ""}
     cuoi, ngay = nav.index[-1], pd.Timestamp(ngay)
@@ -225,7 +226,7 @@ def _chua_khop(h, ngay_khop=True):
 def muc_bao_cao(df):
     """Các mục chiết khấu (a) và tụt so với chỉ số (d) cho báo cáo ETF (df: bảng của etf.lap_bang)."""
     quy, cs = df[df["Loại"] == "ETF"], df[df["Loại"] == "Chỉ số"]
-    ln_cs = dict(zip(cs["Mã"], cs["1N %"]))
+    ln_cs = dict(zip(cs["Mã"], cs["1N %"], strict=True))
     dat = quy[quy["Mua được đạt ngưỡng (đ)"].fillna(0) >= MIN_GIA_TRI_CHAO_BAN].sort_values(
         "Lãi ròng nếu về NAV %", ascending=False
     )
@@ -324,10 +325,8 @@ def giu_may_thuc(luc=None):
     gập nắp máy vẫn ngủ. shortcut: ngày lễ trong tuần vẫn giữ thức, cần thì kiểm tra la_ngay_giao_dich trước."""
     luc = luc or datetime.now()
     if luc.weekday() < 5 and GIU_MAY_THUC[0] <= luc.time() <= GIU_MAY_THUC[1]:
-        try:
+        with contextlib.suppress(OSError):  # máy không có caffeinate (Windows, Linux VPS không tự ngủ)
             subprocess.Popen(["/usr/bin/caffeinate", "-i", "-t", str(GIU_THUC_GIAY)], start_new_session=True)
-        except OSError:
-            pass  # máy không có caffeinate (Windows, Linux VPS không tự ngủ)
 
 
 def kiem_tra_trong_phien(luon=False, luc=None):

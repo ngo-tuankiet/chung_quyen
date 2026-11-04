@@ -96,7 +96,9 @@ def chuoi_dong_cua(ma):
     floating=6: vnstock trả điểm chia 1.000, mặc định làm tròn 2 số lẻ (1.880,8 -> 1,88) làm sai giá."""
     df = C.lay_gia_dong_cua(ma, SO_NGAY_GIA, "VCI", floating=6)
     ngay = [str(t)[:10] for t in df["time"]]
-    return dict(zip(ngay, (float(g) * 1000 for g in df["close"]))), dict(zip(ngay, (float(v) for v in df["volume"])))
+    return dict(zip(ngay, (float(g) * 1000 for g in df["close"]), strict=True)), dict(
+        zip(ngay, (float(v) for v in df["volume"]), strict=True)
+    )
 
 
 def bang_gia_krx(bg_bi_danh):

@@ -100,6 +100,14 @@ HEADERS_HOSE = {"Referer": "https://www.hsx.vn/", "Origin": "https://www.hsx.vn"
 
 
 # ============ PHẦN 1: CÔNG THỨC ============
+def he_so_don_vi(gia_dong: float, gia_nguon: float) -> int:
+    """Lũy thừa 10 đưa giá của nguồn (vnstock: nghìn đồng; chỉ số chia 1.000) về đơn vị đồng của bảng giá:
+    10^round(log10(gia_dong / gia_nguon)), vd 870 / 0,87 -> 1.000. Giá ≤ 0 hoặc NaN thì báo lỗi, không đoán hệ số."""
+    if not (gia_dong > 0 and gia_nguon > 0):  # NaN cũng rơi vào đây
+        raise ValueError(f"không suy được hệ số đơn vị từ {gia_dong} / {gia_nguon}")
+    return 10 ** round(math.log10(gia_dong / gia_nguon))
+
+
 def phan_phoi_chuan(x: float) -> float:
     """N(x): xác suất một biến chuẩn tắc nhỏ hơn x."""
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
@@ -390,9 +398,9 @@ def lich_su_cw(ma, P, so_ngay=SO_NGAY_LECH):
     """Giá đóng cửa (đồng) và khối lượng từng phiên `so_ngay` ngày qua của 1 CW (vnstock NGUON_GIA_CW):
     ({ngày 'YYYY-MM-DD': giá}, {ngày: KL}). P: giá CW hiện tại (đồng) để đổi đơn vị (vnstock có thể trả nghìn đồng)."""
     df = lay_gia_dong_cua(ma, so_ngay, NGUON_GIA_CW)
-    he_so = 10 ** round(math.log10(P / float(df["close"].iloc[-1])))
-    gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"])}
-    kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"])}
+    he_so = he_so_don_vi(P, float(df["close"].iloc[-1]))
+    gia = {str(t)[:10]: float(g) * he_so for t, g in zip(df["time"], df["close"], strict=True)}
+    kl = {str(t)[:10]: float(v) for t, v in zip(df["time"], df["volume"], strict=True)}
     return gia, kl
 
 
@@ -426,7 +434,7 @@ def bien_dong_lich_su(ma):
     """Trả về (sigma năm hóa, số phiên đã dùng, [[ngày, giá đóng cửa], ...]) từ giá đóng cửa ngày 1 năm của cổ phiếu cơ sở."""
     df = lay_gia_dong_cua(ma, SO_NGAY_LICH_SU_HV)
     loi_suat = (df["close"] / df["close"].shift(1)).apply(math.log).dropna().tail(SO_PHIEN_DO_BIEN_DONG)
-    lich_su = [[str(t)[:10], float(c)] for t, c in zip(df["time"], df["close"])]
+    lich_su = [[str(t)[:10], float(c)] for t, c in zip(df["time"], df["close"], strict=True)]
     sigma = loi_suat.std() * math.sqrt(SO_PHIEN_MOT_NAM)
     if not math.isfinite(sigma):  # ≤ 2 giá: không đo được; main chỉ bỏ mã này (sigma NaN làm round() sập cả lần quét)
         raise ValueError(f"chỉ có {len(df)} giá đóng cửa, không đo được biến động")
@@ -576,7 +584,7 @@ def doc_he_so_iv():
         return None, {}
     b = pd.read_csv(tep, encoding="utf-8-sig")
     b = b[(b["Chiều CS"] == ("tăng" if KICH_BAN_TANG > 0 else "giảm")) & (b["Cửa sổ β"] >= MIN_MAU_HE_SO_IV)]
-    return tep.name, dict(zip(b["TCPH"], b["β"]))
+    return tep.name, dict(zip(b["TCPH"], b["β"], strict=True))
 
 
 def lai_kb_hieu_chinh(df, ngay_quet, beta):
@@ -676,7 +684,7 @@ def main():
         try:
             s, n, ls = bien_dong_lich_su(ma)
             # vnstock có thể trả giá theo nghìn đồng: đưa về cùng đơn vị VND với bảng giá để vẽ biểu đồ
-            he_so = 10 ** round(math.log10(gia_hien_tai(*bang_cs[ma]) / ls[-1][1]))
+            he_so = he_so_don_vi(gia_hien_tai(*bang_cs[ma]), ls[-1][1])
             lich_su[ma] = [[ngay, round(gia * he_so)] for ngay, gia in ls]
             # chỉ ghi nhận sigma khi mọi bước trên đã xong: mã lỗi thật sự bị bỏ qua (trước đây sigma NaN vẫn được dùng -> sập cả lần quét)
             sigma[ma], so_phien[ma] = s, n
@@ -706,7 +714,7 @@ def main():
     if not dong:  # mọi lần lấy lịch sử giá đều lỗi -> không có gì để lưu
         raise RuntimeError("Không định giá được CW nào (máy chủ dữ liệu đang lỗi?). Hãy thử lại sau ít phút.")
     df = pd.DataFrame(dong)
-    so_sanh = [so_iv_cung_ma(df, ma, cs, iv) for ma, cs, iv in zip(df["Mã CW"], df["Mã CS"], df["IV %"])]
+    so_sanh = [so_iv_cung_ma(df, ma, cs, iv) for ma, cs, iv in zip(df["Mã CW"], df["Mã CS"], df["IV %"], strict=True)]
     df["IV cùng mã %"] = [round(tv, 1) for tv, _ in so_sanh]  # trung vị IV các CW khác cùng mã CS
     df["Cảnh báo"] = [cb for _, cb in so_sanh]
     # Bước 5b: lệch so với CS 20 phiên (như trang chi tiết) cho mọi CW: 1 lượt vnstock / CW; lỗi 1 mã thì để trống

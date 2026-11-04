@@ -8,6 +8,7 @@ import os
 import re
 import time
 from datetime import date, datetime
+from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
 import pandas as pd
@@ -133,407 +134,11 @@ COT = [
     ("Lý do", "", "Những tiêu chí mà CW bị trượt."),
 ]
 
-# Màu theo bảng màu đã kiểm định cho người mù màu (sáng/tối)
-CSS = """
-:root { color-scheme: light; --nen:#f9f9f7; --be-mat:#fcfcfb; --chu:#0b0b0b; --chu-phu:#52514e; --chu-mo:#898781;
-  --luoi:#e1e0d9; --truc:#c3c2b7; --vien:rgba(11,11,11,.10); --xanh:#2a78d6; --cam:#eb6834; --lien-ket:#1c5cab;
-  --tot:#0ca30c; --canh-bao:#fab219; --chu-duong:#006300; --chu-am:#c62f2f; --nut:#256abf; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --nen:#0d0d0d; --be-mat:#1a1a19;
-  --chu:#f0efec; --chu-phu:#c3c2b7; --luoi:#2c2c2a; --truc:#383835; --vien:rgba(255,255,255,.10); --xanh:#3987e5;
-  --cam:#d95926; --lien-ket:#86b6ef; --chu-duong:#0ca30c; --chu-am:#e66767; } }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--nen); color: var(--chu); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { margin: 0 auto; padding: 24px 24px 48px; }  /* trải hết chiều ngang; chữ dài tự giới hạn ở .tom-tat, .huong-dan */
-a { color: var(--lien-ket); }
-h1 { font-size: 26px; margin: 0; line-height: 1.25; }
-h2 { font-size: 18px; margin: 0; }
-.phu { color: var(--chu-phu); margin: 4px 0 0; font-size: 14px; }
-.dau-trang { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-start; }
-.nut { background: var(--nut); color: #fff; border: 0; border-radius: 8px; padding: 10px 22px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
-.nut:disabled { opacity: .6; cursor: wait; }
-.nut-quet { float: right; margin: 0 0 12px 16px; }
-.ket-qua-quet { margin-bottom: 8px; } .ket-qua-quet pre { clear: both; max-height: 320px; overflow: auto; }
-.the { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 20px; margin-top: 16px; }
-.luoi-o { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
-.o-so { background: var(--be-mat); border: 1px solid var(--vien); border-radius: 12px; padding: 14px 16px; }
-.o-so .nhan { color: var(--chu-phu); font-size: 13px; }
-.o-so .gia-tri { font-size: 24px; font-weight: 600; margin-top: 2px; }
-.o-so .goi-y { color: var(--chu-phu); font-size: 13px; margin-top: 2px; }
-.cuon { overflow: auto; margin-top: 12px; }
-.cuon.cao { max-height: 560px; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; white-space: nowrap; }
-th { position: sticky; top: 0; background: var(--be-mat); color: var(--chu-phu); font-weight: 600; text-align: left;
-  padding: 8px 10px; border-bottom: 1px solid var(--truc); }
-td { padding: 8px 10px; border-bottom: 1px solid var(--luoi); }
-.so { text-align: right; font-variant-numeric: tabular-nums; }
-th button { all: unset; cursor: pointer; }
-th button:focus-visible { outline: 2px solid var(--lien-ket); outline-offset: 2px; border-radius: 2px; }
-th button::after { content: " ↕"; color: var(--chu-mo); }
-th[aria-sort="ascending"] button::after { content: " ▲"; color: var(--chu); }
-th[aria-sort="descending"] button::after { content: " ▼"; color: var(--chu); }
-tr[data-href] { cursor: pointer; }
-tbody tr:hover, tr.dang-xem { background: color-mix(in srgb, var(--xanh) 9%, transparent); }
-td a { font-weight: 600; text-decoration: none; }
-td a:hover { text-decoration: underline; }
-.ly-do { color: var(--chu-phu); white-space: normal; min-width: 220px; font-size: 13px; }
-.duong { color: var(--chu-duong); }
-.am { color: var(--chu-am); }
-.huy-hieu { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 13px;
-  font-weight: 600; background: color-mix(in srgb, var(--mau) 15%, transparent); white-space: nowrap; }
-.huy-hieu span { color: var(--mau); font-weight: 800; }
-.huy-hieu.lon { font-size: 15px; padding: 4px 14px 4px 10px; }
-.tot { --mau: var(--tot); } .canh-bao { --mau: var(--canh-bao); } .bo-qua { --mau: var(--chu-mo); }
-.chip { font-size: 11px; font-weight: 700; color: var(--lien-ket); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; margin-left: 6px; }
-.loi { color: var(--chu-am); font-weight: 600; }
-summary { cursor: pointer; color: var(--chu-phu); font-weight: 600; }
-pre { white-space: pre-wrap; font-size: 12px; color: var(--chu-phu); margin: 8px 0 0; }
-input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1px solid var(--truc); border-radius: 8px;
-  background: var(--be-mat); color: var(--chu); font: inherit; margin-top: 12px; }
-.tieu-chi { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
-.tieu-chi b { display: inline-block; width: 1.4em; }
-.tieu-chi small { color: var(--chu-phu); }
-.cong-thuc { font-size: 17px; font-weight: 600; padding: 12px 16px; border-radius: 8px; max-width: 860px;
-  background: color-mix(in srgb, var(--xanh) 9%, transparent); }
-.cac-buoc { list-style: none; padding: 0; margin: 12px 0 0; max-width: 900px; }
-.cac-buoc li { margin: 0 0 12px; padding-left: 12px; border-left: 3px solid var(--luoi); }
-.tom-tat { font-size: 16px; margin: 12px 0 0; max-width: 860px; }
-.cuon-bieu-do { overflow-x: auto; margin-top: 8px; }
-.bieu-do { position: relative; min-width: 760px; }
-.bieu-do svg { width: 100%; height: auto; display: block; }
-.bieu-do line, .bieu-do polyline, .bieu-do circle { vector-effect: non-scaling-stroke; }
-.bieu-do svg:focus-visible { outline: 2px solid var(--lien-ket); outline-offset: 4px; border-radius: 4px; }
-.luoi-ngang { stroke: var(--luoi); stroke-width: 1; }
-.truc { stroke: var(--truc); stroke-width: 1; }
-.nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
-.nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
-.nen-le { opacity: .3; } tr.khop-le td { opacity: .45; }
-tr.da-hoi td { opacity: .5; }
-.kl-tang { fill: var(--tot); opacity: .45; } .kl-giam { fill: var(--chu-am); opacity: .45; }
-.kl-tang-dam { fill: var(--tot); } .kl-giam-dam { fill: var(--chu-am); }
-.vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }
-.gia-cuoi { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 4 3; }
-.nhan-gia-cuoi { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.bieu-do-nen line, .bieu-do-nen rect { vector-effect: non-scaling-stroke; } .bieu-do-nen { width: 100%; height: auto; display: block; }
-.chon-khung { display: inline-flex; border: 1px solid var(--vien); border-radius: 8px; overflow: hidden; }
-.chon-khung button { border: 0; background: transparent; color: var(--chu); padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
-.chon-khung button[aria-pressed="true"] { background: var(--nut); color: #fff; }
-.nen-chu-giai { font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.5em; margin: 6px 0 2px; }
-.nen-chu-giai b { font-weight: 600; } .nen-tuong-tac svg { cursor: crosshair; touch-action: none; user-select: none; }
-@media (pointer: coarse) { .nen-tuong-tac svg { touch-action: pan-y; } }  /* điện thoại: vuốt dọc vẫn cuộn trang */
-.vach-doc, .vach-ngang { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
-.nhan-con-tro rect { fill: var(--chu-mo); } .nhan-con-tro text { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.thuoc-do { pointer-events: none; } .vung-do { fill: var(--tot); fill-opacity: .14; stroke: var(--tot); stroke-width: 1; }
-.thuoc-do.giam .vung-do { fill: var(--chu-am); stroke: var(--chu-am); } .duong-do { stroke: var(--tot); stroke-width: 1.5; }
-.thuoc-do.giam .duong-do { stroke: var(--chu-am); }
-.chu-do { font-size: 14px; font-weight: 700; fill: var(--chu-duong); paint-order: stroke; stroke: var(--be-mat); stroke-width: 4px; }
-.thuoc-do.giam .chu-do { fill: var(--chu-am); }
-.tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
-.hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
-.hang-doi > .the { margin-top: 0; }
-.cot-doc { display: flex; flex-direction: column; gap: 16px; } .cot-doc > .the { margin-top: 0; }
-.giai-thich { margin-top: 4px; } .giai-thich summary { cursor: pointer; color: var(--lien-ket); font-size: 14px; }
-.giai-thich .phu { max-width: 900px; }
-.hang-nen { display: grid; grid-template-columns: minmax(0, 1fr) 320px 360px; gap: 16px; align-items: start; margin-top: 8px; }
-.hang-nen h4 { margin: 0 0 6px; font-size: 14px; } .hang-nen table { font-size: 13px; width: 100%; }
-.hang-nen td, .hang-nen th { padding: 3px 6px; } .khop-cuon { max-height: 330px; overflow-y: auto; }
-.ti-le { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 6px 0 2px; background: var(--chu-am); }
-.ti-le span { background: var(--tot); } .du { display: flex; justify-content: space-between; font-size: 13px; }
-.cot-mua { fill: var(--tot); opacity: .8; } .cot-ban { fill: var(--chu-am); opacity: .8; }
-.gia-tang { color: var(--chu-duong); } .gia-giam { color: var(--chu-am); } .gia-dung { color: #b8860b; }
-@media (max-width: 1100px) { .hang-nen { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 1100px) { .hang-doi { grid-template-columns: minmax(0, 1fr); } }
-.duong-gia { fill: none; stroke: var(--xanh); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.diem { fill: var(--xanh); stroke: var(--be-mat); stroke-width: 2; }
-.tc-thuc-hien { stroke: var(--chu-mo); stroke-width: 1.5; }
-.tc-hoa-von { stroke: var(--cam); stroke-width: 1.5; }
-.ma-ngan { fill: none; stroke: var(--cam); stroke-width: 1.5; }
-.ma-dai { fill: none; stroke: var(--chu-mo); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.dan { stroke: var(--truc); stroke-width: 1; }
-.nhan-tc { fill: var(--chu-phu); font-size: 12px; }
-.gia-tc { fill: var(--chu); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.tro { stroke: var(--chu-mo); stroke-width: 1; visibility: hidden; }
-.diem-tro { visibility: hidden; }
-.o-tro { position: absolute; transform: translate(-50%, calc(-100% - 14px)); background: var(--be-mat); border: 1px solid var(--vien);
-  border-radius: 8px; padding: 6px 10px; font-size: 13px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.15); white-space: nowrap; }
-.o-tro.duoi { transform: translate(-50%, 14px); }
-.o-tro b { display: block; font-size: 14px; }
-.ghi-chu-canh-bao { border-left: 4px solid var(--canh-bao); padding: 8px 12px; margin: 12px 0 0;
-  background: color-mix(in srgb, var(--canh-bao) 10%, transparent); border-radius: 4px; }
-.o-tro span { color: var(--chu-phu); }
-dl.dieu-khoan { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 24px; margin: 12px 0 0; }
-dl.dieu-khoan dt { color: var(--chu-phu); font-size: 13px; }
-dl.dieu-khoan dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-tr.hang-goc td { font-weight: 600; background: color-mix(in srgb, var(--xanh) 9%, transparent); }
-.thanh-tren { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
-.thanh-tren a { text-decoration: none; }
-.nut-bao { all: unset; cursor: pointer; color: var(--lien-ket); margin-left: auto; }
-.nut-bao:focus-visible { outline: 2px solid var(--nut); }
-#khung-bao { position: fixed; top: 12px; right: 12px; z-index: 20; width: min(440px, calc(100vw - 24px)); background: var(--be-mat);
-  border: 2px solid var(--chu-am); border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
-#khung-bao ul { margin: 8px 0; padding-left: 18px; max-height: 50vh; overflow: auto; }
-.thanh-tren a[aria-current] { color: var(--chu); border-bottom: 2px solid var(--nut); }
-.thanh-tren .bt { margin-right: 4px; }
-/* Điện thoại: menu thành thanh cố định dưới cùng (biểu tượng trên chữ), bảng gọn hơn, cột mã đứng yên khi vuốt ngang */
-@media (max-width: 640px) {
-  main { padding: 16px 12px calc(84px + env(safe-area-inset-bottom)); }
-  h1 { font-size: 22px; }
-  .the { padding: 14px; }
-  .thanh-tren { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; margin: 0; gap: 0; flex-wrap: nowrap;
-    background: var(--be-mat); border-top: 1px solid var(--vien); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
-  .thanh-tren a, .thanh-tren .nut-bao { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
-    padding: 6px 0; font-size: 11px; color: var(--chu-phu); margin: 0; }
-  .thanh-tren .bt { font-size: 22px; line-height: 1; margin: 0; }
-  .thanh-tren a[aria-current] { color: var(--nut); border-bottom: 0; }
-  table { font-size: 13px; }
-  th, td { padding: 6px 8px; }
-  .cuon th:first-child, .cuon td:first-child { position: sticky; left: 0; z-index: 1; background: var(--be-mat); }
-  .cuon th:first-child { z-index: 2; }
-}
-.huong-dan p, .huong-dan li { max-width: 860px; }
-.huong-dan h2 { margin-bottom: 8px; }
-.huong-dan li { margin: 6px 0; }
-.bang-chu td, .bang-chu th { white-space: normal; vertical-align: top; }
-.muc-luc { columns: 2 240px; margin: 8px 0 0; }
-footer { color: var(--chu-phu); font-size: 12px; margin-top: 32px; }
-.form-lenh label { display: inline-flex; flex-direction: column; gap: 2px; margin: 10px 12px 0 0; font-size: 13px; color: var(--chu-phu); }
-.dem-nhanh { display: flex; flex-wrap: wrap; gap: 4px 28px; padding-bottom: 12px; border-bottom: 1px solid var(--vien); color: var(--chu-phu); font-size: 14px; }
-.dem-nhanh b { color: var(--chu); font-size: 18px; margin-left: 4px; }
-.dem-nhanh b.am { color: var(--chu-am); }
-.hang-muc { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; }
-.hang-muc h2 { margin: 12px 0 6px; }
-.form-ngang { display: flex; flex-wrap: wrap; align-items: flex-end; }
-.form-ngang .nut { margin-top: 10px; padding: 7px 18px; }
-.form-lenh input, .form-lenh select { padding: 6px 8px; border: 1px solid var(--truc); border-radius: 6px; background: var(--be-mat); color: var(--chu); font: inherit; }
-.nut-nho { all: unset; cursor: pointer; color: var(--chu-am); font-size: 13px; text-decoration: underline; }
-.thao-tac { margin-top: 4px; } .thao-tac summary { cursor: pointer; color: var(--lien-ket); font-size: 13px; white-space: nowrap; }
-.thao-tac form { margin: 0 0 8px; } .thao-tac label { margin-top: 4px; }
-"""
-
-JS = """
-// Báo cảnh báo mới (kêu + thông báo hệ thống + khung đỏ): hỏi /canh-bao/tin mỗi data-giay giây (máy chủ chỉ tính trong giờ
-// khớp lệnh). Nhiều tab: tab hỏi trước thì tab khác bỏ lượt. Bật/tắt, đã báo, chưa xem: nhớ trong trình duyệt (localStorage).
-(() => {
-  const nut = document.getElementById("nut-bao");
-  if (!nut) return;
-  const doc = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  const ghi = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-  const ds = k => { try { return JSON.parse(doc(k) || "[]"); } catch (e) { return []; } };
-  const giay = +nut.dataset.giay, toi_da = +nut.dataset.toiDa, goc = document.title;
-  const bat = () => doc("bao_dong") !== "tat";
-  let am = null, nhay = null;
-  const mo_am = () => {  // trình duyệt chỉ cho phát tiếng sau khi người dùng bấm vào trang ít nhất 1 lần
-    try { am = am || new (window.AudioContext || window.webkitAudioContext)(); if (am.state === "suspended") am.resume(); } catch (e) {}
-  };
-  const keu = () => {  // 2 lần "ting-tong", tạo bằng trình duyệt (không cần file âm thanh)
-    mo_am();
-    if (!am) return;
-    [[880, 0], [660, .3], [880, .75], [660, 1.05]].forEach(([tan_so, t]) => {
-      const o = am.createOscillator(), g = am.createGain(), t0 = am.currentTime + t;
-      o.frequency.value = tan_so; o.connect(g); g.connect(am.destination);
-      g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.3, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .28);
-      o.start(t0); o.stop(t0 + .3);
-    });
-  };
-  const ve = () => {  // khung đỏ + tiêu đề tab nhấp nháy theo danh sách chưa xem (giữ qua các trang, tới khi bấm "Đã xem")
-    const chua = ds("bao_chua_xem");
-    document.getElementById("khung-bao")?.remove();
-    clearInterval(nhay);
-    document.title = goc;
-    if (!chua.length) return;
-    const k = document.createElement("section");
-    k.id = "khung-bao";
-    k.setAttribute("role", "alert");
-    k.innerHTML = '<b></b><ul></ul><p class="phu" hidden>Chưa phát được tiếng: bấm vào trang một lần để trình duyệt cho phép.</p>'
-      + '<button type="button" class="nut">Đã xem</button>';
-    k.querySelector("b").textContent = `🔔 ${chua.length} cảnh báo mới`;
-    chua.forEach(t => {
-      const li = document.createElement("li"), a = document.createElement("a");
-      a.href = t.link; a.textContent = t.tieu_de;
-      li.append(a, ": " + t.noi_dung);
-      k.querySelector("ul").append(li);
-    });
-    k.querySelector("button").addEventListener("click", () => { ghi("bao_chua_xem", "[]"); ve(); });
-    document.body.append(k);
-    setTimeout(() => { k.querySelector("p").hidden = !bat() || (am && am.state === "running"); }, 500);
-    let sang = false;
-    nhay = setInterval(() => { document.title = (sang = !sang) ? `🔔 (${chua.length}) Cảnh báo mới` : goc; }, 1000);
-  };
-  const bao = moi => {
-    ghi("bao_chua_xem", JSON.stringify(ds("bao_chua_xem").concat(moi).slice(-30)));
-    ve();
-    keu();
-    if ("Notification" in window && Notification.permission === "granted") {
-      moi.slice(0, toi_da).forEach(t => {
-        const n = new Notification("🔔 " + t.tieu_de, { body: t.noi_dung, tag: t.id });
-        n.onclick = () => { window.focus(); location.href = t.link; };
-      });
-    }
-  };
-  const hoi = () => {
-    if (!bat() || Date.now() - (+doc("bao_lan_hoi") || 0) < (giay - 5) * 1000) return;  // tắt, hoặc tab khác vừa hỏi
-    ghi("bao_lan_hoi", Date.now());
-    fetch("/canh-bao/tin", { cache: "no-store" }).then(r => r.json()).then(d => {
-      const da = ds("bao_da_bao"), moi = d.tin.filter(t => !da.includes(t.id));
-      if (!moi.length) return;
-      const ngay = moi[0].id.split("|")[0];  // id "ngày|loại|mã": mỗi tin báo 1 lần/ngày, bỏ id ngày cũ
-      ghi("bao_da_bao", JSON.stringify(da.filter(id => id.startsWith(ngay)).concat(moi.map(t => t.id))));
-      bao(moi);
-    }).catch(() => {});  // máy chủ tắt / mất mạng: lượt sau hỏi lại
-  };
-  const cap_nhat_nut = () => {
-    nut.querySelector(".bt").textContent = bat() ? "🔊" : "🔇";
-    nut.querySelector(".chu").textContent = bat() ? "Báo: bật" : "Báo: tắt";
-    nut.setAttribute("aria-pressed", bat());
-  };
-  nut.addEventListener("click", () => {
-    ghi("bao_dong", bat() ? "tat" : "bat");
-    cap_nhat_nut();
-    if (!bat()) return;
-    keu();  // nghe thử; bấm nút cũng là lần bấm cho phép phát tiếng
-    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
-  });
-  ["pointerdown", "keydown"].forEach(su_kien => document.addEventListener(su_kien, mo_am, { once: true }));
-  window.addEventListener("storage", e => { if (e.key === "bao_chua_xem") ve(); });  // "Đã xem" ở tab khác
-  cap_nhat_nut();
-  ve();
-  hoi();
-  setInterval(hoi, 10000);
-})();
-// Bấm vào cả dòng để mở trang chi tiết (đường link trong ô mã vẫn dùng được bằng bàn phím)
-document.querySelectorAll("tr[data-href]").forEach(tr => tr.addEventListener("click", e => {
-  if (!e.target.closest("a")) location.href = tr.dataset.href;
-}));
-// Bấm tiêu đề cột để sắp xếp tăng dần, bấm lần nữa để đảo chiều. Ô có data-v thì so số gốc, còn lại so chữ
-document.querySelectorAll("th button").forEach(nut => nut.addEventListener("click", () => {
-  const th = nut.parentElement, bang = th.closest("table"), cot = th.cellIndex;
-  const tang = th.getAttribute("aria-sort") !== "ascending";
-  bang.querySelectorAll("th").forEach(o => o.removeAttribute("aria-sort"));
-  th.setAttribute("aria-sort", tang ? "ascending" : "descending");
-  const gt = tr => tr.cells[cot].dataset.v ?? tr.cells[cot].textContent.trim();
-  const dong = [...bang.tBodies[0].rows].sort((a, b) => {
-    const x = gt(a), y = gt(b), kq = isNaN(x) || isNaN(y) ? x.localeCompare(y, "vi") : x - y;
-    return tang ? kq : -kq;
-  });
-  bang.tBodies[0].append(...dong);
-}));
-// Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
-// biểu đồ nến: thanh dọc theo chuột / ngón tay (như TradingView) + dòng thông số của nến đang trỏ. Các biểu đồ cùng khung trong
-// 1 mục (CW và CS, chung trục) chạy cùng nhau. Rời chuột thì về nến cuối. Phím ← → khi biểu đồ được chọn.
-const nenCung = el => el.closest("section").querySelectorAll(`.khung-nen[data-khung="${el.closest(".khung-nen").dataset.khung}"] .nen-tuong-tac`);
-const chiNen = (el, i) => nenCung(el).forEach(k => {
-  const n = k.querySelectorAll(".nen-chu-giai > span"), cuoi = n.length - 1, j = i == null ? cuoi : Math.max(0, Math.min(cuoi, i));
-  n.forEach((s, m) => { s.hidden = m !== j; });
-  const v = k.querySelector(".vach-doc"), x = +k.dataset.x0 + (j + 0.5) * +k.dataset.rong;
-  v.setAttribute("x1", x); v.setAttribute("x2", x); v.setAttribute("visibility", i == null ? "hidden" : "visible");
-  k.dataset.i = i == null ? "" : j;
-});
-document.querySelectorAll(".nen-tuong-tac").forEach(k => {
-  const svg = k.querySelector("svg");
-  const viTri = e => { const r = svg.getBoundingClientRect(); return Math.floor(((e.clientX - r.left) / r.width * +k.dataset.r - +k.dataset.x0) / +k.dataset.rong); };
-  svg.addEventListener("pointermove", e => chiNen(k, viTri(e)));
-  svg.addEventListener("pointerdown", e => chiNen(k, viTri(e)));
-  svg.addEventListener("pointerleave", () => chiNen(k, null));
-  svg.addEventListener("keydown", e => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const n = k.querySelectorAll(".nen-chu-giai > span").length, i = k.dataset.i === "" || k.dataset.i == null ? n - 1 : +k.dataset.i;
-    chiNen(k, i + (e.key === "ArrowLeft" ? -1 : 1));
-  });
-  svg.addEventListener("blur", () => chiNen(k, null));
-});
-// thanh ngang + thước đo: trong vùng giá, đường ngang và nhãn giá tại con trỏ (bên phải); giữ chuột / ngón tay kéo -> vùng đo
-// từ điểm bắt đầu tới con trỏ: % thay đổi, chênh lệch giá (đ), số nến (như công cụ đo của TradingView). Thả ra vẫn giữ
-// vùng đo; bấm (không kéo) hoặc Esc để xóa.
-const soVN = (v, le = 0) => v.toLocaleString("vi-VN", { minimumFractionDigits: le, maximumFractionDigits: le });
-document.querySelectorAll(".nen-tuong-tac").forEach(k => {
-  const svg = k.querySelector("svg"), d = k.dataset, q = s => svg.querySelector(s), td = q(".thuoc-do");
-  const toaDo = e => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * +d.r, (e.clientY - r.top) / r.height * +d.c]; };
-  const kep = y => Math.max(+d.tren, Math.min(+d.tren + +d.nenCao, y));
-  const giaTai = y => +d.giaCao - (kep(y) - +d.tren) / +d.nenCao * (+d.giaCao - +d.giaThap);
-  const trongGia = y => y >= +d.tren && y <= +d.tren + +d.nenCao;
-  const nenTai = x => Math.floor((x - +d.x0) / +d.rong);
-  const dat = (el, o) => Object.entries(o).forEach(([a, v]) => el.setAttribute(a, v));
-  let dau = null;
-  const ngang = y => {
-    const l = q(".vach-ngang"), n = q(".nhan-con-tro"), hien = trongGia(y) ? "visible" : "hidden";
-    l.setAttribute("visibility", hien); n.setAttribute("visibility", hien);
-    if (hien === "hidden") return;
-    dat(l, { y1: y, y2: y }); n.querySelector("rect").setAttribute("y", y - 10);
-    const ch = n.querySelector("text"); ch.setAttribute("y", y + 4); ch.textContent = soVN(giaTai(y), +d.soLe);
-  };
-  const doDen = (x, y) => {
-    y = kep(y);
-    const g0 = giaTai(dau.y), g1 = giaTai(y), pt = (g1 / g0 - 1) * 100, dau_ = pt >= 0 ? "+" : "−";
-    td.classList.toggle("giam", pt < 0);
-    dat(q(".vung-do"), { x: Math.min(dau.x, x), y: Math.min(dau.y, y), width: Math.abs(x - dau.x), height: Math.abs(y - dau.y) });
-    dat(q(".duong-do"), { x1: dau.x, y1: dau.y, x2: x, y2: y });
-    const ch = q(".chu-do"), xt = Math.min(x + 8, +d.r - 220);
-    dat(ch, { x: xt, y: Math.max(+d.tren + 14, y + (y < dau.y ? -8 : 18)) });
-    ch.textContent = `${dau_}${soVN(Math.abs(pt), 2)}% (${dau_}${soVN(Math.abs(g1 - g0), +d.soLe)} ${d.donVi}) · ${Math.abs(nenTai(x) - nenTai(dau.x))} nến`;
-    td.setAttribute("visibility", "visible");
-  };
-  svg.addEventListener("pointerdown", e => {
-    const [x, y] = toaDo(e);
-    td.setAttribute("visibility", "hidden");
-    if (!trongGia(y)) return;
-    dau = { x, y, keo: false };
-    svg.setPointerCapture(e.pointerId);
-  });
-  svg.addEventListener("pointermove", e => {
-    const [x, y] = toaDo(e);
-    ngang(y);
-    if (!dau) return;
-    if (Math.abs(x - dau.x) + Math.abs(y - dau.y) > 4) dau.keo = true;
-    if (dau.keo) doDen(x, y);
-  });
-  svg.addEventListener("pointerup", () => { dau = null; });
-  svg.addEventListener("pointerleave", () => { if (!dau) ngang(-1); });
-});
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") document.querySelectorAll(".thuoc-do").forEach(g => g.setAttribute("visibility", "hidden"));
-});
-// nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
-document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
-  const muc = n.closest("section");
-  muc.querySelectorAll(".khung-nen").forEach(k => { k.hidden = k.dataset.khung !== n.dataset.chonKhung; });
-  muc.querySelectorAll("[data-chon-khung]").forEach(b => b.setAttribute("aria-pressed", b === n));
-}));
-document.querySelectorAll("input[data-loc]").forEach(o => o.addEventListener("input", () => {
-  const q = o.value.trim().toUpperCase();
-  document.querySelectorAll(o.dataset.loc + " tbody tr").forEach(tr => { tr.hidden = q && !tr.textContent.toUpperCase().includes(q); });
-}));
-// Biểu đồ: đường dọc bám theo chuột (hoặc phím mũi tên) và hiện giá của ngày gần nhất
-document.querySelectorAll(".bieu-do").forEach(khung => {
-  const svg = khung.querySelector("svg"), diem = JSON.parse(khung.querySelector("script").textContent);
-  const tro = svg.querySelector(".tro"), cham = svg.querySelector(".diem-tro"), hop = khung.querySelector(".o-tro");
-  const rong = svg.viewBox.baseVal.width;
-  let chiSo = diem.length - 1;
-  khung.parentElement.scrollLeft = khung.parentElement.scrollWidth;  // màn hình hẹp: mở ở phần giá mới nhất
-  const hien = i => {
-    chiSo = Math.max(0, Math.min(diem.length - 1, i));
-    const [x, y, ngay, gia] = diem[chiSo], ty = svg.getBoundingClientRect().width / rong;
-    tro.setAttribute("x1", x); tro.setAttribute("x2", x); cham.setAttribute("cx", x); cham.setAttribute("cy", y);
-    tro.style.visibility = cham.style.visibility = "visible";
-    hop.querySelector("b").textContent = gia.toLocaleString("vi-VN") + " " + khung.dataset.donVi;
-    hop.querySelector("span").textContent = ngay.split("-").reverse().join("/");
-    hop.style.left = x * ty + "px"; hop.style.top = y * ty + "px"; hop.hidden = false;
-    hop.classList.toggle("duoi", y * ty < 70);  // sát mép trên thì hiện bên dưới điểm để không bị che
-  };
-  const an = () => { tro.style.visibility = cham.style.visibility = "hidden"; hop.hidden = true; };
-  svg.addEventListener("pointermove", e => {
-    const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * rong / r.width;
-    let gan = 0;
-    diem.forEach((d, i) => { if (Math.abs(d[0] - x) < Math.abs(diem[gan][0] - x)) gan = i; });
-    hien(gan);
-  });
-  svg.addEventListener("pointerleave", an);
-  svg.addEventListener("blur", an);
-  svg.addEventListener("focus", () => hien(chiSo));
-  svg.addEventListener("keydown", e => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); hien(chiSo + (e.key === "ArrowLeft" ? -1 : 1)); }
-  });
-});
-"""
+# CSS (màu theo bảng màu đã kiểm định cho người mù màu, sáng/tối) và JS viết ở file riêng trong giao_dien/ để có tô màu cú pháp,
+# kiểm được; đọc 1 lần lúc chạy rồi nhúng vào mọi trang như trước (không thêm đường dẫn file tĩnh nào cho máy chủ)
+THU_MUC_GIAO_DIEN = Path(__file__).parent / "giao_dien"
+CSS = (THU_MUC_GIAO_DIEN / "trang.css").read_text(encoding="utf-8")
+JS = (THU_MUC_GIAO_DIEN / "trang.js").read_text(encoding="utf-8")
 
 
 # ============ ĐỊNH DẠNG ============
@@ -800,10 +405,7 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
     thap, cao = thap - le, cao + le
     x = lambda i: TRAI + i * (R - TRAI - PHAI) / max(len(gia) - 1, 1)
     y = lambda v: TREN + (cao - v) * (C - TREN - DUOI) / (cao - thap)
-    # vạch trục tung tròn số: bước 1/2/2,5/5 x 10^n
-    buoc_tho = (cao - thap) / 4
-    mu = 10 ** math.floor(math.log10(buoc_tho))
-    buoc = next(b * mu for b in (1, 2, 2.5, 5, 10) if b * mu >= buoc_tho)
+    buoc = buoc_dep((cao - thap) / 4)  # vạch trục tung tròn số: bước 1/2/2,5/5 x 10^n
     vach = [
         math.ceil(thap / buoc) * buoc + k * buoc for k in range(int((cao - math.ceil(thap / buoc) * buoc) // buoc) + 1)
     ]
@@ -870,7 +472,9 @@ def nen_tu_df(df, he_so):
     """DataFrame nến vnstock -> {'YYYY-MM-DD HH:MM': (mở, cao, thấp, đóng, KL)}, giá nhân he_so (vnstock trả nghìn đồng)."""
     return {
         str(t)[:16]: (o * he_so, h * he_so, l * he_so, c * he_so, float(v))
-        for t, o, h, l, c, v in zip(df["time"], df["open"], df["high"], df["low"], df["close"], df["volume"])
+        for t, o, h, l, c, v in zip(
+            df["time"], df["open"], df["high"], df["low"], df["close"], df["volume"], strict=True
+        )
     }
 
 
@@ -1108,7 +712,7 @@ def dong_khop_lenh(df, ref, he_so):
             (float(g) * he_so - ref) / ref if ref else 0.0,
             mb.get(m, ""),
         )
-        for t, g, v, m in zip(df["time"], df["price"], df["volume"], df["match_type"])
+        for t, g, v, m in zip(df["time"], df["price"], df["volume"], df["match_type"], strict=True)
     ][::-1]
 
 
@@ -1149,7 +753,7 @@ def nen_cac_khung(ma, gia_hien_tai, chi_so=None):
     luc, nen = BO_NHO_NEN.get(ma, (0.0, None))
     if nen is None or time.time() - luc > GIAY_NHO_NEN:
         doc = lambda df: nen_tu_df(
-            df, 10 ** round(math.log10(gia_hien_tai / float(df["close"].iloc[-1]))) if len(df) else 1
+            df, cw_scanner.he_so_don_vi(gia_hien_tai, float(df["close"].iloc[-1])) if len(df) else 1
         )
         them = {"floating": 6} if chi_so else {}
         ten = chi_so or ma
@@ -1165,7 +769,7 @@ def khop_lenh(ma, ref, gia_hien_tai):
     df = cw_scanner.Quote(source=cw_scanner.NGUON_GIA_CW, symbol=ma).intraday(page_size=SO_LENH_KHOP)
     if not len(df):
         return []
-    return dong_khop_lenh(df, ref, 10 ** round(math.log10(gia_hien_tai / float(df["price"].iloc[-1]))))
+    return dong_khop_lenh(df, ref, cw_scanner.he_so_don_vi(gia_hien_tai, float(df["price"].iloc[-1])))
 
 
 def hang_nen(

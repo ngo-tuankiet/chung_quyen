@@ -173,7 +173,7 @@ def doc_etf():
     if df is None:
         return None, None, None
     cs, quy = df[df["Loại"] == "Chỉ số"], df[df["Loại"] == "ETF"].copy()
-    quy["so CS"] = quy["1N %"] - quy["Chỉ số"].map(dict(zip(cs["Mã"], cs["1N %"])))
+    quy["so CS"] = quy["1N %"] - quy["Chỉ số"].map(dict(zip(cs["Mã"], cs["1N %"], strict=True)))
     return cs, quy, ngay
 
 
@@ -269,7 +269,7 @@ def doc_inav_trong_phien(ma, so_ngay=SO_NGAY_INAV):
         if not len(d):
             continue
         ck = ((d["Giá chào bán"] / d["iNAV"] - 1) * 100).round(2)
-        diem = [[str(g)[:5], float(v)] for g, v in zip(d["Giờ"], ck)]
+        diem = [[str(g)[:5], float(v)] for g, v in zip(d["Giờ"], ck, strict=True)]
         kq[tep.stem[5:]] = {
             "diem": diem,
             "thap_nhat": tuple(diem[int(ck.to_numpy().argmin())]),
@@ -554,7 +554,7 @@ def trang_etf_chi_tiet(ma):
     bd_cl = "<p>Chưa có lịch sử NAV của quỹ này.</p>"
     try:  # 1 lượt gọi vnstock mỗi lần mở trang
         ls = cw_scanner.lay_gia_dong_cua(ma, etf.SO_NGAY_LICH_SU, "VCI")
-        gia_ls = etf.chuoi_gia(ls, 10 ** round(math.log10(h["Giá"] / float(ls["close"].iloc[-1]))))[
+        gia_ls = etf.chuoi_gia(ls, cw_scanner.he_so_don_vi(h["Giá"], float(ls["close"].iloc[-1])))[
             0
         ]  # nghìn đồng -> đồng
         nav = doc_nav(ma)
