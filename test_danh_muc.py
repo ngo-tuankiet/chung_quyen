@@ -131,6 +131,18 @@ def canh_bao(bid, S, con_ngay, kl_truoc=None, kl=18_000_000, dao_han="20270217",
     return {l for _, l, _ in cb}, kl_moi
 
 
+def test_chot_loi_khi_khong_co_nguoi_mua_ghi_dung_nguon_gia():
+    # Không ai đặt mua: lãi tạm tính ở giá khớp gần nhất 1.600 -> (1.600 × 0,9975 − 1.001,5) / 1.001,5 = +59,4% ≥ chốt lời 50%.
+    # Tin phải nói đó là giá khớp, không gọi là "giá chờ mua" (rà soát 04/11/2026)
+    vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
+    b = bang_gia_mau(None, 25000, HOM_NAY + timedelta(days=60))
+    b["CVPB2615"][1]["matchPrice"] = 1600
+    nd = {l: n for _, l, n in D.danh_gia_danh_muc(vt, b, DF, HOM_NAY, {})[1]}
+    assert "giá khớp gần nhất (không có người mua) 1.600 đ" in nd["chot_loi"] and "khong_nguoi_mua" in nd
+    b = bang_gia_mau(1600, 25000, HOM_NAY + timedelta(days=60))  # có người mua 1.600: vẫn ghi "giá chờ mua"
+    assert "giá chờ mua 1.600 đ" in {l: n for _, l, n in D.danh_gia_danh_muc(vt, b, DF, HOM_NAY, {})[1]}["chot_loi"]
+
+
 def test_canh_bao_tai_bien_nguong():
     # Ngày GD cuối: còn 20 ngày -> báo, 21 ngày -> không
     assert "gd_cuoi" in canh_bao(1000, 25000, 20)[0] and "gd_cuoi" not in canh_bao(1000, 25000, 21)[0]

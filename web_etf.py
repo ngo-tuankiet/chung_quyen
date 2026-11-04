@@ -379,7 +379,7 @@ def so_lieu_truc_tiep(ma, h, ngay):
     except Exception as e:  # noqa: BLE001
         bg, loi = None, f"{type(e).__name__}: {e}"[:150]
     if bg and (bg.get("iNAV") or 0) > 0:
-        so_lieu = {**chiet_khau.danh_gia_quy(bg), "Giá chờ mua": bg.get("best1Bid") or math.nan}
+        so_lieu = {**chiet_khau.danh_gia_quy(bg), "Giá chờ mua": chiet_khau.so_duong(bg.get("best1Bid")) or math.nan}
         return so_lieu, f"SSI iBoard lúc {datetime.now():%H:%M %d/%m/%Y}", ""
     cot = ["iNAV", "NAV T-1", "Giá chào bán", "KL chào bán", "Chiết khấu mua được %", "Lãi ròng nếu về NAV %"]
     cot += ["Mua được đạt ngưỡng (đ)", "CK 1 lệnh %"]

@@ -224,6 +224,13 @@ def test_kiem_tra_trong_phien():
         )  # 2 lần 2 quỹ, 2 lần 3 quỹ
 
 
+def test_so_lenh_ssi_co_chu_ato_atc():
+    # phiên ATO/ATC SSI có thể ghi chữ thay cho giá: bỏ mức đó, không làm dừng lần chạy 5 phút (rà soát 04/11/2026)
+    bg = ban_ghi(chao_ban=(("ATO", 500), (9_750, 600)))
+    assert CK.muc_chao_ban(bg) == [(9_750, 600)] and CK.danh_gia_quy(bg)["Giá chào bán"] == 9_750
+    assert CK.so_duong("ATC") == 0 and CK.so_duong(None) == 0 and CK.so_duong(9_600) == 9_600
+
+
 def test_kiem_tra_trong_phien_chi_bao_khi_du_lai_rong():
     # iNAV 10.000: FUEVN100 chào bán 9.780 × 1.000 (−2,2%, lãi ròng 1,84%) -> trước 04/11/2026 Discord báo, trang không hiện;
     # nay không báo. FUEDCMID 9.760 × 1.000 (lãi ròng 2,05%, 9,76 triệu) -> báo

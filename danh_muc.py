@@ -505,13 +505,15 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
                     ),
                 )
             )
+        # không ai đặt mua thì gia_ban là giá khớp gần nhất: ghi đúng tên, đừng để người đọc tưởng bán được ngay ở giá đó
+        nguon_ban = "giá chờ mua" if gia_bid else "giá khớp gần nhất (không có người mua)"
         if round(lai_pct, 9) >= chot_loi:
             canh_bao.append(
-                (ma, "chot_loi", f"lãi nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(chot_loi)}), giá chờ mua {so(gia_ban)} đ")
+                (ma, "chot_loi", f"lãi nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(chot_loi)}), {nguon_ban} {so(gia_ban)} đ")
             )
         if round(lai_pct, 9) <= -cat_lo:
             canh_bao.append(
-                (ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), giá chờ mua {so(gia_ban)} đ")
+                (ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), {nguon_ban} {so(gia_ban)} đ")
             )
         if not math.isnan(lech) and abs(round(lech, 9)) >= CANH_BAO_LECH:
             ngay_mua = f"{v['ngay_mua'][8:]}/{v['ngay_mua'][5:7]}"

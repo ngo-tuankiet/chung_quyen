@@ -262,7 +262,7 @@ def etf_mua_duoc(ssi, chi_so, gia_tri=0, thuong_lech=None):
     ung_vien = []
     for ma in E.QUY_THEO_CHI_SO.get(chi_so, []):
         bg = ssi.get(ma) or {}
-        ban, inav, B = CK.muc_chao_ban(bg), bg.get("iNAV") or 0, bg.get("best1Bid") or 0
+        ban, inav, B = CK.muc_chao_ban(bg), bg.get("iNAV") or 0, CK.so_duong(bg.get("best1Bid"))
         if not ban or inav <= 0 or B <= 0 or (thuong_lech or {}).get(ma, math.nan) <= -CK.NGUONG_GIAM_SO_INAV * 100:
             continue
         A = CK.gia_mua_lenh(bg, gia_tri) if gia_tri > 0 else ban[0][0]

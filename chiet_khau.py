@@ -70,9 +70,15 @@ def lai_rong_neu_ve_nav(gia_mua: float, nav: float, phi: float = C.PHI_GIAO_DICH
     return nav * (1 - phi - thue) / (gia_mua * (1 + phi)) - 1
 
 
+def so_duong(x):
+    """Số > 0 của bản ghi SSI, ngược lại 0: phiên ATO/ATC có thể ghi chữ thay cho giá (như cw_scanner.muc_so_lenh); để nguyên
+    thì phép so sánh với số làm dừng cả lần chạy 5 phút (rà soát 04/11/2026)."""
+    return x if isinstance(x, (int, float)) and x > 0 else 0
+
+
 def muc_chao_ban(bg):
-    """3 mức chào bán tốt nhất của bản ghi SSI: [(giá, khối lượng)], bỏ mức trống."""
-    muc = [(bg.get(f"best{i}Offer") or 0, bg.get(f"best{i}OfferVol") or 0) for i in (1, 2, 3)]
+    """3 mức chào bán tốt nhất của bản ghi SSI: [(giá, khối lượng)], bỏ mức trống và mức dạng chữ (ATO/ATC)."""
+    muc = [(so_duong(bg.get(f"best{i}Offer")), so_duong(bg.get(f"best{i}OfferVol"))) for i in (1, 2, 3)]
     return [(g, v) for g, v in muc if g > 0 and v > 0]
 
 
