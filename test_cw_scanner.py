@@ -439,6 +439,37 @@ def test_bien_dong_lich_su_tinh_tay():
     assert lay.call_args[0][1] == cw_scanner.SO_NGAY_LICH_SU_HV  # đủ ngày lịch cho 250 phiên
 
 
+def test_bien_dong_lich_su_qua_it_gia_chi_bo_ma_do():
+    # 2 giá -> 1 lợi suất: độ lệch chuẩn mẫu NaN. Trước đây NaN lọt vào sigma rồi round(NaN) làm sập cả lần quét (audit 04/11/2026)
+    df = pd.DataFrame({"time": ["2026-10-21", "2026-10-22"], "close": [100.0, 110.0]})
+    with mock.patch.object(cw_scanner, "lay_gia_dong_cua", return_value=df):
+        try:
+            cw_scanner.bien_dong_lich_su("VPB")
+        except ValueError as e:
+            assert "không đo được biến động" in str(e)
+        else:
+            raise AssertionError("phải báo lỗi để main bỏ riêng mã này")
+
+
+def test_tieu_chi_hoa_von_so_so_da_lam_tron():
+    # CS tăng để hòa vốn = (K + giá mua × tỷ lệ) / S − 1 = (26.193,105 + 1.250 × 1,5863) / 24.500 − 1 = 0,150040:
+    # cột CSV ghi 15,0 và trang chi tiết đánh ✓ "≤ 15%", nên kết luận cũng không được tính trượt tiêu chí này
+    ny = {
+        "exercisePrice": 26193.105,
+        "exerciseRatio": "1.5863:1",
+        "maturityDate": "20270217",
+        "refPrice": 1230,
+        "underlyingSymbol": "VPB",
+        "issuerName": "ACBS",
+        "listedShare": 18_000_000,
+        "lastTradingDate": "20270215",
+    }
+    kq = dinh_gia(
+        ny, {"matchPrice": 1240, "accumulatedVolume": 891_900}, SO_LENH, 24500, 0.318, date(2026, 10, 18), 0.04
+    )
+    assert kq["CS tăng % để hòa vốn"] == 15.0 and "hòa vốn" not in kq["Lý do"]
+
+
 def test_lich_su_iv():
     # Giá CW tạo từ Black-Scholes với sigma 30% -> giải ngược ra đúng 30% mỗi ngày; ngày thiếu giá CS thì bỏ;
     # ngày giá CW dưới mức tối thiểu S − K·e^(−rT) thì ghi 0 (không có mức biến động nào khớp)

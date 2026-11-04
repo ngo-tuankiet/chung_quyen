@@ -449,8 +449,10 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     dong = []
     for thay_doi in (-20, -10, -5, 0, 5, 10, 15, 20, 30):
         gia_cs = S * (1 + thay_doi / 100)
-        nhan_ve = max(gia_cs - K, 0) / ty_le
-        lai = C.tien_dao_han(gia_cs, K, ty_le) - gia_von  # thuế 0,1% trên giá trị danh nghĩa CS
+        nhan_ve = C.tien_dao_han(
+            gia_cs, K, ty_le
+        )  # sau thuế 0,1% trên giá trị danh nghĩa CS: Nhận về − giá vốn = Lãi/lỗ
+        lai = nhan_ve - gia_von
         lop = "duong" if lai > 0 else ("am" if lai < 0 else "")
         dong.append(
             f'<tr{" class=hang-goc" if thay_doi == 0 else ""}><td>{"Giữ nguyên" if thay_doi == 0 else f"{thay_doi:+d}%"}</td>'
@@ -460,8 +462,10 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
     m_neu_giu = (
         f'<section class="the"><h2>Nếu giữ đến ngày đáo hạn ({ngay_dao_han:%d/%m/%Y})</h2>'
         f'<p class="phu">Lãi/lỗ theo giá {ESC(cs)} lúc đáo hạn (giá thanh toán thực tế là trung bình 5 phiên trước đáo hạn). '
-        f'Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền. Lỗ tối đa là toàn bộ tiền mua CW.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
-        f'<th class="so">Nhận về / CW (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
+        f"Đã trừ phí mua {phi_chu}% và thuế {thue_chu}% khi nhận tiền (thuế tính trên giá trị cổ phiếu, không trên tiền nhận về). "
+        "Lỗ tối đa gần bằng toàn bộ tiền mua CW; nếu giá thanh toán chỉ nhỉnh hơn giá thực hiện vài chục đồng thì thuế có thể "
+        f'lớn hơn tiền nhận, lỗ nhỉnh hơn một chút.</p><div class="cuon"><table><thead><tr><th>{ESC(cs)} thay đổi</th><th class="so">Giá {ESC(cs)} (đ)</th>'
+        f'<th class="so">Nhận về / CW sau thuế (đ)</th><th class="so">Lãi/lỗ / CW (đ)</th><th class="so">Lãi/lỗ</th>'
         f'</tr></thead><tbody>{"".join(dong)}</tbody></table></div></section>'
     )
 

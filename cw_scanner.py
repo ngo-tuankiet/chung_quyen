@@ -427,7 +427,10 @@ def bien_dong_lich_su(ma):
     df = lay_gia_dong_cua(ma, SO_NGAY_LICH_SU_HV)
     loi_suat = (df["close"] / df["close"].shift(1)).apply(math.log).dropna().tail(SO_PHIEN_DO_BIEN_DONG)
     lich_su = [[str(t)[:10], float(c)] for t, c in zip(df["time"], df["close"])]
-    return loi_suat.std() * math.sqrt(SO_PHIEN_MOT_NAM), len(loi_suat), lich_su
+    sigma = loi_suat.std() * math.sqrt(SO_PHIEN_MOT_NAM)
+    if not math.isfinite(sigma):  # ≤ 2 giá: không đo được; main chỉ bỏ mã này (sigma NaN làm round() sập cả lần quét)
+        raise ValueError(f"chỉ có {len(df)} giá đóng cửa, không đo được biến động")
+    return sigma, len(loi_suat), lich_su
 
 
 # ============ PHẦN 3: ĐÁNH GIÁ ============
@@ -489,7 +492,8 @@ def dinh_gia(ny, kl, so_lenh, S, sigma, hom_nay, r=None):
         if iv is not None and ngay_con_lai > 1
         else math.nan
     )  # CS và IV đứng yên, chỉ trôi 1 ngày
-    ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, tang_de_hoa_von, kl["accumulatedVolume"])
+    # làm tròn 0,1% như cột CSV (giống IV − HV ở trên): hiện "15,0" thì tiêu chí "≤ 15%" phải đạt
+    ket_luan, ly_do = danh_gia(ngay_con_lai, iv_tru_hv, round(tang_de_hoa_von, 3), kl["accumulatedVolume"])
     gd_cuoi = ny.get("lastTradingDate") or ""  # dạng YYYYMMDD
     return {
         "Mã CS": ny["underlyingSymbol"],

@@ -192,6 +192,16 @@ def kiem_tra_lenh(lenh, ds, ma_hop_le, hom_nay):
         dang_nam = tinh_vi_the(ds).get(ma, {}).get("so_luong", 0)
         if lenh["so_luong"] > dang_nam:
             loi.append(f"chỉ đang nắm {so(dang_nam)} {ma}, không bán được {so(lenh['so_luong'])}")
+    if not loi:
+        # đủ số đang nắm hôm nay vẫn chưa đủ: lệnh ghi lùi ngày được xếp trước các lệnh sau nó, có thể làm 1 lệnh bán bị âm
+        # (vd mua 01/10, bán hết 05/10, mua lại 10/10, rồi ghi bán 03/10). Lưu vào thì trang Danh mục chỉ còn báo lỗi và lịch
+        # 5 phút dừng mọi cảnh báo, nên chặn ngay ở đây (audit 04/11/2026)
+        try:
+            tinh_vi_the(ds + [{**lenh, "id": max((d["id"] for d in ds), default=0) + 1}])
+        except ValueError as e:
+            loi.append(
+                f"lệnh ngày {lenh['ngay'][8:]}/{lenh['ngay'][5:7]}/{lenh['ngay'][:4]} làm số đang nắm bị âm ({e})"
+            )
     return loi
 
 
@@ -254,9 +264,14 @@ def tinh_vi_the(ds):
             gia_von = v["von"] / v["so_luong"]
             v["lai_da_chot"] += l["so_luong"] * (l["gia"] * (1 - C.PHI_GIAO_DICH - C.THUE_BAN) - gia_von)
             v["von"] -= l["so_luong"] * gia_von
-            v["so_luong"] -= l["so_luong"]
-            if not v["so_luong"]:
-                v["mua"] = []  # đóng hết vị thế: lần mua sau là vị thế mới
+            # bán theo giá vốn bình quân: mỗi lần mua còn lại cùng tỷ lệ, để giá CS bình quân (mốc lệch) đi cùng giá vốn
+            con = v["so_luong"] - l["so_luong"]
+            v["mua"] = [(n, q * con / v["so_luong"]) for n, q in v["mua"]]
+            v["so_luong"] = con
+            if (
+                not con
+            ):  # đóng hết vị thế: lần mua sau là vị thế mới, không mang theo mua cũ và ngưỡng chốt lời / cắt lỗ cũ
+                v["mua"], v["chot_loi"], v["cat_lo"] = [], None, None
     for v in vt.values():
         v["gia_von"] = v.pop("von") / v["so_luong"] if v["so_luong"] else 0.0
     return vt
@@ -283,7 +298,8 @@ def phien_thanh_toan(dao_han):
     """SO_PHIEN_THANH_TOAN phiên liền trước đáo hạn (mới nhất trước), dùng tính giá thanh toán.
     shortcut: chỉ bỏ cuối tuần, chưa bỏ ngày lễ; nếu cần chính xác thì lấy lịch nghỉ của HOSE."""
     dh = np.datetime64(dao_han)
-    return [np.busday_offset(dh, -i, roll="backward").astype(date) for i in range(1, SO_PHIEN_THANH_TOAN + 1)]
+    # roll forward: đáo hạn thứ Bảy 13/02 -> lùi từ thứ Hai 15/02 nên phiên đầu là thứ Sáu 12/02 (backward bỏ sót ngày này)
+    return [np.busday_offset(dh, -i, roll="forward").astype(date) for i in range(1, SO_PHIEN_THANH_TOAN + 1)]
 
 
 def san_ly_thuyet(S, K, ty_le, r, hom_nay, dao_han):

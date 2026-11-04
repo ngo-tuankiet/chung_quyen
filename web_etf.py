@@ -390,10 +390,12 @@ def so_lieu_truc_tiep(ma, h, ngay):
     )
 
 
-def kich_ban_ban(gia, inav, gia_cho_mua, thuong_lech_pct):
-    """[(kịch bản, giá bán, lãi/lỗ 1 CCQ (đ), lãi ròng %)] nếu mua 1 CCQ ở giá chào bán `gia` rồi bán: ngay ở giá chờ mua, khi giá
-    về mức thường lệch (iNAV × (1 + trung vị chênh lệch 1 năm)), khi giá về đúng iNAV; iNAV giữ nguyên. Phí, thuế như
-    chiet_khau.lai_rong_neu_ve_nav. Thiếu số liệu thì bỏ dòng đó (không đoán)."""
+def kich_ban_ban(gia, inav, gia_cho_mua, thuong_lech_pct, gia_lenh=math.nan):
+    """[(kịch bản, giá bán, lãi/lỗ 1 CCQ (đ), lãi ròng %, lãi/lỗ cả lệnh (đ))] nếu mua 1 CCQ ở giá chào bán `gia` rồi bán: ngay ở
+    giá chờ mua, khi giá về mức thường lệch (iNAV × (1 + trung vị chênh lệch 1 năm)), khi giá về đúng iNAV; iNAV giữ nguyên. Phí,
+    thuế như chiet_khau.lai_rong_neu_ve_nav. Lãi/lỗ cả lệnh: lệnh GIA_TRI_LENH mua ở gia_lenh (giá bình quân ăn dần các mức
+    chào bán, chiet_khau.gia_mua_lenh), không phải giá 1 lô nhân lên; thiếu thì NaN. Thiếu số liệu thì bỏ dòng (không đoán).
+    """
     phi, thue = cw_scanner.PHI_GIAO_DICH, cw_scanner.THUE_BAN
     kb = [
         ("Bán ngay ở giá chờ mua", gia_cho_mua),
@@ -403,7 +405,13 @@ def kich_ban_ban(gia, inav, gia_cho_mua, thuong_lech_pct):
     if not (math.isfinite(gia) and gia > 0):
         return []
     return [
-        (ten, b, b * (1 - phi - thue) - gia * (1 + phi), chiet_khau.lai_rong_neu_ve_nav(gia, b) * 100)
+        (
+            ten,
+            b,
+            b * (1 - phi - thue) - gia * (1 + phi),
+            chiet_khau.lai_rong_neu_ve_nav(gia, b) * 100,
+            chiet_khau.lai_rong_neu_ve_nav(gia_lenh, b) * chiet_khau.GIA_TRI_LENH,
+        )
         for ten, b in kb
         if math.isfinite(b) and b > 0
     ]
@@ -517,8 +525,9 @@ def trang_etf_chi_tiet(ma):
         f"{o('Phí quản lý %', 2, False)}/năm · dữ liệu quét ngày {ngay:%d/%m/%Y}</p>"
         f'<p class="phu" style="margin:6px 0 0">Giá chào bán, iNAV theo {nguon}.</p></section>'
     )
-    kb = kich_ban_ban(gia, inav, lt["Giá chờ mua"], tv)
     lenh = chiet_khau.GIA_TRI_LENH
+    # giá bình quân 1 lệnh từ "CK 1 lệnh %" (làm tròn 0,01%: lệch ≤ 2.500 đ trên 50 triệu)
+    kb = kich_ban_ban(gia, inav, lt["Giá chờ mua"], tv, inav * (1 + lt["CK 1 lệnh %"] / 100))
     m_neu = (
         '<section class="the"><h2>Nếu mua bây giờ rồi bán</h2>'
         f'<p class="phu">Mua 1 CCQ ở giá chào bán {so(gia)} đ (+ phí {phi_chu}%), bán trừ phí {phi_chu}% và thuế {thue_chu}%; '
@@ -527,11 +536,12 @@ def trang_etf_chi_tiet(ma):
         + (
             '<div class="cuon"><table><thead><tr><th>Kịch bản</th><th class="so">Giá bán (đ)</th>'
             '<th class="so">Lãi/lỗ 1 CCQ (đ)</th><th class="so">Lãi ròng</th>'
-            f'<th class="so">Với {so(lenh / 1e6)} triệu (đ)</th></tr></thead><tbody>'
+            f'<th class="so" title="Lệnh {so(lenh / 1e6)} triệu mua ở giá bình quân ăn dần 3 mức chào bán (—: 3 mức không đủ)">'
+            f"Lệnh {so(lenh / 1e6)} triệu (đ)</th></tr></thead><tbody>"
             + "".join(
                 f'<tr><td>{ten}</td><td class="so">{so(b)}</td><td class="so {lop(d)}">{so(d, 0, True)}</td>'
-                f'<td class="so {lop(p)}">{so(p, 2, True)}%</td><td class="so {lop(p)}">{so(p / 100 * lenh, 0, True)}</td></tr>'
-                for ten, b, d, p in kb
+                f'<td class="so {lop(p)}">{so(p, 2, True)}%</td><td class="so {lop(v)}">{so(v, 0, True)}</td></tr>'
+                for ten, b, d, p, v in kb
             )
             + "</tbody></table></div>"
             if kb

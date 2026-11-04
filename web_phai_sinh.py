@@ -31,12 +31,14 @@ def chi_so_hd(h, gia_cs, hom_nay):
     """Các chỉ số của 1 hợp đồng so với chỉ số cơ sở cùng ngày giá: basis, basis năm hóa, ngày còn lại, số phiên tới ngày GD cuối."""
     S = gia_cs[h["chi_so"]].get(h["ngay_gia"], math.nan)
     con = (h["gd_cuoi"] - hom_nay).days if h["gd_cuoi"] else -1
+    # năm hóa theo số ngày từ ngày của giá F, S (Hull ch. 5), không từ hôm nay: xem cuối tuần / trước 9:00 T không ngắn đi
+    con_gia = (h["gd_cuoi"] - date.fromisoformat(h["ngay_gia"])).days if h["gd_cuoi"] else -1
     b, bp = P.basis(h["gia"], S)
     return {
         "S": S,
         "basis": b,
         "basis_pt": bp,
-        "nam_hoa": P.basis_nam_hoa(h["gia"], S, con) if con > 0 else math.nan,
+        "nam_hoa": P.basis_nam_hoa(h["gia"], S, con_gia) if con_gia > 0 else math.nan,
         "con_ngay": con,
         "so_phien": P.so_phien(hom_nay, h["gd_cuoi"]) if h["gd_cuoi"] else 0,
     }

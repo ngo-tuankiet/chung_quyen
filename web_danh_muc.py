@@ -40,8 +40,9 @@ def o_thao_tac(ma, so_luong, gia_ban, hom_nay):
             f'<button class="nut">{nut}</button></form></details>'
         )
 
-    # điền sẵn theo nghìn đồng (0,08 = 80 đ) như app chứng khoán: danh_muc.doc_gia hiểu số < 100 là nghìn đồng
-    gia = f"{gia_ban / 1000:g}".replace(".", ",") if gia_ban else ""
+    # điền sẵn theo nghìn đồng (0,08 = 80 đ) như app chứng khoán: danh_muc.doc_gia hiểu số < 100 là nghìn đồng.
+    # Từ 100.000 đ thì nghìn đồng ≥ 100 sẽ bị đọc thành đồng: ghi thẳng theo đồng
+    gia = "" if not gia_ban else f"{gia_ban:.0f}" if gia_ban >= 100_000 else f"{gia_ban / 1000:g}".replace(".", ",")
     return form("✕ Chốt", "BAN", so_luong, gia, "Lưu lệnh bán") + form(
         "+ Trung bình giá", "MUA", "", "", "Lưu lệnh mua"
     )

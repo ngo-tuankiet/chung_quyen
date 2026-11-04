@@ -499,6 +499,52 @@ def test_post_tu_trang_la_bi_chan_tu_trang_minh_thi_luu():
         ] and web_chung.LOI_DANH_MUC == ""
 
 
+def test_kiem_tra_lenh_ban_ghi_lui_ngay():
+    # Audit 04/11/2026: mua 1.000 ngày 01/10, bán hết 05/10, mua lại 500 ngày 10/10 -> hôm nay đang nắm 500. Ghi thêm "bán 500
+    # ngày 03/10": đủ số đang nắm hôm nay nhưng xếp theo ngày thì lệnh bán 05/10 thành bán 1.000 khi chỉ còn 500 -> phải chặn
+    ds = [
+        lenh(1, "2026-10-01", "MUA", 1000, 1000),
+        lenh(2, "2026-10-05", "BAN", 1000, 1100),
+        lenh(3, "2026-10-10", "MUA", 500, 900),
+    ]
+    loi = D.kiem_tra_lenh({**lenh(0, "2026-10-03", "BAN", 500, 1000)}, ds, {"CVPB2615"}, HOM_NAY)
+    assert len(loi) == 1 and "ngày 03/10/2026 làm số đang nắm bị âm" in loi[0]
+    # bán trước cả lần mua đầu tiên cũng chặn; bán đúng ngày sau lần mua lại thì hợp lệ
+    assert D.kiem_tra_lenh(lenh(0, "2026-09-30", "BAN", 500, 1000), ds, {"CVPB2615"}, HOM_NAY)
+    assert D.kiem_tra_lenh(lenh(0, "2026-10-12", "BAN", 500, 1000), ds, {"CVPB2615"}, HOM_NAY) == []
+
+
+def test_vi_the_moi_khong_mang_nguong_cu_va_moc_cs_sau_ban_bot():
+    # Bán hết rồi mua lại không đặt ngưỡng: vị thế mới dùng mức mặc định, không giữ chốt lời 100% / cắt lỗ 10% của lần trước
+    ds = [
+        lenh(1, "2026-10-01", "MUA", 1000, 1000, chot_loi=1.0, cat_lo=0.1),
+        lenh(2, "2026-10-02", "BAN", 1000, 1100),
+        lenh(3, "2026-10-03", "MUA", 1000, 900),
+    ]
+    v = D.tinh_vi_the(ds)["CVPB2615"]
+    assert v["chot_loi"] is None and v["cat_lo"] is None
+    # Mốc CS: mua 1.000 (CS 20.000), bán 900 -> còn 100 của lần mua đó; mua thêm 100 (CS 18.000). Giá vốn bình quân chia đều 2 phần
+    # 100 CW nên giá CS bình quân = (100 × 20.000 + 100 × 18.000) / 200 = 19.000 (cách cũ cân theo 1.000 và 100 -> 19.818)
+    ds = [
+        lenh(1, "2026-10-01", "MUA", 1000, 1000),
+        lenh(2, "2026-10-02", "BAN", 900, 1100),
+        lenh(3, "2026-10-05", "MUA", 100, 500),
+    ]
+    v = D.tinh_vi_the(ds)["CVPB2615"]
+    S = {"2026-10-01": 20000, "2026-10-05": 18000}
+    assert v["mua"] == [("2026-10-01", 100.0), ("2026-10-05", 100)]
+    assert sum(S[n] * q for n, q in v["mua"]) / sum(q for _, q in v["mua"]) == 19000
+
+
+def test_phien_thanh_toan_dao_han_cuoi_tuan():
+    # đáo hạn thứ Bảy 13/02/2027: 5 phiên liền trước là thứ Sáu 12/02 ... thứ Hai 08/02 (cách cũ bỏ sót 12/02, lấy cả 05/02)
+    assert D.phien_thanh_toan(date(2027, 2, 13)) == [date(2027, 2, d) for d in (12, 11, 10, 9, 8)]
+    # đáo hạn thứ Tư 10/02: không đổi
+    assert D.phien_thanh_toan(date(2027, 2, 10)) == [date(2027, 2, 9), date(2027, 2, 8)] + [
+        date(2027, 2, d) for d in (5, 4, 3)
+    ]
+
+
 def test_trang_danh_muc_chot_va_trung_binh_gia():
     import web_chung
     import web_danh_muc
@@ -513,6 +559,11 @@ def test_trang_danh_muc_chot_va_trung_binh_gia():
         and 'value="MUA"' in o
     )
     assert D.doc_gia("1,23") == 1230 and 'value="1,23"' in web_danh_muc.o_thao_tac("CVPB2615", 100, 1230, HOM_NAY)
+    # từ 100.000 đ ghi theo đồng: "100" sẽ bị đọc thành 100 đ, "123,45" thành 123.450 đ nhưng lệch bước giá
+    assert (
+        'value="123450"' in web_danh_muc.o_thao_tac("CVPB2615", 100, 123_450, HOM_NAY)
+        and D.doc_gia("123450") == 123_450
+    )
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.multiple(D, FILE_DANH_MUC=Path(tmp) / "dm.csv", FILE_TRANG_THAI=Path(tmp) / "tt.json"),

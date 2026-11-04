@@ -341,7 +341,7 @@ def test_kich_ban_ban_tinh_tay():
 
     # Mua 10.000 (giá chào bán) + phí 0,15% = 10.015; bán trừ phí 0,15% + thuế 0,1% (× 0,9975). iNAV 10.300, chờ mua 9.990,
     # thường lệch −1% -> mức thường lệch 10.300 × 0,99 = 10.197
-    k = {ten: (g, d, p) for ten, g, d, p in W.kich_ban_ban(10_000, 10_300, 9_990, -1.0)}
+    k = {ten: (g, d, p) for ten, g, d, p, _ in W.kich_ban_ban(10_000, 10_300, 9_990, -1.0)}
     g, d, p = k["Bán ngay ở giá chờ mua"]
     assert (
         g == 9_990 and math.isclose(d, 9_990 * 0.9975 - 10_015) and math.isclose(p, -0.4990, abs_tol=1e-4)
@@ -352,6 +352,24 @@ def test_kich_ban_ban_tinh_tay():
     assert g == 10_300 and math.isclose(d, 259.25) and math.isclose(p, 2.5886, abs_tol=1e-4)
     # thiếu giá chờ mua / thường lệch: bỏ dòng đó, không bịa số
     assert [ten for ten, *_ in W.kich_ban_ban(10_000, 10_300, math.nan, math.nan)] == ["Giá về đúng iNAV"]
+
+
+def test_kich_ban_ban_lenh_50_trieu_theo_gia_binh_quan():
+    import web_etf as W
+
+    # Audit 04/11/2026: iNAV 10.000, chào bán 9.700 × 200, 9.900 × 1.000, 10.000 × 5.000. Lệnh 50 triệu ăn dần:
+    # 1,94 tr (200 CCQ) + 9,9 tr (1.000 CCQ) + 38,16 tr ở 10.000 (3.816 CCQ) -> 5.016 CCQ, giá bình quân 50 tr / 5.016 = 9.968,1
+    bg = {"iNAV": 10_000, "best1Offer": 9_700, "best1OfferVol": 200, "best2Offer": 9_900, "best2OfferVol": 1_000}
+    bg |= {"best3Offer": 10_000, "best3OfferVol": 5_000}
+    gia_lenh = W.chiet_khau.gia_mua_lenh(bg)
+    assert math.isclose(gia_lenh, 50_000_000 / 5_016)
+    # về đúng iNAV: 50 tr × (10.000 × 0,9975 / (9.968,1 × 1,0015) − 1) = −40.339 đ (cách cũ: lãi 1 lô +2,68% × 50 tr = +1.340.515)
+    k = {ten: (p, v) for ten, _, _, p, v in W.kich_ban_ban(9_700, 10_000, math.nan, math.nan, gia_lenh)}
+    p, v = k["Giá về đúng iNAV"]
+    assert math.isclose(p, 2.6810, abs_tol=1e-4) and abs(v - (-40_339)) < 1
+    assert math.isnan(
+        W.kich_ban_ban(9_700, 10_000, math.nan, math.nan)[0][4]
+    )  # không có giá 1 lệnh: "—", không nhân bừa
 
 
 def test_inav_trong_phien_tinh_tay():

@@ -112,6 +112,17 @@ def test_trang_web_phai_sinh():
     assert web_chung.so(long_, 0, True) in ct and "Basis theo ngày" in ct and "3.62" in ct
 
 
+def test_basis_nam_hoa_tinh_tu_ngay_cua_gia():
+    import web_phai_sinh as W
+
+    # Audit 04/11/2026: F 1.858, VN30 1.855 giá ngày thứ Sáu 13/11, GD cuối 19/11. Xem Chủ nhật 15/11: còn 4 ngày (hiển thị),
+    # nhưng năm hóa tính 6 ngày từ ngày giá: ln(1.858 / 1.855) / (6 / 365) = 0,0016160 / 0,016438 = 9,83%/năm (cách cũ: 14,75%)
+    h = {"chi_so": "VN30", "ngay_gia": "2026-11-13", "gd_cuoi": date(2026, 11, 19), "gia": 1858.0}
+    c = W.chi_so_hd(h, {"VN30": {"2026-11-13": 1855.0}}, date(2026, 11, 15))
+    assert c["con_ngay"] == 4 and abs(c["nam_hoa"] - math.log(1858 / 1855) / (6 / 365) * 100) < 1e-9
+    assert abs(c["nam_hoa"] - 9.83) < 0.01
+
+
 if __name__ == "__main__":  # chạy không cần pytest
     for ten, ham in list(globals().items()):
         if ten.startswith("test_"):
