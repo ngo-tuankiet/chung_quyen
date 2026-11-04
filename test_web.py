@@ -51,6 +51,7 @@ def test_huong_dan_ghi_dung_tin_discord():
     trang = web_huong_dan.trang_huong_dan()
     assert all(web_huong_dan.TEN_BAO[k] in trang for k in danh_muc.BAT_THUONG) and "không gửi số tiền" not in trang
     assert 'href="#canh-bao"' in trang  # mục lục có mục 11 Cảnh báo
+    assert "&lt;b&gt;" not in trang  # câu trả lời được ESC: thẻ HTML trong đó hiện thành chữ
 
 
 def test_quet_tat_ca_mot_buoc_loi_van_chay_buoc_sau():

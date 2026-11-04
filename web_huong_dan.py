@@ -216,9 +216,9 @@ def trang_huong_dan():
             "Theo dõi CW đang nắm ở đâu?",
             (
                 'Trang "💼 Danh mục": nhập lệnh mua/bán, xem lãi/lỗ nếu bán ngay, mức tiếp xúc với từng cổ phiếu cơ sở và '
-                "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo <b>bất thường</b> được gửi lên Discord khi vừa xuất hiện "
+                "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo bất thường được gửi lên Discord khi vừa xuất hiện "
                 f"({', '.join(TEN_BAO.get(k, k) for k in sorted(danh_muc.BAT_THUONG, key=list(TEN_BAO).index))}; "
-                'và CW giảm mạnh dù bạn không nắm). Tin chỉ có mã, %, giá và lý do, <b>trừ</b> tin "CW đắt hơn mô hình" (ghi số tiền '
+                'và CW giảm mạnh dù bạn không nắm). Tin chỉ có mã, %, giá và lý do, trừ tin "CW đắt hơn mô hình" (ghi số tiền '
                 "bán hết thu về để so với chuyển sang cổ phiếu) và báo cáo 14:00 mỗi ngày (lãi/lỗ bằng tiền của mã đang giữ). "
                 "Cổ phiếu gần giá thực hiện, IV bất thường, lệch so với CS và mức 🟡 Cân nhắc bán chỉ hiện trên web."
             ),
