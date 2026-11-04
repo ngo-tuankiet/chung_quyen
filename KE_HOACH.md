@@ -877,5 +877,12 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   **Sau rà soát (04/11/2026):** sổ lệnh SSI có chữ ATO/ATC không còn làm dừng lần chạy 5 phút (`chiet_khau.so_duong`); tin chốt lời /
   cắt lỗ khi không ai mua ghi "giá khớp gần nhất (không có người mua)"; lịch sử giá CW (mốc lệch, Lệch 20p) nhớ ra file
   `ket_qua/nho_lich_su_cw_<ngày>.json`, mỗi CW tải vnstock 1 lần/ngày thay vì mỗi lần chạy 5 phút (đo: lần đầu 0,34 giây, lần
-  sau 0 lượt gọi). Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  sau 0 lượt gọi). **Thời gian còn lại T (đo 04/11/2026, người dùng chọn giữ ngày lịch / 365):** HV năm hóa theo √250 phiên
+  nhưng T theo ngày lịch; tính T theo phiên / 250 thì chỉ bỏ cuối tuần đổi kết quả tiêu chí IV − HV ở 12/333 CW, bỏ thêm ngày
+  nghỉ (Tết 2027 giả định) còn 4/333 (CW ~3 tháng qua Tết lệch nhiều nhất: CVHM2609 −6,0 → −4,3 điểm; CW ~6 tháng 0,2–0,4
+  điểm). Hai chiều gần bù nhau trong cả năm. Xem lại khi HOSE công bố lịch nghỉ 2027 (cần danh sách ngày nghỉ chính thức,
+  không tự đoán). **Biểu đồ nến trang chi tiết CW (04/11/2026, người dùng duyệt tải thư viện):** vẽ bằng TradingView Lightweight
+  Charts 5.2.1 (Apache-2.0, `giao_dien/`, SHA-256 khớp jsDelivr, logo TradingView giữ nguyên để ghi công): phóng to bằng lăn chuột /
+  chụm 2 ngón, kéo xem nến cũ, con trỏ và vùng xem của CW và CS đi cùng nhau; nến khớp lẻ vẫn vẽ mờ, dòng tóm tắt và bảng dữ liệu
+  giữ nguyên. Trang ETF, phái sinh vẫn vẽ SVG cho tới khi người dùng xem thử và đồng ý đổi. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

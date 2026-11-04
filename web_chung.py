@@ -139,6 +139,10 @@ COT = [
 THU_MUC_GIAO_DIEN = Path(__file__).parent / "giao_dien"
 CSS = (THU_MUC_GIAO_DIEN / "trang.css").read_text(encoding="utf-8")
 JS = (THU_MUC_GIAO_DIEN / "trang.js").read_text(encoding="utf-8")
+# Nến trang chi tiết CW vẽ bằng Lightweight Charts (TradingView, Apache-2.0; nguồn, SHA-256: giao_dien/THU_VIEN_NGOAI.md), chỉ
+# nhúng vào trang dùng nó (~200 KB). Trang ETF, phái sinh vẫn vẽ SVG (người dùng chọn làm thử trang CW trước, 04/11/2026)
+JS_LWC = (THU_MUC_GIAO_DIEN / "lightweight-charts-5.2.1.standalone.production.js").read_text(encoding="utf-8")
+JS_NEN_LWC = (THU_MUC_GIAO_DIEN / "nen_lwc.js").read_text(encoding="utf-8")
 
 
 # ============ ĐỊNH DẠNG ============
@@ -526,11 +530,14 @@ def buoc_dep(tho):
 MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
 
 
-def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1):
+def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1, ve="svg"):
     """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
     Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Thanh dọc theo chuột/ngón tay (như TradingView, JS ở đầu trang) và dòng
     thông số của nến đang trỏ: thời điểm, mở/cao/thấp/đóng, % so với đóng cửa nến trước, KL (mặc định là nến cuối).
-    Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình."""
+    Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình.
+    ve="lwc": thay hình SVG bằng ô Lightweight Charts (giao_dien/nen_lwc.js vẽ từ data-nen: [thời điểm, mở, cao, thấp, đóng, KL,
+    khớp lẻ] mỗi mốc của `gio`, mốc không khớp chỉ có thời điểm để 2 biểu đồ CW / CS vẫn chung trục); tóm tắt, bảng giữ nguyên.
+    """
     co = [nen[g] for g in gio if g in nen]
     if not co:
         return f"<p>{ESC(ten)}: không có giao dịch trong khoảng này.</p>"
@@ -633,6 +640,21 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1):
         for g in reversed(gio)
         if g in nen
     )
+    bang = (
+        f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
+        '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
+        f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
+    )
+    if ve == "lwc":
+        du_lieu = [
+            [g, *nen[g], nen[g][3] * nen[g][4] * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU] if g in nen else [g]
+            for g in gio
+        ]
+        return (
+            f'{tom_tat}<div class="nen-chu-giai lwc-chu-giai"></div><div class="lwc-nen" role="img" aria-label="{ESC(mo_ta)}" '
+            f'data-khung="{khung}" data-so-le="{so_le}" data-don-vi="{ESC(don_vi)}" data-nen="{ESC(json.dumps(du_lieu))}"></div>'
+            + bang
+        )
     return (
         f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}" data-c="{C}" '
         f'data-tren="{TREN}" data-nen-cao="{NEN_CAO}" data-gia-cao="{round(cao, 6):g}" data-gia-thap="{round(thap, 6):g}" '
@@ -644,10 +666,7 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1):
         f'<line class="vach-doc" x1="0" x2="0" y1="{TREN}" y2="{day_kl}" visibility="hidden"/>'
         f'<line class="vach-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="0" y2="0" visibility="hidden"/>'
         f'<g class="nhan-con-tro" visibility="hidden"><rect x="{R - PHAI + 4}" y="0" width="{PHAI - 6}" height="20" rx="3"/>'
-        f'<text x="{R - PHAI / 2 + 1:.1f}" y="0" text-anchor="middle"></text></g></svg></div>'
-        f'<details style="margin-top:8px"><summary>Xem dữ liệu {ESC(ten)} dạng bảng</summary><div class="cuon cao">'
-        '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
-        f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
+        f'<text x="{R - PHAI / 2 + 1:.1f}" y="0" text-anchor="middle"></text></g></svg></div>' + bang
     )
 
 
@@ -773,8 +792,8 @@ def khop_lenh(ma, ref, gia_hien_tai):
 
 
 def hang_nen(
-    ma, cac_gio, nen, bg, nhan=None
-):  # bg == "chi_so": nến bằng điểm, 2 số lẻ; nhan: HĐ tương lai (điểm, 1 số lẻ)
+    ma, cac_gio, nen, bg, nhan=None, ve="svg"
+):  # bg == "chi_so": nến bằng điểm, 2 số lẻ; nhan: HĐ tương lai (điểm, 1 số lẻ); ve: "svg" | "lwc" (bieu_do_nen)
     """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap,
     None (mất mạng) hoặc "chi_so" (chỉ số không giao dịch: không có sổ lệnh, khớp lệnh)."""
     if bg == "chi_so":
@@ -798,7 +817,8 @@ def hang_nen(
         f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
         + "".join(
             f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
-            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ('điểm', 1, nhan) if nhan else ()))}</div>"
+            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ('điểm', 1, nhan) if nhan else ()), ve=ve)}"
+            "</div>"
             for k, gio in cac_gio.items()
         )
         + "</div>"
@@ -806,7 +826,7 @@ def hang_nen(
     )
 
 
-def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None):
+def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None, ve="svg"):
     """Mục nến trải hết chiều ngang: mỗi mã (CW/ETF/HĐ tương lai trên, cổ phiếu cơ sở / chỉ số dưới) 1 hàng nến | độ sâu |
     khớp lệnh; nến chung trục. chi_so = tên chỉ số trong vnstock khi `cs` là chỉ số (trang ETF, phái sinh): hàng dưới không có
     sổ lệnh. nhan = hệ số nhân khi `ma` là HĐ tương lai (giá bằng điểm: vnstock floating=6, 1 số lẻ, khớp lẻ theo giá trị).
@@ -836,6 +856,14 @@ def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None):
         "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức"
         + (", chỉ số tính bằng điểm" if chi_so else "")
+        + (
+            ". Lăn chuột (hoặc chụm 2 ngón) để phóng to, kéo để xem nến cũ hơn: 2 biểu đồ đi cùng nhau. Biểu đồ: "
+            "TradingView Lightweight Charts"
+            if ve == "lwc"
+            else ""
+        )
         + ".</p>"
-        f'{hang_nen(ma, cac_gio, cw, bg_cw, nhan)}{hang_nen(cs, cac_gio, nen_cs, "chi_so" if chi_so else bg_cs)}</section>'
+        f"{hang_nen(ma, cac_gio, cw, bg_cw, nhan, ve)}{hang_nen(cs, cac_gio, nen_cs, 'chi_so' if chi_so else bg_cs, ve=ve)}"
+        + (f"<script>{JS_LWC}</script><script>{JS_NEN_LWC}</script>" if ve == "lwc" else "")
+        + "</section>"
     )

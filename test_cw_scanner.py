@@ -645,6 +645,25 @@ def test_gop_nen_h4_sang_chieu():
     assert W.nen_h4(dict(reversed(list(nen.items())))) == W.nen_h4(nen)
 
 
+def test_bieu_do_nen_lightweight_charts():
+    import html as h
+    import json
+
+    import web_chung as W
+
+    # ve="lwc" (trang chi tiết CW): ô Lightweight Charts thay hình SVG; dữ liệu mỗi mốc của trục chung, mốc không khớp chỉ có
+    # thời điểm; khớp lẻ: đóng × KL < 5 triệu (105 × 1). Dòng tóm tắt và bảng dữ liệu (người không xem được hình) giữ nguyên
+    gio = ["2026-10-30 09:00", "2026-10-30 10:00", "2026-10-30 11:00"]
+    nen = {gio[0]: (100, 110, 90, 105, 1), gio[2]: (105, 120, 100, 110, 60_000)}
+    o = W.bieu_do_nen(gio, nen, "CVPB2615", "h1", ve="lwc")
+    du_lieu = json.loads(h.unescape(o.split('data-nen="')[1].split('"')[0]))
+    assert du_lieu == [[gio[0], 100, 110, 90, 105, 1, True], [gio[1]], [gio[2], 105, 120, 100, 110, 60_000, False]]
+    assert 'class="lwc-nen" role="img"' in o and 'data-khung="h1"' in o and "<svg" not in o
+    assert 'class="tom-nen"' in o and "Xem dữ liệu CVPB2615 dạng bảng" in o
+    assert "<svg" in W.bieu_do_nen(gio, nen, "CVPB2615", "h1")  # mặc định (ETF, phái sinh) vẫn SVG
+    assert "</script" not in W.JS_LWC and "TradingView Lightweight Charts™ v5.2.1" in W.JS_LWC  # nhúng inline an toàn
+
+
 def test_bieu_do_nen_nhan_theo_khung():
     import web_chung as W
 
