@@ -757,12 +757,12 @@ def giam_manh(b, lich_cw=LICH_CW_GIAM, lich_su=LS_GIAM):
 
 def test_cw_giam_manh_bien_va_lech_tinh_tay():
     giam = lambda gia, **k: giam_manh(_bang_giam(gia, **k))
-    # VPB 25.000 hôm nay: lẽ ra = BS(25.000, 121 ngày, 50%) / 2 = 2.999,7 -> khớp 2.200: lệch = Lệch 20p = −26,7% (một mốc 16/10).
-    # Giảm so với tham chiếu (siết 03/11/2026: QUÁ 20%): 2.760 -> −20,3% báo; 2.740 -> −19,7% không; đúng 2.750 (−20%) không
-    assert [g["ma"] for g in giam(2200, ref_cw=2760, gia_cs=25000)] == ["CVPB2615"]
-    assert giam(2200, ref_cw=2740, gia_cs=25000) == [] and giam(2200, ref_cw=2750, gia_cs=25000) == []
+    # VPB 25.000 hôm nay: lẽ ra = BS(25.000, 121 ngày, 50%) / 2 = 2.999,7 -> khớp 2.380: lệch = Lệch 20p = −20,7% (một mốc 16/10).
+    # Giảm so với tham chiếu (QUÁ 15%, hạ lại 05/11/2026): 2.810 -> −15,3% báo; 2.790 -> −14,7% không; đúng 2.800 (−15%) không
+    assert [g["ma"] for g in giam(2380, ref_cw=2810, gia_cs=25000)] == ["CVPB2615"]
+    assert giam(2380, ref_cw=2790, gia_cs=25000) == [] and giam(2380, ref_cw=2800, gia_cs=25000) == []
     assert (
-        giam(2200, ref_cw=2760, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
+        giam(2380, ref_cw=2810, kl=0, gia_cs=25000) == [] and giam(0, gia_cs=25000) == []
     )  # chưa khớp lệnh nào: không có giá để so
     # lệnh khớp gần nhất ≥ 5 triệu đồng thì dùng giá khớp: 1.900 × 2.632 = 5.000.800 -> báo theo 1.900;
     # dưới (1.800 × 2.777 = 4.998.600, lệnh lẻ như CVNM2616 30/10/2026: 120 × 100) thì dùng giá phải trả để mua đủ 5 triệu
@@ -983,14 +983,14 @@ def test_gia_mua_nay_va_da_hoi_tinh_tay():
         "lech_20": -0.229,
         "luc": "10:00",
     }
-    # 2.600 / 3.000 − 1 = −13,3%: không còn giảm quá 20% -> dòng mờ "đã hồi"; đắt/rẻ lúc báo → nay
+    # 2.700 / 3.000 − 1 = −10%: không còn giảm quá 15% -> dòng mờ "đã hồi"; đắt/rẻ lúc báo → nay
     html = web_cw.muc_giam_manh({"CVPB2615": g}, nay)
     assert '<tr class="da-hoi">' in html and "2.700 (-10,0%) đã hồi" in html
     assert '<span class="duong">Rẻ 11,2%</span> → <span class="am">Đắt 19,9%</span>' in html
-    # đúng −20% (2.400) cũng là đã hồi vì cảnh báo cần giảm QUÁ 20%; 2.300 (−23,3%) thì chưa
-    assert '<tr class="da-hoi">' in web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2400, 0.066)})
-    con = web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2300, 0.021)})
-    assert "<tr>" in con and "2.300 (-23,3%)</td>" in con
+    # đúng −15% (2.550) cũng là đã hồi vì cảnh báo cần giảm QUÁ 15%; 2.500 (−16,7%) thì chưa
+    assert '<tr class="da-hoi">' in web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2550, 0.132)})
+    con = web_cw.muc_giam_manh({"CVPB2615": g}, {"CVPB2615": (2500, 0.11)})
+    assert "<tr>" in con and "2.500 (-16,7%)</td>" in con
     # thiếu giá trực tiếp của mã: ô "—"; trang Chứng quyền không tải giá trực tiếp thì không có cột
     assert "<td>—</td>" in web_cw.muc_giam_manh({"CVPB2615": g}, {})
     assert "Giá mua nay" not in web_cw.muc_giam_manh({"CVPB2615": g})

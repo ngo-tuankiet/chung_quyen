@@ -35,9 +35,11 @@ CANH_BAO_PHIEN_GD_CUOI_GAP = 2
 CANH_BAO_CACH_GIA_TH = 0.03  # báo khi cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% (hoặc đã xuống dưới)
 GIO_KHOP_LENH = [(gio(9, 15), gio(11, 30)), (gio(13, 0), gio(14, 45))]  # HOSE: khớp liên tục sáng, chiều + ATC
 NGUONG_CW_DAT = 0.15  # báo khi bán ngay ≥ giá trị theo mô hình × 1,15 VÀ IV (theo giá chờ mua) > trung vị IV CW cùng mã
-# CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 20% so với giá tham chiếu (giá khớp hôm nay) -> báo (người dùng chốt 30/10/2026
-# là 15%, siết lên 20% ngày 03/11/2026: CACB2621 "giảm 20%" chỉ là 2 bước giá 100 -> 80 đ)
-NGUONG_GIAM_MANH = 0.20
+# CW thuộc các nhóm này của lần quét gần nhất giảm QUÁ 15% so với giá tham chiếu (giá mua được hôm nay) -> báo. Người dùng chốt
+# 30/10/2026 là 15%, siết lên 20% ngày 03/11 (CACB2621 "giảm 20%" chỉ là 2 bước giá), hạ lại 15% ngày 05/11: CSTB2609 giảm 18,2%,
+# lệch −46%, Lệch 20p −49%, rẻ 46% theo HV là đúng kèo cần tìm mà bị ngưỡng 20% bỏ sót; bộ lọc Lệch 20 phiên (dưới) đã đủ chặn
+# nhiễu (giá cuối phiên 05/11 chỉ còn 1 mã).
+NGUONG_GIAM_MANH = 0.15
 NHOM_THEO_DOI_GIAM = ("NÊN XEM XÉT", "THEO DÕI")
 # ... VÀ lệch so với mức lẽ ra theo CS ≤ −15%: giảm do CS × đòn bẩy là bình thường, không báo (người dùng chốt 30/10/2026,
 # sau khi 13/13 mã bị báo sáng 30/10 đều khớp biểu đồ: TCB −2,2% × đòn bẩy 7–15). Không tính được lệch thì vẫn báo.

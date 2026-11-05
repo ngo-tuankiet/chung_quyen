@@ -333,7 +333,10 @@ khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệc
   là khớp lẻ, giá không mua lại được. Biểu đồ IV theo thời gian và "Lệch 20 phiên" (cả cột lệch lúc quét) bỏ phiên khớp lẻ
   (CVNM2616: 9/66 phiên); nến H1/H4/D1 và bảng khớp lệnh vẫn hiện nhưng vẽ mờ (rê chuột ghi "khớp lẻ"). Nến là lệnh đã khớp
   thật nên không thay bằng giá bán 1: không có lịch sử sổ lệnh. Định giá, IV hiện tại, hòa vốn, lướt vẫn tính theo giá bán 1 như trước.
-- **CW giảm mạnh** (30/10/2026, `cw_giam_manh`; **siết 03/11/2026, người dùng chốt:** giảm **quá 20%** thay vì 15%, và thêm
+- **CW giảm mạnh** (30/10/2026, `cw_giam_manh`; **05/11/2026 hạ lại ngưỡng giảm về quá 15%** (giữ 2 điều kiện lệch): CSTB2609
+  giảm 18,2%, lệch −46%, Lệch 20p −49%, rẻ 46% theo HV là kèo người dùng cần mà ngưỡng 20% bỏ sót; giá cuối phiên 05/11 chỉ còn
+  1 mã. Tin Discord CSTB2609 sáng 05/11 đến từ máy ngo-tuankiet chạy bản cũ cùng webhook, không phải máy này.
+  **Siết 03/11/2026, người dùng chốt:** giảm **quá 20%** thay vì 15%, và thêm
   Lệch 20 phiên ở giá lúc báo < −20% (`NGUONG_LECH_20_GIAM_MANH`, số âm: CW tụt hẳn so với CS cả 20 phiên; thử −25% trước, người
   dùng chọn −20%; không tính được thì vẫn báo như lệch). Trên 9 cảnh báo đã ghi 02–03/11 còn 4: CHPG2636 (Lệch 20p −47%),
   CHPG2637 (−68%), CHPG2642 (−22%) mà chiều 03/11 bán ở giá chờ mua lãi +40%, +44%, +29%, và CVPB2624 (−24%, 03/11); bỏ
