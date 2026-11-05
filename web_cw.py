@@ -321,7 +321,7 @@ def trang_chi_tiet(ma, von=VON_MAC_DINH):
         '<p class="phu">Chưa hiểu các con số? Xem <a href="/huong-dan#trang-phan-tich">cách đọc trang phân tích</a> và '
         '<a href="/huong-dan#truoc-khi-mua">5 câu tự hỏi trước khi mua</a>.</p></section>'
     )
-    m_nen = W.muc_nen(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None)), ve="lwc")
+    m_nen = W.muc_nen(ma, cs, P_khop, S, *((bang_gia[ma], bang_gia[cs]) if truc_tiep else (None, None)))
 
     # Các chỉ số chính
     # N(d1) ở IV của giá mua như cột Delta (không giải được IV thì HV): quyền trên 1 cổ phiếu tăng bao nhiêu khi cổ phiếu tăng 1 đ

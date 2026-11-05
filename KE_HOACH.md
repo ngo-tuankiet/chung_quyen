@@ -889,5 +889,6 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   chụm 2 ngón, kéo xem nến cũ, con trỏ và vùng xem của CW và CS đi cùng nhau; nến khớp lẻ vẫn vẽ mờ, dòng tóm tắt và bảng dữ liệu
   giữ nguyên. 05/11/2026 người dùng xem thử rồi đổi luôn trang chi tiết ETF và phái sinh (chỉ số 2 số lẻ, HĐ tương lai 1 số lẻ);
   sửa lỗi nến dồn sát mép phải khi ô biểu đồ lúc tải trang rộng 0 (tab nền, khung đang ẩn): vừa khít lại mỗi lần ô có bề rộng.
-  Bản vẽ SVG cũ (`bieu_do_nen(ve="svg")`) không còn trang nào dùng. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  Bản vẽ nến SVG tự viết (thanh dọc, thước đo, phím mũi tên) đã xóa cùng ngày theo yêu cầu người dùng (~300 dòng Python, JS, CSS);
+  biểu đồ đường (giá, IV, NAV, basis) vẫn là SVG. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).

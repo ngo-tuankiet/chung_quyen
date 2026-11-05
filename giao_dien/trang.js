@@ -105,88 +105,13 @@ document.querySelectorAll("th button").forEach(nut => nut.addEventListener("clic
   });
   bang.tBodies[0].append(...dong);
 }));
-// Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
-// biểu đồ nến: thanh dọc theo chuột / ngón tay (như TradingView) + dòng thông số của nến đang trỏ. Các biểu đồ cùng khung trong
-// 1 mục (CW và CS, chung trục) chạy cùng nhau. Rời chuột thì về nến cuối. Phím ← → khi biểu đồ được chọn.
-const nenCung = el => el.closest("section").querySelectorAll(`.khung-nen[data-khung="${el.closest(".khung-nen").dataset.khung}"] .nen-tuong-tac`);
-const chiNen = (el, i) => nenCung(el).forEach(k => {
-  const n = k.querySelectorAll(".nen-chu-giai > span"), cuoi = n.length - 1, j = i == null ? cuoi : Math.max(0, Math.min(cuoi, i));
-  n.forEach((s, m) => { s.hidden = m !== j; });
-  const v = k.querySelector(".vach-doc"), x = +k.dataset.x0 + (j + 0.5) * +k.dataset.rong;
-  v.setAttribute("x1", x); v.setAttribute("x2", x); v.setAttribute("visibility", i == null ? "hidden" : "visible");
-  k.dataset.i = i == null ? "" : j;
-});
-document.querySelectorAll(".nen-tuong-tac").forEach(k => {
-  const svg = k.querySelector("svg");
-  const viTri = e => { const r = svg.getBoundingClientRect(); return Math.floor(((e.clientX - r.left) / r.width * +k.dataset.r - +k.dataset.x0) / +k.dataset.rong); };
-  svg.addEventListener("pointermove", e => chiNen(k, viTri(e)));
-  svg.addEventListener("pointerdown", e => chiNen(k, viTri(e)));
-  svg.addEventListener("pointerleave", () => chiNen(k, null));
-  svg.addEventListener("keydown", e => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const n = k.querySelectorAll(".nen-chu-giai > span").length, i = k.dataset.i === "" || k.dataset.i == null ? n - 1 : +k.dataset.i;
-    chiNen(k, i + (e.key === "ArrowLeft" ? -1 : 1));
-  });
-  svg.addEventListener("blur", () => chiNen(k, null));
-});
-// thanh ngang + thước đo: trong vùng giá, đường ngang và nhãn giá tại con trỏ (bên phải); giữ chuột / ngón tay kéo -> vùng đo
-// từ điểm bắt đầu tới con trỏ: % thay đổi, chênh lệch giá (đ), số nến (như công cụ đo của TradingView). Thả ra vẫn giữ
-// vùng đo; bấm (không kéo) hoặc Esc để xóa.
-const soVN = (v, le = 0) => v.toLocaleString("vi-VN", { minimumFractionDigits: le, maximumFractionDigits: le });
-document.querySelectorAll(".nen-tuong-tac").forEach(k => {
-  const svg = k.querySelector("svg"), d = k.dataset, q = s => svg.querySelector(s), td = q(".thuoc-do");
-  const toaDo = e => { const r = svg.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * +d.r, (e.clientY - r.top) / r.height * +d.c]; };
-  const kep = y => Math.max(+d.tren, Math.min(+d.tren + +d.nenCao, y));
-  const giaTai = y => +d.giaCao - (kep(y) - +d.tren) / +d.nenCao * (+d.giaCao - +d.giaThap);
-  const trongGia = y => y >= +d.tren && y <= +d.tren + +d.nenCao;
-  const nenTai = x => Math.floor((x - +d.x0) / +d.rong);
-  const dat = (el, o) => Object.entries(o).forEach(([a, v]) => el.setAttribute(a, v));
-  let dau = null;
-  const ngang = y => {
-    const l = q(".vach-ngang"), n = q(".nhan-con-tro"), hien = trongGia(y) ? "visible" : "hidden";
-    l.setAttribute("visibility", hien); n.setAttribute("visibility", hien);
-    if (hien === "hidden") return;
-    dat(l, { y1: y, y2: y }); n.querySelector("rect").setAttribute("y", y - 10);
-    const ch = n.querySelector("text"); ch.setAttribute("y", y + 4); ch.textContent = soVN(giaTai(y), +d.soLe);
-  };
-  const doDen = (x, y) => {
-    y = kep(y);
-    const g0 = giaTai(dau.y), g1 = giaTai(y), pt = (g1 / g0 - 1) * 100, dau_ = pt >= 0 ? "+" : "−";
-    td.classList.toggle("giam", pt < 0);
-    dat(q(".vung-do"), { x: Math.min(dau.x, x), y: Math.min(dau.y, y), width: Math.abs(x - dau.x), height: Math.abs(y - dau.y) });
-    dat(q(".duong-do"), { x1: dau.x, y1: dau.y, x2: x, y2: y });
-    const ch = q(".chu-do"), xt = Math.min(x + 8, +d.r - 220);
-    dat(ch, { x: xt, y: Math.max(+d.tren + 14, y + (y < dau.y ? -8 : 18)) });
-    ch.textContent = `${dau_}${soVN(Math.abs(pt), 2)}% (${dau_}${soVN(Math.abs(g1 - g0), +d.soLe)} ${d.donVi}) · ${Math.abs(nenTai(x) - nenTai(dau.x))} nến`;
-    td.setAttribute("visibility", "visible");
-  };
-  svg.addEventListener("pointerdown", e => {
-    const [x, y] = toaDo(e);
-    td.setAttribute("visibility", "hidden");
-    if (!trongGia(y)) return;
-    dau = { x, y, keo: false };
-    svg.setPointerCapture(e.pointerId);
-  });
-  svg.addEventListener("pointermove", e => {
-    const [x, y] = toaDo(e);
-    ngang(y);
-    if (!dau) return;
-    if (Math.abs(x - dau.x) + Math.abs(y - dau.y) > 4) dau.keo = true;
-    if (dau.keo) doDen(x, y);
-  });
-  svg.addEventListener("pointerup", () => { dau = null; });
-  svg.addEventListener("pointerleave", () => { if (!dau) ngang(-1); });
-});
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") document.querySelectorAll(".thuoc-do").forEach(g => g.setAttribute("visibility", "hidden"));
-});
 // nút H1 / H4 / D1: hiện biểu đồ nến đúng khung trong cùng mục, các khung khác ẩn (đã vẽ sẵn, không tải lại trang)
 document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () => {
   const muc = n.closest("section");
   muc.querySelectorAll(".khung-nen").forEach(k => { k.hidden = k.dataset.khung !== n.dataset.chonKhung; });
   muc.querySelectorAll("[data-chon-khung]").forEach(b => b.setAttribute("aria-pressed", b === n));
 }));
+// Ô tìm kiếm: ẩn các dòng không chứa chữ cần tìm
 document.querySelectorAll("input[data-loc]").forEach(o => o.addEventListener("input", () => {
   const q = o.value.trim().toUpperCase();
   document.querySelectorAll(o.dataset.loc + " tbody tr").forEach(tr => { tr.hidden = q && !tr.textContent.toUpperCase().includes(q); });

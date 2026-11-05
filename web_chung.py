@@ -469,7 +469,6 @@ def bieu_do(lich_su, duong_ke, ten, don_vi="đ", ten_cot="Giá đóng cửa (đ)
 
 
 # ============ NẾN H4 (gộp từ nến 1 giờ) ============
-NEN_CAO, KL_CAO = 280, 110  # chiều cao vùng nến và vùng khối lượng (px trong viewBox)
 
 
 def nen_tu_df(df, he_so):
@@ -516,114 +515,25 @@ def muc_so_lenh(so_lenh):
 TEN_KHUNG = {"h1": "1 giờ", "h4": "4 giờ", "d1": "ngày"}
 
 
-def kl_gon(x):
-    """Khối lượng ngắn gọn cho nhãn trục: 950 -> '950', 150.000 -> '150K', 1.250.000 -> '1,3M'."""
-    return so(x / 1e6, 1) + "M" if x >= 1e6 else (so(x / 1e3) + "K" if x >= 1e3 else so(x))
-
-
 def buoc_dep(tho):
     """Bước trục "đẹp" (1, 2, 2,5, 5 × 10^n) nhỏ nhất ≥ tho."""
     mu = 10 ** math.floor(math.log10(tho))
     return next(b * mu for b in (1, 2, 2.5, 5, 10) if b * mu >= tho)
 
 
-MAX_NHAN_NGAY = 10  # trục ngang: tối đa bấy nhiêu nhãn ngày (D1 30 nến mà ghi đủ 30 ngày thì chồng chữ)
-
-
-def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1, ve="svg"):
-    """SVG nến khung `khung` (h1 | h4 | d1; xanh tăng, đỏ giảm) + cột khối lượng cùng màu theo trục `gio`; mốc không có trong `nen` (không khớp) để trống.
-    Đường đứt + nhãn bên phải: giá đóng cửa nến cuối. Thanh dọc theo chuột/ngón tay (như TradingView, JS ở đầu trang) và dòng
-    thông số của nến đang trỏ: thời điểm, mở/cao/thấp/đóng, % so với đóng cửa nến trước, KL (mặc định là nến cuối).
-    Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ liệu cho người không xem được hình.
-    ve="lwc": thay hình SVG bằng ô Lightweight Charts (giao_dien/nen_lwc.js vẽ từ data-nen: [thời điểm, mở, cao, thấp, đóng, KL,
-    khớp lẻ] mỗi mốc của `gio`, mốc không khớp chỉ có thời điểm để 2 biểu đồ CW / CS vẫn chung trục); tóm tắt, bảng giữ nguyên.
+def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1):
+    """Ô biểu đồ nến khung `khung` (h1 | h4 | d1) cho giao_dien/nen_lwc.js (TradingView Lightweight Charts): data-nen = [thời
+    điểm, mở, cao, thấp, đóng, KL, khớp lẻ] mỗi mốc của `gio`, mốc không khớp chỉ có thời điểm để 2 biểu đồ CW / CS chung trục;
+    khớp lẻ (đóng × KL × he_so_nhan < 5 triệu) vẽ mờ. Kèm dòng tóm tắt (đóng cuối, thay đổi cả khoảng, cao/thấp) và bảng dữ
+    liệu cho người không xem được hình. Bản SVG tự vẽ bỏ ngày 05/11/2026 khi cả 3 trang chi tiết đã dùng Lightweight Charts.
     """
     co = [nen[g] for g in gio if g in nen]
     if not co:
         return f"<p>{ESC(ten)}: không có giao dịch trong khoảng này.</p>"
-    R, TRAI, PHAI, TREN = 900, 56, 76, 10  # PHAI chừa chỗ nhãn giá cuối
-    day_nen, day_kl = TREN + NEN_CAO, TREN + NEN_CAO + 24 + KL_CAO
-    C = day_kl + 4
-    thap, cao = min(n[2] for n in co), max(n[1] for n in co)
-    le = (cao - thap) * 0.06 or 1
-    thap, cao = thap - le, cao + le
-    rong = (R - TRAI - PHAI) / len(gio)
-    x = lambda i: TRAI + (i + 0.5) * rong
-    y = lambda v: TREN + (cao - v) * NEN_CAO / (cao - thap)
-    # trục KL: 2 vạch "đẹp", đỉnh trục là vạch trên cùng nên chiều cao cột đọc được bằng vạch
-    buoc_kl = buoc_dep((max(n[4] for n in co) or 1) / 2)
-    kl_max = math.ceil((max(n[4] for n in co) or 1) / buoc_kl) * buoc_kl
     buoi = lambda g: {"h1": g[11:16], "h4": "buổi " + ("sáng" if g[11:16] < "13:00" else "chiều"), "d1": ""}[khung]
-    dau_phien = [i for i, g in enumerate(gio) if i == 0 or g[:10] != gio[i - 1][:10]]
-    co_nhan = set(dau_phien[:: math.ceil(len(dau_phien) / MAX_NHAN_NGAY)])
-    phan, chu_giai, dong_truoc = [], [], None
-    buoc = buoc_dep((cao - thap) / 4)
-    v = math.ceil(thap / buoc) * buoc
-    while v <= cao:
-        phan.append(
-            f'<line class="luoi-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="{y(v):.1f}" y2="{y(v):.1f}"/>'
-            f'<text class="nhan-truc" x="{TRAI - 8}" y="{y(v) + 4:.1f}" text-anchor="end">{so(v)}</text>'
-        )
-        v += buoc
-    phan.append(f'<line class="truc" x1="{TRAI}" x2="{R - PHAI}" y1="{day_nen + 24:.1f}" y2="{day_nen + 24:.1f}"/>')
-    for k in (buoc_kl, kl_max):
-        yk = day_kl - k / kl_max * KL_CAO
-        phan.append(
-            f'<line class="luoi-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="{yk:.1f}" y2="{yk:.1f}"/>'
-            f'<text class="nhan-truc" x="{TRAI - 8}" y="{yk + 4:.1f}" text-anchor="end">{kl_gon(k)}</text>'
-        )
-    for i, g in enumerate(gio):
-        if i in co_nhan:  # vạch mờ + nhãn ngày, thưa bớt khi nhiều ngày
-            xg = TRAI + i * rong
-            phan.append(
-                f'<line class="vach-phien" x1="{xg:.1f}" x2="{xg:.1f}" y1="{TREN}" y2="{day_kl}"/>'
-                f'<text class="nhan-truc" x="{xg + 3:.1f}" y="{day_nen + 16}">{g[8:10]}/{g[5:7]}</text>'
-            )
-        nhan = f"{g[8:10]}/{g[5:7]}{' ' + buoi(g) if buoi(g) else ''}"
-        an = "" if i == len(gio) - 1 else " hidden"
-        if g not in nen:
-            chu_giai.append(f'<span data-i="{i}"{an}><b>{nhan}</b> không khớp lệnh</span>')
-            continue
-        o, h, l, c, kl = nen[g]
-        doi = c / (dong_truoc or o) - 1
-        lop_doi = "gia-tang" if doi > 0 else ("gia-giam" if doi < 0 else "")
-        chu_giai.append(
-            f'<span data-i="{i}"{an}><b>{nhan}</b> Mở <b>{so(o, so_le)}</b> Cao <b>{so(h, so_le)}</b> Thấp <b>{so(l, so_le)}</b> '
-            f'Đóng <b class="{lop_doi}">{so(c, so_le)}</b> <span class="{lop_doi}">{so(doi * 100, 1, True)}%</span> KL <b>{so(kl)}</b>'
-            + (
-                " · <i>khớp lẻ dưới 5 triệu đồng, giá không đáng tin</i>"
-                if c * kl * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU
-                else ""
-            )
-            + "</span>"
-        )
-        dong_truoc = c
-        lop = "tang" if c >= o else "giam"
-        tren, duoi = y(max(o, c)), y(min(o, c))
-        le = c * kl * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU  # khớp lẻ: giá không đáng tin, vẽ mờ
-        lop_le = ' class="nen-le"' if le else ""
-        phan.append(
-            f"<g{lop_le}>"
-            f'<line class="nen-{lop}" x1="{x(i):.1f}" x2="{x(i):.1f}" y1="{y(h):.1f}" y2="{y(l):.1f}"/>'
-            f'<rect class="nen-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{tren:.1f}" height="{max(duoi - tren, 1):.1f}" '
-            f'width="{rong * 0.7:.1f}" rx="1"/>'
-            f'<rect class="kl-{lop}" x="{x(i) - rong * 0.35:.1f}" y="{day_kl - kl / kl_max * KL_CAO:.1f}" '
-            f'height="{kl / kl_max * KL_CAO:.1f}" width="{rong * 0.7:.1f}"/></g>'
-        )
     g_cuoi = max(g for g in gio if g in nen)
     o_dau, dong = nen[min(g for g in gio if g in nen)][0], nen[g_cuoi][3]
-    lop_cuoi = "tang" if dong >= nen[g_cuoi][0] else "giam"
-    phan.append(
-        f'<line class="gia-cuoi" x1="{TRAI}" x2="{R - PHAI}" y1="{y(dong):.1f}" y2="{y(dong):.1f}"/>'
-        f'<rect class="nen-{lop_cuoi}" x="{R - PHAI + 4}" y="{y(dong) - 10:.1f}" width="{PHAI - 6}" height="20" rx="3"/>'
-        f'<text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" y="{y(dong) + 4:.1f}" text-anchor="middle">{so(dong, so_le)}</text>'
-    )
     kl_cuoi = nen[g_cuoi][4]
-    phan.append(
-        f'<rect class="kl-{lop_cuoi}-dam" x="{R - PHAI + 4}" y="{day_kl - kl_cuoi / kl_max * KL_CAO - 10:.1f}" width="{PHAI - 6}" '
-        f'height="20" rx="3"/><text class="nhan-gia-cuoi" x="{R - PHAI / 2 + 1:.1f}" '
-        f'y="{day_kl - kl_cuoi / kl_max * KL_CAO + 4:.1f}" text-anchor="middle">{kl_gon(kl_cuoi)}</text>'
-    )
     thay_doi = dong / o_dau - 1 if o_dau else 0.0
     tom_tat = (
         f'<p class="tom-nen">Đóng cuối <b>{so(dong, so_le)} {don_vi}</b> · <b class="{"gia-tang" if thay_doi >= 0 else "gia-giam"}">'
@@ -645,28 +555,14 @@ def bieu_do_nen(gio, nen, ten, khung="h4", don_vi="đ", so_le=0, he_so_nhan=1, v
         '<table><thead><tr><th>Thời điểm</th><th class="so">Mở</th><th class="so">Cao</th><th class="so">Thấp</th><th class="so">Đóng</th>'
         f'<th class="so">KL</th></tr></thead><tbody>{dong_bang}</tbody></table></div></details>'
     )
-    if ve == "lwc":
-        du_lieu = [
-            [g, *nen[g], nen[g][3] * nen[g][4] * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU] if g in nen else [g]
-            for g in gio
-        ]
-        return (
-            f'{tom_tat}<div class="nen-chu-giai lwc-chu-giai"></div><div class="lwc-nen" role="img" aria-label="{ESC(mo_ta)}" '
-            f'data-khung="{khung}" data-so-le="{so_le}" data-don-vi="{ESC(don_vi)}" data-nen="{ESC(json.dumps(du_lieu))}"></div>'
-            + bang
-        )
+    du_lieu = [
+        [g, *nen[g], nen[g][3] * nen[g][4] * he_so_nhan < cw_scanner.GIA_TRI_KHOP_TOI_THIEU] if g in nen else [g]
+        for g in gio
+    ]
     return (
-        f'{tom_tat}<div class="cuon-bieu-do nen-tuong-tac" data-x0="{TRAI}" data-rong="{rong:.3f}" data-r="{R}" data-c="{C}" '
-        f'data-tren="{TREN}" data-nen-cao="{NEN_CAO}" data-gia-cao="{round(cao, 6):g}" data-gia-thap="{round(thap, 6):g}" '
-        f'data-so-le="{so_le}" data-don-vi="{ESC(don_vi)}">'
-        f'<div class="nen-chu-giai">{"".join(chu_giai)}</div>'
-        f'<svg class="bieu-do-nen" viewBox="0 0 {R} {C}" tabindex="0" role="img" '
-        f'aria-label="{ESC(mo_ta)}. Dùng phím mũi tên để xem từng nến.">{"".join(phan)}'
-        f'<g class="thuoc-do" visibility="hidden"><rect class="vung-do"/><line class="duong-do"/><text class="chu-do"/></g>'
-        f'<line class="vach-doc" x1="0" x2="0" y1="{TREN}" y2="{day_kl}" visibility="hidden"/>'
-        f'<line class="vach-ngang" x1="{TRAI}" x2="{R - PHAI}" y1="0" y2="0" visibility="hidden"/>'
-        f'<g class="nhan-con-tro" visibility="hidden"><rect x="{R - PHAI + 4}" y="0" width="{PHAI - 6}" height="20" rx="3"/>'
-        f'<text x="{R - PHAI / 2 + 1:.1f}" y="0" text-anchor="middle"></text></g></svg></div>' + bang
+        f'{tom_tat}<div class="nen-chu-giai lwc-chu-giai"></div><div class="lwc-nen" role="img" aria-label="{ESC(mo_ta)}" '
+        f'data-khung="{khung}" data-so-le="{so_le}" data-don-vi="{ESC(don_vi)}" data-nen="{ESC(json.dumps(du_lieu))}"></div>'
+        + bang
     )
 
 
@@ -792,8 +688,8 @@ def khop_lenh(ma, ref, gia_hien_tai):
 
 
 def hang_nen(
-    ma, cac_gio, nen, bg, nhan=None, ve="svg"
-):  # bg == "chi_so": nến bằng điểm, 2 số lẻ; nhan: HĐ tương lai (điểm, 1 số lẻ); ve: "svg" | "lwc" (bieu_do_nen)
+    ma, cac_gio, nen, bg, nhan=None
+):  # bg == "chi_so": nến bằng điểm, 2 số lẻ; nhan: HĐ tương lai (điểm, 1 số lẻ)
     """1 hàng: nến (đủ 3 khung, chỉ hiện 1) | độ sâu thị trường | khớp lệnh. bg = (niêm yết, khớp lệnh, sổ lệnh) Vietcap,
     None (mất mạng) hoặc "chi_so" (chỉ số không giao dịch: không có sổ lệnh, khớp lệnh)."""
     if bg == "chi_so":
@@ -817,7 +713,7 @@ def hang_nen(
         f'<div class="hang-nen"><div><h3 style="margin:0">{ESC(ma)}</h3>'
         + "".join(
             f'<div class="khung-nen" data-khung="{k}"{"" if k == KHUNG_MAC_DINH else " hidden"}>'
-            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ('điểm', 1, nhan) if nhan else ()), ve=ve)}"
+            f"{bieu_do_nen(gio, nen[k], ma, k, *(('điểm', 2) if bg == 'chi_so' else ('điểm', 1, nhan) if nhan else ()))}"
             "</div>"
             for k, gio in cac_gio.items()
         )
@@ -826,7 +722,7 @@ def hang_nen(
     )
 
 
-def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None, ve="svg"):
+def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None):
     """Mục nến trải hết chiều ngang: mỗi mã (CW/ETF/HĐ tương lai trên, cổ phiếu cơ sở / chỉ số dưới) 1 hàng nến | độ sâu |
     khớp lệnh; nến chung trục. chi_so = tên chỉ số trong vnstock khi `cs` là chỉ số (trang ETF, phái sinh): hàng dưới không có
     sổ lệnh. nhan = hệ số nhân khi `ma` là HĐ tương lai (giá bằng điểm: vnstock floating=6, 1 số lẻ, khớp lẻ theo giá trị).
@@ -850,20 +746,14 @@ def muc_nen(ma, cs, P, S, bg_cw=None, bg_cs=None, chi_so=None, nhan=None, ve="sv
         f'<h2 style="margin:0">Nến: {ESC(ma)} và {ESC(cs)} ({SO_NEN} nến)</h2></div>'
         f'<p class="phu">Bấm H1 / H4 / D1 để đổi khung nến ({SO_NEN} nến gần nhất). H4: mỗi phiên 2 nến, buổi sáng (9:15–11:30) và buổi '
         f"chiều (13:00–14:45), gộp từ nến 1 giờ. Hai biểu đồ chung trục: cùng cột là cùng thời điểm; lúc {ESC(ma)} không khớp lệnh thì "
-        "để trống. Đường đứt và nhãn bên phải là giá đóng cửa nến cuối. Cột khối lượng (KL) có vạch chia và số bên trái; "
-        "nhãn bên phải là KL nến cuối; rê chuột lên nến để xem KL chính xác. "
+        "để trống. Đường chấm và nhãn bên phải là giá đóng cửa nến cuối. Cột khối lượng (KL) ở đáy biểu đồ; rê chuột lên nến để "
+        "xem giá và KL chính xác ở dòng thông số phía trên. "
         "Độ sâu thị trường: 3 mức giá chờ mua / chào bán (Vietcap chỉ cho 3 mức) lúc mở trang; biểu đồ bậc cộng dồn KL từ giá tốt nhất "
         "ra ngoài, bậc nhảy lớn là nơi có tường (có thể bị rút bất cứ lúc nào). Khớp lệnh: M = mua chủ động, B = bán chủ động. "
         "Tải lại trang để có số mới. Nến: vnstock (VCI), cập nhật mỗi 5 phút; giá chưa điều chỉnh cổ tức"
         + (", chỉ số tính bằng điểm" if chi_so else "")
-        + (
-            ". Lăn chuột (hoặc chụm 2 ngón) để phóng to, kéo để xem nến cũ hơn: 2 biểu đồ đi cùng nhau. Biểu đồ: "
-            "TradingView Lightweight Charts"
-            if ve == "lwc"
-            else ""
-        )
-        + ".</p>"
-        f"{hang_nen(ma, cac_gio, cw, bg_cw, nhan, ve)}{hang_nen(cs, cac_gio, nen_cs, 'chi_so' if chi_so else bg_cs, ve=ve)}"
-        + (f"<script>{JS_LWC}</script><script>{JS_NEN_LWC}</script>" if ve == "lwc" else "")
-        + "</section>"
+        + ". Lăn chuột (hoặc chụm 2 ngón) để phóng to, kéo để xem nến cũ hơn: 2 biểu đồ đi cùng nhau. Biểu đồ: TradingView "
+        "Lightweight Charts.</p>"
+        f"{hang_nen(ma, cac_gio, cw, bg_cw, nhan)}{hang_nen(cs, cac_gio, nen_cs, 'chi_so' if chi_so else bg_cs)}"
+        f"<script>{JS_LWC}</script><script>{JS_NEN_LWC}</script>" + "</section>"
     )

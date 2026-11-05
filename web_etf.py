@@ -245,7 +245,7 @@ def muc_nen_etf(ma, cs, h, gia_cs):
     except Exception:  # noqa: BLE001
         bg = None
     P = cw_scanner.gia_hien_tai(*bg[:2]) if bg else h["Giá"]
-    return W.muc_nen(ma, cs, P, gia_cs, bg, chi_so=etf.TEN_TRONG_VNSTOCK.get(cs, cs), ve="lwc")
+    return W.muc_nen(ma, cs, P, gia_cs, bg, chi_so=etf.TEN_TRONG_VNSTOCK.get(cs, cs))
 
 
 SO_NGAY_INAV = 5  # mục giá so với iNAV trong phiên: số ngày gần nhất (file ket_qua/inav_*.csv) được chọn xem

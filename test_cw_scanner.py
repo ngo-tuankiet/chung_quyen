@@ -617,12 +617,12 @@ def test_nen_1h_doi_don_vi_va_chung_truc_gio():
     gio = W.gio_nen_chung(cw, cs, so_nen=3)  # chỉ giữ 3 nến cuối, gộp giờ của cả 2 mã
     assert gio == ["2026-10-30 09:00", "2026-10-30 10:00", "2026-10-30 13:00"]
     html = W.bieu_do_nen(gio, cw, "CW")
+    # 10:00 và 13:00 CW không khớp: chỉ có thời điểm (để trống trên trục chung), không vẽ nến giả
     assert (
-        html.count('rx="1"') == 1
-    )  # 10:00 và 13:00 CW không khớp: để trống, không vẽ nến giả (nhãn giá cuối dùng rx="3")
-    assert (
-        "<b>30/10 buổi sáng</b>" in html and "KL <b>100</b>" in html and ">1.100</text>" in html
-    )  # nhãn giá đóng cuối
+        "[[&quot;2026-10-30 09:00&quot;, 1000.0, 1200.0, 900.0, 1100.0, 100.0, true], [&quot;2026-10-30 10:00&quot;]"
+        in html
+    )
+    assert "Đóng cuối <b>1.100 đ</b>" in html and html.count("<tr><td>") == 1  # bảng chỉ có nến có khớp
 
 
 def test_gop_nen_h4_sang_chieu():
@@ -651,95 +651,40 @@ def test_bieu_do_nen_lightweight_charts():
 
     import web_chung as W
 
-    # ve="lwc" (trang chi tiết CW): ô Lightweight Charts thay hình SVG; dữ liệu mỗi mốc của trục chung, mốc không khớp chỉ có
-    # thời điểm; khớp lẻ: đóng × KL < 5 triệu (105 × 1). Dòng tóm tắt và bảng dữ liệu (người không xem được hình) giữ nguyên
+    # Ô Lightweight Charts: dữ liệu mỗi mốc của trục chung, mốc không khớp chỉ có thời điểm; khớp lẻ: đóng × KL < 5 triệu
+    # (105 × 1). Dòng tóm tắt và bảng dữ liệu (người không xem được hình) đi kèm; không còn hình SVG tự vẽ (bỏ 05/11/2026)
     gio = ["2026-10-30 09:00", "2026-10-30 10:00", "2026-10-30 11:00"]
     nen = {gio[0]: (100, 110, 90, 105, 1), gio[2]: (105, 120, 100, 110, 60_000)}
-    o = W.bieu_do_nen(gio, nen, "CVPB2615", "h1", ve="lwc")
+    o = W.bieu_do_nen(gio, nen, "CVPB2615", "h1")
     du_lieu = json.loads(h.unescape(o.split('data-nen="')[1].split('"')[0]))
     assert du_lieu == [[gio[0], 100, 110, 90, 105, 1, True], [gio[1]], [gio[2], 105, 120, 100, 110, 60_000, False]]
     assert 'class="lwc-nen" role="img"' in o and 'data-khung="h1"' in o and "<svg" not in o
     assert 'class="tom-nen"' in o and "Xem dữ liệu CVPB2615 dạng bảng" in o
-    assert "<svg" in W.bieu_do_nen(gio, nen, "CVPB2615", "h1")  # mặc định (ETF, phái sinh) vẫn SVG
     assert "</script" not in W.JS_LWC and "TradingView Lightweight Charts™ v5.2.1" in W.JS_LWC  # nhúng inline an toàn
+    assert W.bieu_do_nen(gio, {}, "X") == "<p>X: không có giao dịch trong khoảng này.</p>"
 
 
 def test_bieu_do_nen_nhan_theo_khung():
     import web_chung as W
 
-    # D1: 30 nến ngày -> nhãn ngày thưa (≤ 10 nhãn) để không chồng chữ; tooltip chỉ có ngày
-    ngay = [f"2026-{m:02d}-{d:02d} 00:00" for m, d in [(9, x) for x in range(1, 31)]]
-    html = W.bieu_do_nen(ngay, dict.fromkeys(ngay, (100, 110, 90, 105, 1)), "X", "d1")
-    # đóng 105 × KL 1 < 5 triệu: mọi nến khớp lẻ, vẽ mờ; KL 50.000 (5,25 triệu) thì không
-    assert html.count('<g class="nen-le">') == len(ngay) and "khớp lẻ dưới 5 triệu" in html
-    assert 'nen-le"' not in W.bieu_do_nen(ngay, dict.fromkeys(ngay, (100, 110, 90, 105, 50000)), "X", "d1")
-    assert html.count('class="nhan-truc" x=') - html.count('text-anchor="end"') <= 10
-    assert '<span data-i="0" hidden><b>01/09</b> Mở' in html
-    # H1: tooltip có giờ; H4 mặc định: buổi sáng/chiều
+    # bảng dữ liệu ghi thời điểm theo khung: D1 chỉ ngày, H1 giờ, H4 buổi sáng / chiều
     gio = ["2026-10-30 09:00", "2026-10-30 14:00"]
     nen = dict.fromkeys(gio, (100, 110, 90, 105, 1))
-    assert "<b>30/10 14:00</b> Mở" in W.bieu_do_nen(gio, nen, "X", "h1")
-    assert "<b>30/10 buổi chiều</b> Mở" in W.bieu_do_nen(gio, nen, "X")
-
-
-def test_cot_khoi_luong_co_truc_va_so():
-    import web_chung as W
-
-    assert [W.kl_gon(x) for x in (950, 150_000, 1_260_000)] == ["950", "150K", "1,3M"]
-    # KL 5 và 10: bước trục = 5 (số "đẹp" gần 10/2), đỉnh trục = 10 -> cột 10 cao đúng KL_CAO, cột 5 cao một nửa;
-    # nhãn trục 5 và 10 bên trái, nhãn KL nến cuối (10) bên phải
-    gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
-    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
-    assert f'height="{W.KL_CAO:.1f}"' in html and f'height="{W.KL_CAO / 2:.1f}"' in html
-    assert ">5</text>" in html and html.count(">10</text>") == 2
-
-
-def test_thanh_doc_dong_thong_so():
-    import web_chung as W
-
-    # 3 mốc, mốc giữa không khớp. Dòng thông số: mỗi mốc 1 dòng (chỉ dòng nến cuối hiện sẵn), % so với đóng cửa nến trước:
-    # nến cuối đóng 99 so với 110 -> −10,0%; mốc không khớp ghi rõ. Thanh dọc + vị trí trục (x0 = 56, rộng mỗi nến) cho JS.
-    gio = ["2026-10-29 09:00", "2026-10-29 13:00", "2026-10-30 09:00"]
-    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[2]: (110, 112, 95, 99, 10)}, "X")
-    assert '<span data-i="0" hidden>' in html and '<span data-i="2">' in html
-    assert "<b>29/10 buổi chiều</b> không khớp lệnh" in html and "−10,0%" in html.replace("-10,0%", "−10,0%")
-    assert 'class="vach-doc"' in html and 'data-x0="56"' in html and f'data-rong="{(900 - 56 - 76) / 3:.3f}"' in html
-
-
-def test_thanh_ngang_va_thuoc_do():
-    import web_chung as W
-
-    # Khoảng giá 90–120, đệm 6% -> trục 88,2–121,8 trên vùng nến y = 10 … 10 + NEN_CAO: JS đổi y con trỏ ra giá bằng
-    # giá = 121,8 − (y − 10) / NEN_CAO × 33,6 (vd y = 10 + 140 -> 105). Có sẵn thanh ngang, nhãn giá, vùng đo (ẩn).
-    gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
-    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
-    assert 'data-gia-cao="121.8"' in html and 'data-gia-thap="88.2"' in html
-    assert f'data-tren="10" data-nen-cao="{W.NEN_CAO}"' in html
-    assert 'class="vach-ngang"' in html and 'class="nhan-con-tro"' in html and 'class="thuoc-do"' in html
+    assert "<td>30/10 14:00</td>" in W.bieu_do_nen(gio, nen, "X", "h1")
+    assert "<td>30/10 buổi chiều</td>" in W.bieu_do_nen(gio, nen, "X")
+    assert "<td>30/10 </td>" in W.bieu_do_nen(gio, nen, "X", "d1")
 
 
 def test_bieu_do_nen_chi_so_tinh_bang_diem():
     import web_chung as W
 
-    # chỉ số (trang ETF): đơn vị điểm, 2 số lẻ ở dòng tóm tắt, dòng thông số và nhãn giá cuối; JS đọc data-so-le / data-don-vi
+    # chỉ số (trang ETF): đơn vị điểm, 2 số lẻ ở dòng tóm tắt và bảng; JS đọc data-so-le / data-don-vi cho trục, dòng thông số
     gio = ["2026-10-30 09:00", "2026-10-30 13:00"]
     html = W.bieu_do_nen(
         gio, {gio[0]: (1760.1, 1765, 1755, 1761.25, 9), gio[1]: (1761, 1764, 1758, 1762.5, 8)}, "VN100", "h4", "điểm", 2
     )
-    assert "Đóng cuối <b>1.762,50 điểm</b>" in html and "Đóng <b" in html and ">1.762,50</text>" in html
+    assert "Đóng cuối <b>1.762,50 điểm</b>" in html and '<td class="so">1.762,50</td>' in html
     assert 'data-so-le="2" data-don-vi="điểm"' in html
-
-
-def test_bieu_do_nen_toa_do_tinh_tay():
-    import web_chung as W
-
-    # 2 nến: (mở 100, cao 120, thấp 90, đóng 110) tăng và (110, 112, 95, 100) giảm. Khoảng 90–120, đệm 6% × 30 = 1,8
-    # -> trục 88,2–121,8. Vùng nến cao NEN_CAO = 280 từ y = 10: y(110) = 10 + (121,8 − 110) × 280 / 33,6 = 108,3;
-    # y(100) = 10 + 21,8 × 280 / 33,6 = 191,7 -> thân nến tăng: y 108,3, cao 83,3
-    gio = ["2026-10-30 09:00", "2026-10-30 10:00"]
-    html = W.bieu_do_nen(gio, {gio[0]: (100, 120, 90, 110, 5), gio[1]: (110, 112, 95, 100, 10)}, "X")
-    assert '<rect class="nen-tang" x="' in html and 'y="108.3" height="83.3"' in html
-    assert '<rect class="nen-giam"' in html
 
 
 SO_LENH_MAU = {

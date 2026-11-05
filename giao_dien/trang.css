@@ -69,28 +69,13 @@ input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border: 1
 .luoi-ngang { stroke: var(--luoi); stroke-width: 1; }
 .truc { stroke: var(--truc); stroke-width: 1; }
 .nhan-truc { fill: var(--chu-mo); font-size: 12px; font-variant-numeric: tabular-nums; }
-.nen-tang { fill: var(--tot); stroke: var(--tot); } .nen-giam { fill: var(--chu-am); stroke: var(--chu-am); }
-.nen-le { opacity: .3; } tr.khop-le td { opacity: .45; }
+tr.khop-le td { opacity: .45; }
 tr.da-hoi td { opacity: .5; }
-.kl-tang { fill: var(--tot); opacity: .45; } .kl-giam { fill: var(--chu-am); opacity: .45; }
-.kl-tang-dam { fill: var(--tot); } .kl-giam-dam { fill: var(--chu-am); }
-.vach-phien { stroke: var(--luoi); stroke-width: 1; stroke-dasharray: 2 3; }
-.gia-cuoi { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 4 3; }
-.nhan-gia-cuoi { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.bieu-do-nen line, .bieu-do-nen rect { vector-effect: non-scaling-stroke; } .bieu-do-nen { width: 100%; height: auto; display: block; }
 .chon-khung { display: inline-flex; border: 1px solid var(--vien); border-radius: 8px; overflow: hidden; }
 .chon-khung button { border: 0; background: transparent; color: var(--chu); padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
 .chon-khung button[aria-pressed="true"] { background: var(--nut); color: #fff; }
 .nen-chu-giai { font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.5em; margin: 6px 0 2px; }
-.nen-chu-giai b { font-weight: 600; } .nen-tuong-tac svg { cursor: crosshair; touch-action: none; user-select: none; }
-@media (pointer: coarse) { .nen-tuong-tac svg { touch-action: pan-y; } }  /* điện thoại: vuốt dọc vẫn cuộn trang */
-.vach-doc, .vach-ngang { stroke: var(--chu-mo); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
-.nhan-con-tro rect { fill: var(--chu-mo); } .nhan-con-tro text { fill: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.thuoc-do { pointer-events: none; } .vung-do { fill: var(--tot); fill-opacity: .14; stroke: var(--tot); stroke-width: 1; }
-.thuoc-do.giam .vung-do { fill: var(--chu-am); stroke: var(--chu-am); } .duong-do { stroke: var(--tot); stroke-width: 1.5; }
-.thuoc-do.giam .duong-do { stroke: var(--chu-am); }
-.chu-do { font-size: 14px; font-weight: 700; fill: var(--chu-duong); paint-order: stroke; stroke: var(--be-mat); stroke-width: 4px; }
-.thuoc-do.giam .chu-do { fill: var(--chu-am); }
+.nen-chu-giai b { font-weight: 600; }
 .tom-nen { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
 .hang-doi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
 .hang-doi > .the { margin-top: 0; }
