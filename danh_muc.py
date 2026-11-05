@@ -4,7 +4,7 @@ cảnh báo (gần ngày GD cuối, cổ phiếu cơ sở gần giá thực hi�
 
 Kiểm tra:  python danh_muc.py          (launchd gọi mỗi 5 phút; ngoài giờ khớp lệnh thì thoát ngay, không gọi mạng)
            python danh_muc.py --luon   (kiểm tra bất kể giờ: dùng sau lần quét 14:00)
-           python danh_muc.py --bao-cao (báo cáo ngày lên Discord: lãi/lỗ mã đang giữ + bất thường)
+           python danh_muc.py --bao-cao (sau lần quét 14:00: báo lên Discord nếu quét lỗi)
 Lệnh lưu trong danh_muc.csv (không đưa lên git). Webhook Discord: DISCORD_WEBHOOK_URL trong .env.
 Chỉ gửi Discord cảnh báo BẤT THƯỜNG (BAT_THUONG) VỪA xuất hiện, mỗi loại của mỗi mã tối đa 1 tin/ngày.
 """
@@ -28,6 +28,9 @@ import cw_scanner as C
 # ============ CẤU HÌNH ============
 CHOT_LOI_MAC_DINH = 0.50  # báo khi lãi nếu bán ngay ≥ +50% (đặt riêng được cho từng lệnh mua)
 CAT_LO_MAC_DINH = 0.30  # báo khi lỗ nếu bán ngay ≥ 30%
+# Báo khi giá bán được của CW đang nắm chạy ≥ 20% (tăng hoặc giảm) so với tham chiếu trong ngày. Thay bảng lãi/lỗ gửi 14:00 mỗi
+# ngày (người dùng chốt 05/11/2026: bỏ báo cáo ngày cho đỡ trôi tin, chỉ báo khi lời lỗ biến động lớn)
+NGUONG_BIEN_DONG_NGAY = 0.20
 CANH_BAO_NGAY_GD_CUOI = 20  # báo khi còn ≤ 20 ngày (lịch) tới ngày giao dịch cuối
 # Báo gấp khi còn ≤ 2 phiên tới ngày GD cuối. Ngày GD cuối lấy từ bảng giá (lastTradingDate), không tự tính: quy chế cũ
 # là 2 phiên trước đáo hạn (T−2), chưa xác minh trong quy chế niêm yết CW theo TT 122/2025.
@@ -77,10 +80,11 @@ LY_DO_BAN = {
     "theta": "mất giá theo thời gian",
 }
 # Discord chỉ báo bất thường (người dùng chốt 23/10/2026); các cảnh báo khác (gần giá thực hiện, IV bất thường, lệch so với CS,
-# mức Cân nhắc bán) chỉ hiện trên web. Báo cáo ngày chỉ có lãi/lỗ mã đang giữ + mục Bất thường.
+# mức Cân nhắc bán) chỉ hiện trên web. Không còn báo cáo lãi/lỗ hằng ngày (05/11/2026): thay bằng bien_dong.
 BAT_THUONG = {
     "chot_loi",
     "cat_lo",
+    "bien_dong",
     "cw_dat",
     "theta_cao",
     "gd_cuoi",
@@ -520,6 +524,18 @@ def danh_gia_danh_muc(vt, bang_gia, df, hom_nay, kl_truoc, lich_su=None):
             canh_bao.append(
                 (ma, "cat_lo", f"lỗ nếu bán ngay {pt(lai_pct)} (ngưỡng {pt(-cat_lo)}), {nguon_ban} {so(gia_ban)} đ")
             )
+        bien_dong = gia_ban / ny["refPrice"] - 1 if ny.get("refPrice") else math.nan
+        if abs(round(bien_dong, 9)) >= NGUONG_BIEN_DONG_NGAY:  # NaN: so sánh luôn sai, không báo
+            canh_bao.append(
+                (
+                    ma,
+                    "bien_dong",
+                    (
+                        f"giá {'tăng' if bien_dong > 0 else 'giảm'} {pt(abs(bien_dong), 1, False)} trong ngày ({nguon_ban} "
+                        f"{so(gia_ban)} đ, tham chiếu {so(ny['refPrice'])} đ), lãi/lỗ nếu bán ngay {pt(lai_pct, 1)}"
+                    ),
+                )
+            )
         if not math.isnan(lech) and abs(round(lech, 9)) >= CANH_BAO_LECH:
             ngay_mua = f"{v['ngay_mua'][8:]}/{v['ngay_mua'][5:7]}"
             canh_bao.append(
@@ -838,64 +854,28 @@ def bat_thuong(dong, canh_bao):
     return [cb for cb in canh_bao if cb[1] in BAT_THUONG] + them
 
 
-def bao_cao_ngay(dong, canh_bao, lai_da_chot, luc, quet_loi=None):
-    """Báo cáo ngày (dùng riêng, có số tiền): lãi/lỗ từng mã đang giữ; mục Bất thường chỉ khi có. "" nếu không có gì để báo."""
-    phan = [f"⚠ **Quét hôm nay lỗi** ({quet_loi[0][:150]}); số liệu là của lần quét {quet_loi[1]}"] if quet_loi else []
-    co_gia = [d for d in dong if d.get("co_gia")]
-    if co_gia:
-        dau = lambda x: ("+" if x >= 0 else "-") + so(abs(x))
-        von, lai = sum(d["so_luong"] * d["gia_von"] for d in co_gia), sum(d["lai"] for d in co_gia)
-        phan.append(
-            bang(
-                ["Mã CW", "SL", "Vốn", "Bán", "Lãi%", "Lãi đ"],
-                [
-                    [d["ma"], so(d["so_luong"]), so(d["gia_von"]), so(d["gia_ban"])]
-                    + [pt(d["lai_pct"], 1).rstrip("%"), dau(d["lai"])]
-                    for d in co_gia
-                ],
-            )
-            + f"\nNếu bán hết ngay **{dau(lai)} đ ({pt(lai / von, 1)})** · đã chốt {dau(lai_da_chot)} đ"
-        )
-    phan += [f"• **{d['ma']}**: {so(d['so_luong'])} CW – không có giá trực tiếp" for d in dong if not d.get("co_gia")]
-    bt = bat_thuong(dong, canh_bao)
-    if bt:
-        phan.append("⚠ **Bất thường**\n" + "\n".join(f"• **{m}**: {nd}" for m, _, nd in bt))
-    return f"💼 **Danh mục CW {luc:%H:%M %d/%m/%Y}**\n" + "\n\n".join(phan) if phan else ""
+def bao_cao_ngay(luc, quet_loi=None):
+    """Tin sau lần quét 14:00: chỉ có khi quét lỗi (quet_loi = (lý do, giờ lần quét thành công gần nhất)), không thì "".
+    Bảng lãi/lỗ hằng ngày đã bỏ (người dùng chốt 05/11/2026, đỡ trôi tin): lời lỗ biến động lớn báo trong phiên (bien_dong,
+    chot_loi, cat_lo); số tiền xem trên trang Danh mục."""
+    if not quet_loi:
+        return ""
+    return f"⚠ **Quét CW {luc:%H:%M %d/%m/%Y} lỗi** ({quet_loi[0][:150]}); trang web đang dùng số liệu của lần quét {quet_loi[1]}"
 
 
 def gui_bao_cao_ngay(luc=None, quet_loi=""):
-    """Lập và gửi báo cáo ngày lên Discord (sau lần quét theo lịch)."""
+    """Sau lần quét theo lịch: quét lỗi thì báo lên Discord, không thì không gửi gì."""
     luc = luc or datetime.now()
-    from web_chung import doc_ket_qua  # nhập ở đây để tránh vòng lặp import
-
-    df, ngay = doc_ket_qua()
-    if df is None:
-        print(f"{luc:%d/%m %H:%M} [!] Chưa có kết quả quét, không lập được báo cáo")
+    if not quet_loi:
         return
-    tat_ca = tinh_vi_the(doc_lenh())
-    vt = {m: v for m, v in tat_ca.items() if v["so_luong"] > 0}
-    dong, canh_bao = [], []
-    if vt:
-        tt = json.loads(FILE_TRANG_THAI.read_text(encoding="utf-8")) if FILE_TRANG_THAI.exists() else {}
-        dong, canh_bao, _ = danh_gia_danh_muc(
-            vt, tai_bang_gia(list(vt), df), df, luc.date(), tt.get("kl_niem_yet", {}), doc_lich_su(ngay)
-        )
     url = C.doc_env().get("DISCORD_WEBHOOK_URL", "")
     if not url:
-        print(f"{luc:%d/%m %H:%M} [!] Chưa có DISCORD_WEBHOOK_URL trong .env, không gửi báo cáo")
+        print(f"{luc:%d/%m %H:%M} [!] Chưa có DISCORD_WEBHOOK_URL trong .env, không báo được quét lỗi")
         return
-    if quet_loi:  # thời điểm của file kết quả đang dùng (lần quét thành công gần nhất)
-        tep = max(C.THU_MUC_KET_QUA.glob("cw_*.csv"))
-        quet_loi = (quet_loi, f"{datetime.fromtimestamp(tep.stat().st_mtime):%d/%m %H:%M}")
-    lai_chot = sum(v["lai_da_chot"] for v in tat_ca.values())
-    noi_dung = bao_cao_ngay(dong, canh_bao, lai_chot, luc, quet_loi or None)
-    if not noi_dung:
-        print(f"{luc:%d/%m %H:%M} Không nắm CW nào và không có gì bất thường: không gửi báo cáo")
-        return
-    tin = chia_tin(noi_dung)
-    for t in tin:
-        gui_discord(t, url)
-    print(f"{luc:%d/%m %H:%M} Đã gửi báo cáo ngày ({len(tin)} tin)")
+    tep = max(C.THU_MUC_KET_QUA.glob("cw_*.csv"), default=None)  # file kết quả đang dùng (lần quét thành công gần nhất)
+    moc = f"{datetime.fromtimestamp(tep.stat().st_mtime):%d/%m %H:%M}" if tep else "nào (chưa có)"
+    gui_discord(bao_cao_ngay(luc, (quet_loi, moc)), url)
+    print(f"{luc:%d/%m %H:%M} Đã báo quét lỗi lên Discord")
 
 
 def trong_gio_khop_lenh(luc):
@@ -932,7 +912,9 @@ def kiem_tra(luon=False, luc=None):
     if giam:
         ghi_giam_manh(hom_nay, giam, luc)
     canh_bao_giam = [(g["ma"], "giam_manh", noi_dung_giam_manh(g)) for g in giam] if GUI_DISCORD_GIAM_MANH else []
-    moi, dang_bao = chon_canh_bao_moi(bat_thuong(dong, canh_bao) + canh_bao_giam, trang_thai.get("dang_bao", []))
+    # biến động trong ngày là chuyện của từng ngày: đã báo hôm qua không chặn hôm nay (trong ngày thì da_gui chặn lặp)
+    dang_bao_cu = [k for k in trang_thai.get("dang_bao", []) if not k.endswith("|bien_dong")]
+    moi, dang_bao = chon_canh_bao_moi(bat_thuong(dong, canh_bao) + canh_bao_giam, dang_bao_cu)
     # mỗi loại cảnh báo của mỗi mã tối đa 1 tin/ngày: giá dao động quanh ngưỡng thì không gửi lặp (lỗi thật 22/10/2026)
     da_gui = {k: ngay for k, ngay in trang_thai.get("da_gui", {}).items() if ngay == hom_nay}
     moi = [cb for cb in moi if f"{cb[0]}|{cb[1]}" not in da_gui]

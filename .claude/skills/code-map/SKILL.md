@@ -12,7 +12,7 @@ Bản đồ viết 26/10/2026; thấy lệch với code thì tin code và sửa 
 | File | Làm gì | Hàm chính |
 |---|---|---|
 | `cw_scanner.py` | Lõi CW: lấy dữ liệu, Black-Scholes, IV/HV, 4 tiêu chí, lướt, lưu kết quả quét | `he_so_don_vi` (nghìn đồng -> đồng), `black_scholes_call`, `so_voi_gia_bs` (giá / giá BS ở 1 mức σ − 1), `bien_dong_ngam_dinh`, `lay_bang_gia` (API Vietcap), `lay_gia_dong_cua` (vnstock), `lich_su_cw` (giá CW đồng + KL), `bien_dong_lich_su`, `gia_mua`, `muc_so_lenh`, `lech_theo_cs`, `lech_20_phien`, `danh_gia`, `dinh_gia`, `luot_ngan_han`, `chon_luot`, `doc_he_so_iv`, `lai_kb_hieu_chinh`, `la_ngay_giao_dich`, `main` |
-| `danh_muc.py` | Lệnh CW đang nắm (`danh_muc.csv`), vị thế, cảnh báo + báo cáo ngày qua Discord | `them_lenh`, `xoa_lenh`, `tinh_vi_the`, `danh_gia_danh_muc`, `kiem_tra`, `bao_cao_ngay`, `gui_discord`; CW giảm mạnh: `cw_giam_manh` (mốc `moc_lech`, giá `gia_ban_du`); dùng chung với CW rẻ: `lich_su_cw_nho` (nhớ theo ngày, RAM + file `ket_qua/nho_lich_su_cw_<ngày>.json`), `lech_20_o_gia`, `gia_du` (giá mua/bán đủ 5 triệu) |
+| `danh_muc.py` | Lệnh CW đang nắm (`danh_muc.csv`), vị thế, cảnh báo qua Discord (có `bien_dong` ±20%/ngày; báo cáo 14:00 chỉ còn tin quét lỗi) | `them_lenh`, `xoa_lenh`, `tinh_vi_the`, `danh_gia_danh_muc`, `kiem_tra`, `bao_cao_ngay`, `gui_discord`; CW giảm mạnh: `cw_giam_manh` (mốc `moc_lech`, giá `gia_ban_du`); dùng chung với CW rẻ: `lich_su_cw_nho` (nhớ theo ngày, RAM + file `ket_qua/nho_lich_su_cw_<ngày>.json`), `lech_20_o_gia`, `gia_du` (giá mua/bán đủ 5 triệu) |
 | `etf.py` | Báo cáo ETF: giá/NAV, chỉ số kỹ thuật, xếp hạng "rẻ hơn thường" | `lay_du_lieu` (VCI), `lay_nav`, `lap_bang`, `xep_hang`, `bao_cao_gon`, `chay` |
 | `chiet_khau.py` | Chiết khấu ETF so với iNAV (SSI), làm sạch NAV Vietcap IQ, cảnh báo trong phiên | `lai_rong_neu_ve_nav`, `gia_mua_lenh`, `danh_gia_quy`, `lam_sach_nav`, `bo_nav_loi`, `thong_ke_nav`, `kiem_tra_trong_phien` |
 | `web.py` | Máy chủ web localhost:8000: định tuyến GET (`dung_trang`: bảng đường dẫn -> hàm trang) / POST, chặn CSRF (`nguon_hop_le`), nút 🔄 Quét chạy nền (`VIEC_QUET` loại -> bước; đang quét mọi trang hiện `W.trang_cho`) | `XuLy`, `bat_dau_quet`, `chay_quet`, `bo_bo_nho` |
@@ -40,7 +40,7 @@ Trang web đọc qua module (`W.doc_ket_qua()`, `W.LOI_DANH_MUC`), không `from 
 ## Tự động (launchd, `bash cai_lich_quet.sh` cài / `… go` gỡ)
 | Lịch | Script | Giờ |
 |---|---|---|
-| `vn.cw-scanner.quet` | `chay_quet_tu_dong.sh` (quét, danh mục, báo cáo ngày, sao lưu `~/cw_scanner_sao_luu`) | 14:00 T2–T6 |
+| `vn.cw-scanner.quet` | `chay_quet_tu_dong.sh` (quét, danh mục, báo quét lỗi, sao lưu `~/cw_scanner_sao_luu`) | 14:00 T2–T6 |
 | `vn.cw-scanner.etf` | `chay_etf_tu_dong.sh` | 9:40 T2–T6 |
 | `vn.cw-scanner.danh-muc` | `kiem_tra_danh_muc.sh` | mỗi 5 phút |
 | `vn.cw-scanner.chiet-khau` | `kiem_tra_chiet_khau.sh` | mỗi 5 phút |

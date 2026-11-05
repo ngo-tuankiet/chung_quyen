@@ -26,7 +26,7 @@ if [ "$ma_loi" != 0 ]; then  # lý do đưa vào báo cáo: dòng "...Error: ...
 fi
 rm -f "$TAM"
 .venv/bin/python danh_muc.py --luon  # cảnh báo danh mục vừa xuất hiện -> Discord
-QUET_LOI="$QUET_LOI" .venv/bin/python danh_muc.py --bao-cao  # báo cáo tổng hợp ngày -> Discord (ghi rõ nếu quét lỗi)
+QUET_LOI="$QUET_LOI" .venv/bin/python danh_muc.py --bao-cao  # quét lỗi thì báo lên Discord (lãi/lỗ hằng ngày đã bỏ 05/11/2026)
 # Sao lưu cả khi quét lỗi (giữ bản các ngày trước). Không dùng --delete: không bao giờ xóa bản sao lưu cũ.
 # Không đặt trong ~/Documents, ~/Downloads, ~/Desktop: macOS chặn tác vụ chạy nền đọc/ghi các thư mục đó ("Operation not permitted")
 SAO_LUU="$HOME/cw_scanner_sao_luu"

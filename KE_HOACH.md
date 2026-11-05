@@ -319,13 +319,17 @@ Kết quả mỗi ngày nằm trong `ket_qua/` (bản sao lưu trong `~/cw_scann
 Cảnh báo (ngưỡng ở đầu `danh_muc.py`): còn ≤ 20 ngày tới ngày giao dịch cuối; cổ phiếu cơ sở cao hơn giá thực hiện ≤ 3% hoặc đã dưới;
 lãi nếu bán ngay ≥ +50% / lỗ ≥ 30% (đặt riêng được cho từng lệnh mua); sổ lệnh không có giá chờ mua; IV < 50% trung vị CW cùng mã;
 khối lượng niêm yết tăng (tổ chức phát hành bán thêm); CW lệch ≥ ±15% so với mức lẽ ra theo cổ phiếu cơ sở (từ lệnh mua gần nhất); **CW đắt, cân nhắc chuyển sang cổ phiếu**: bán ngay ≥ giá trị theo mô hình × 1,15 và IV theo giá chờ mua > trung vị IV các CW cùng mã (tin này có ghi tiền thu về và vốn mua cổ phiếu đủ số / theo delta, lô 100; cổ phiếu không có giới hạn lỗ như CW). **Chỉ gửi khi cảnh báo vừa xuất hiện**, và mỗi loại cảnh báo của mỗi mã **tối đa 1 tin/ngày**
-(giá dao động quanh ngưỡng thì không gửi lặp; trạng thái trong `canh_bao_da_gui.json`). Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" và báo cáo 14:00 có số tiền, theo yêu cầu dùng riêng).
+(giá dao động quanh ngưỡng thì không gửi lặp; trạng thái trong `canh_bao_da_gui.json`). Tin cảnh báo chỉ có mã, %, giá và lý do (trừ cảnh báo "CW đắt" có số tiền, theo yêu cầu dùng riêng).
 
 **Discord gọn lại** (người dùng chốt 23/10/2026)
-- **Báo cáo ngày 14:00** (`--bao-cao`) chỉ còn: bảng lãi/lỗ nếu bán ngay của từng mã đang giữ, tổng, lãi đã chốt; dòng ⚠ nếu quét lỗi;
-  mục **⚠ Bất thường** chỉ khi có. Không nắm mã nào và không lỗi thì không gửi gì. Các danh sách CW để mua (mới vào nhóm Nên xem xét,
-  CW mới, Top Nên xem xét, Top 5 lướt, IV bất thường, mục ⏳ giữ hay bán, 🎯 gần ngưỡng) đã bỏ khỏi Discord: xem trên web.
-- **Cảnh báo 5 phút** chỉ gửi loại bất thường (`BAT_THUONG`): chạm chốt lời / cắt lỗ, CW đắt, mất giá ≥ 2%/ngày, còn ≤ 20 ngày tới
+- **Bỏ báo cáo lãi/lỗ 14:00 hằng ngày** (người dùng chốt 05/11/2026, cho đỡ trôi tin). `--bao-cao` sau lần quét 14:00 chỉ còn gửi
+  1 dòng ⚠ khi **quét lỗi**; quét bình thường thì không gửi gì. Lãi/lỗ bằng tiền xem trên trang 💼 Danh mục. Thay vào đó, cảnh báo
+  trong phiên **`bien_dong`**: giá chờ mua của CW đang nắm chạy **≥ ±20% so với giá tham chiếu** (`NGUONG_BIEN_DONG_NGAY`), ví dụ
+  tham chiếu 1.000 đ, giá chờ mua 1.200 đ -> "giá tăng 20,0% trong ngày ..., lãi/lỗ nếu bán ngay +19,5%" (vốn 1.001,5 đ, đã trừ phí,
+  thuế bán). Mỗi mã tối đa 1 tin/ngày; khác các cảnh báo khác, hôm sau vẫn chạy ≥ 20% thì báo lại (mỗi ngày là một biến động mới).
+  Các danh sách CW để mua (mới vào nhóm Nên xem xét, CW mới, Top Nên xem xét, Top 5 lướt, IV bất thường, mục ⏳ giữ hay bán,
+  🎯 gần ngưỡng) đã bỏ khỏi Discord từ 23/10: xem trên web.
+- **Cảnh báo 5 phút** chỉ gửi loại bất thường (`BAT_THUONG`): chạm chốt lời / cắt lỗ, biến động ±20% trong ngày, CW đắt, mất giá ≥ 2%/ngày, còn ≤ 20 ngày tới
   ngày GD cuối, còn ≤ 2 phiên tới ngày GD cuối (`gd_cuoi_gap`), đang trong 5 phiên tính giá thanh toán (`ky_thanh_toan`, 26/10/2026),
   TCPH phát hành thêm, không có người mua, mã không còn trên bảng giá. CS gần giá thực hiện, IV bất thường, CW lệch so với
   CS chỉ hiện trên web (cột Trạng thái).

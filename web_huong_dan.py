@@ -9,6 +9,7 @@ from web_chung import COT, ESC, KET_LUAN, huy_hieu, so, trang
 # tên các loại cảnh báo Discord (danh_muc.BAT_THUONG) cho mục Câu hỏi thường gặp, theo thứ tự ưu tiên của lý do bán
 TEN_BAO = {
     **danh_muc.LY_DO_BAN,
+    "bien_dong": f"giá CW đang nắm chạy ±{danh_muc.pt(danh_muc.NGUONG_BIEN_DONG_NGAY, dau=False)} trong ngày",
     "khong_nguoi_mua": "không ai đặt mua",
     "khong_co_gia": "mã không còn trên bảng giá",
 }
@@ -220,7 +221,7 @@ def trang_huong_dan():
                 "cảnh báo. Có DISCORD_WEBHOOK_URL trong file .env thì cảnh báo bất thường được gửi lên Discord khi vừa xuất hiện "
                 f"({', '.join(TEN_BAO.get(k, k) for k in sorted(danh_muc.BAT_THUONG, key=list(TEN_BAO).index))}; "
                 'và CW giảm mạnh dù bạn không nắm). Tin chỉ có mã, %, giá và lý do, trừ tin "CW đắt hơn mô hình" (ghi số tiền '
-                "bán hết thu về để so với chuyển sang cổ phiếu) và báo cáo 14:00 mỗi ngày (lãi/lỗ bằng tiền của mã đang giữ). "
+                "bán hết thu về để so với chuyển sang cổ phiếu). Không có báo cáo lãi/lỗ hằng ngày: số tiền xem trên trang Danh mục. "
                 "Cổ phiếu gần giá thực hiện, IV bất thường, lệch so với CS và mức 🟡 Cân nhắc bán chỉ hiện trên web."
             ),
         ),

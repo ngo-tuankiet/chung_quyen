@@ -228,7 +228,7 @@ def test_trang_thai_trong_danh_muc():
     dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(1510, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
     t = dong[0]["trang_thai"]
     assert t["muc"] == D.MUC_NEN_BAN and t["ly_do"][0][0] == "chot_loi"
-    assert {l for _, l, _ in cb} == {"chot_loi"}
+    assert {l for _, l, _ in cb} == {"chot_loi", "bien_dong"}  # bien_dong: +51% so với tham chiếu 1.000
 
 
 def test_lech_duong_chi_can_nhac_khi_cw_khong_con_re():
@@ -361,9 +361,13 @@ def test_kiem_tra_chi_gui_mot_lan():
     ):
         D.ghi_lenh([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
         luc = datetime(2026, 10, 19, 10, 0)
-        assert [l for _, l, _ in D.kiem_tra(luc=luc)] == ["cat_lo"] and gui.call_count == 1
+        # giá 700, tham chiếu 1.000: lỗ 30,1% (cắt lỗ) và giảm 30% trong ngày, gộp 1 tin
+        assert [l for _, l, _ in D.kiem_tra(luc=luc)] == ["cat_lo", "bien_dong"] and gui.call_count == 1
         noi_dung = gui.call_args[0][0]
-        assert "CVPB2615" in noi_dung and "1.000" not in noi_dung  # không gửi khối lượng / số tiền lên Discord
+        assert (
+            "CVPB2615" in noi_dung
+        )  # không gửi khối lượng / số tiền lên Discord (tham chiếu 1.000 đ là giá công khai)
+        assert "1.000" not in noi_dung.replace("tham chiếu 1.000 đ", "") and "303" not in noi_dung
         assert D.kiem_tra(luc=luc) == [] and gui.call_count == 1  # lần 2: cảnh báo cũ, không gửi lại
 
 
@@ -430,13 +434,10 @@ def test_la_ngay_giao_dich():
         assert cw_scanner.la_ngay_giao_dich(date(2026, 10, 19)) is False
 
 
-def test_bao_cao_ghi_ro_khi_quet_loi():
-    bc = D.bao_cao_ngay(
-        [], [], 0, datetime(2026, 10, 21, 14, 14), quet_loi=("NetworkError: không kết nối", "19/10 09:02")
-    )
-    dong2 = bc.splitlines()[1]
-    assert dong2.startswith("⚠ **Quét hôm nay lỗi**") and "NetworkError" in dong2 and "19/10 09:02" in dong2
-    assert D.bao_cao_ngay([], [], 0, datetime(2026, 10, 21, 14, 0)) == ""  # không nắm gì, không lỗi: không gửi
+def test_bao_cao_chi_gui_khi_quet_loi():
+    bc = D.bao_cao_ngay(datetime(2026, 10, 21, 14, 14), quet_loi=("NetworkError: không kết nối", "19/10 09:02"))
+    assert bc.startswith("⚠ **Quét CW 14:14 21/10/2026 lỗi**") and "NetworkError" in bc and "19/10 09:02" in bc
+    assert D.bao_cao_ngay(datetime(2026, 10, 21, 14, 0)) == ""  # quét bình thường: không gửi bảng lãi/lỗ hằng ngày nữa
 
 
 def test_lay_bang_gia_bo_ma_khong_ton_tai():
@@ -645,23 +646,34 @@ def test_trang_danh_muc():
             assert D.FILE_DANH_MUC.read_text(encoding="utf-8") == "hỏng"  # không bị ghi đè
 
 
-def test_bao_cao_ngay():
-    # Vị thế lỗ 30,3% (giá vốn 1.001,5; bán được 700): chạm cắt lỗ 30% -> mục Bất thường; gần giá thực hiện thì không
+def test_bien_dong_trong_ngay():
+    # Mua 1.000 @1.000 -> giá vốn 1.001,5; tham chiếu 1.000. Ngưỡng ±20% so với tham chiếu, tính ở giá chờ mua
+    # 1.200: +20% đúng ngưỡng -> báo; lãi nếu bán = 1.200 × 0,9975 / 1.001,5 − 1 = +19,5% (chưa chạm chốt lời 50%)
     vt = D.tinh_vi_the([lenh(1, "2026-10-01", "MUA", 1000, 1000)])
-    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(700, 20500, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
-    assert {l for _, l, _ in cb} >= {"cat_lo", "gan_gia_th"}
-    bc = D.bao_cao_ngay(dong, cb, 19_550, datetime(2026, 10, 19, 14, 0))
-    # 1.000 CW, vốn 1.001,5, bán được 700 -> -30,3%, (700 × 0,9975 − 1.001,5) × 1.000 = -303.250 đ
-    assert next(d for d in bc.splitlines() if d.startswith("CVPB2615")).split()[-2:] == ["-30,3", "-303.250"]
-    assert "đã chốt +19.550 đ" in bc and bc.count("```") % 2 == 0
-    bat = bc.split("⚠ **Bất thường**")[1]
-    assert "lỗ nếu bán ngay" in bat and "giá thực hiện" not in bat  # gan_gia_th chỉ hiện trên web
-    assert "Nên xem xét" not in bc and "⚡" not in bc  # danh sách CW để mua: xem trên web
-    # bình thường (lãi nhỏ, xa giá thực hiện): chỉ có bảng lãi/lỗ, không có mục Bất thường
-    dong, cb, _ = D.danh_gia_danh_muc(vt, bang_gia_mau(1000, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {})
-    assert "Bất thường" not in D.bao_cao_ngay(dong, cb, 0, datetime(2026, 10, 19, 14, 0))
-    tin = D.chia_tin(bc * 5, 500)
-    assert all(len(t) <= 500 for t in tin) and "\n".join(tin).replace("\n", "") == (bc * 5).replace("\n", "")
+    tin = lambda bid: {
+        l: nd
+        for _, l, nd in D.danh_gia_danh_muc(
+            vt, bang_gia_mau(bid, 25000, HOM_NAY + timedelta(days=60)), DF, HOM_NAY, {}
+        )[1]
+    }
+    assert tin(1200)["bien_dong"] == (
+        "giá tăng 20,0% trong ngày (giá chờ mua 1.200 đ, tham chiếu 1.000 đ), lãi/lỗ nếu bán ngay +19,5%"
+    )
+    assert "bien_dong" not in tin(1190)  # +19%: chưa tới ngưỡng
+    # 800: −20% -> báo; lỗ = 800 × 0,9975 / 1.001,5 − 1 = −20,3% (chưa chạm cắt lỗ 30%)
+    assert tin(800)["bien_dong"].startswith("giá giảm 20,0% trong ngày") and tin(800)["bien_dong"].endswith("-20,3%")
+    assert "cat_lo" not in tin(800) and "bien_dong" not in tin(810) and "bien_dong" in D.BAT_THUONG
+
+
+def test_bien_dong_hom_sau_van_bao_lai():
+    # Ngày 1 tăng 20% -> 1 tin; cùng ngày vẫn ở ngưỡng -> không lặp; ngày 2 lại chạy 20% so với tham chiếu mới -> báo tiếp
+    with tempfile.TemporaryDirectory() as tmp:
+        lan = [
+            (datetime(2026, 10, 19, 10, 0), 1200),
+            (datetime(2026, 10, 19, 10, 5), 1200),
+            (datetime(2026, 10, 20, 10, 0), 1200),
+        ]
+        assert _chay_kiem_tra(tmp, lan) == 2
 
 
 def test_chi_gui_discord_khi_bat_thuong():
