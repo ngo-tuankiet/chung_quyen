@@ -139,8 +139,8 @@ COT = [
 THU_MUC_GIAO_DIEN = Path(__file__).parent / "giao_dien"
 CSS = (THU_MUC_GIAO_DIEN / "trang.css").read_text(encoding="utf-8")
 JS = (THU_MUC_GIAO_DIEN / "trang.js").read_text(encoding="utf-8")
-# Nến trang chi tiết CW vẽ bằng Lightweight Charts (TradingView, Apache-2.0; nguồn, SHA-256: giao_dien/THU_VIEN_NGOAI.md), chỉ
-# nhúng vào trang dùng nó (~200 KB). Trang ETF, phái sinh vẫn vẽ SVG (người dùng chọn làm thử trang CW trước, 04/11/2026)
+# Nến các trang chi tiết (CW 04/11/2026; ETF, phái sinh 05/11/2026 sau khi người dùng xem thử) vẽ bằng Lightweight Charts
+# (TradingView, Apache-2.0; nguồn, SHA-256: giao_dien/THU_VIEN_NGOAI.md), chỉ nhúng vào trang có mục nến (~200 KB)
 JS_LWC = (THU_MUC_GIAO_DIEN / "lightweight-charts-5.2.1.standalone.production.js").read_text(encoding="utf-8")
 JS_NEN_LWC = (THU_MUC_GIAO_DIEN / "nen_lwc.js").read_text(encoding="utf-8")
 

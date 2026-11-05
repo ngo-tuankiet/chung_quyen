@@ -53,7 +53,13 @@
     kl.setData(ds.map(d => d.length < 2 ? { time: giay(d[0]) } : {
       time: giay(d[0]), value: d[5], color: (d[6] ? mau.le : d[4] >= d[1] ? mau.tang : mau.giam) + "66",
     }));
-    bd.timeScale().fitContent();
+    // vừa khít toàn bộ nến mỗi lần ô từ rộng 0 (khung H1/H4/D1 đang ẩn, trang mở ở tab nền chưa dựng bố cục) thành có bề rộng:
+    // fitContent lúc rộng 0 dồn hết nến vào mép phải (thấy ở trang phái sinh 05/11/2026)
+    let rongTruoc = 0;
+    new ResizeObserver(() => {
+      if (o.clientWidth > 0 && rongTruoc === 0) requestAnimationFrame(() => bd.timeScale().fitContent());
+      rongTruoc = o.clientWidth;
+    }).observe(o);
 
     const theoGiay = new Map(ds.map((d, i) => [giay(d[0]), i]));
     const ghiChuGiai = i => {  // dòng thông số của nến i (mặc định nến cuối), % so với đóng cửa nến có khớp trước đó
@@ -90,8 +96,4 @@
       dangDong = false;
     });
   });
-
-  // khung đang ẩn có bề rộng 0 lúc tạo: hiện ra thì vừa khít lại toàn bộ nến
-  document.querySelectorAll("[data-chon-khung]").forEach(n => n.addEventListener("click", () =>
-    requestAnimationFrame(() => (theoKhung[n.dataset.chonKhung] || []).forEach(m => m.bd.timeScale().fitContent()))));
 })();

@@ -265,7 +265,7 @@ def trang_phai_sinh_chi_tiet(ma):
     )
     phan += [
         hang_doi(f'<div class="cot-doc">{m_tom_tat}{m_gia_dinh}</div>', m_neu_giu),
-        W.muc_nen(ma, cs, F, S, h["bang_gia"], chi_so=cs, nhan=P.HE_SO_NHAN),
+        W.muc_nen(ma, cs, F, S, h["bang_gia"], chi_so=cs, nhan=P.HE_SO_NHAN, ve="lwc"),
         m_basis,
         (
             f'<section class="the"><details class="giai-thich" open><summary>ℹ Basis là gì</summary><p class="phu">{GIAI_THICH}</p>'

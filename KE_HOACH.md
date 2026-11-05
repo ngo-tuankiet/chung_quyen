@@ -884,5 +884,7 @@ lược bán lẻ có lãi sau phí). Trang là sàng lọc: chỉ ra chỗ giá
   không tự đoán). **Biểu đồ nến trang chi tiết CW (04/11/2026, người dùng duyệt tải thư viện):** vẽ bằng TradingView Lightweight
   Charts 5.2.1 (Apache-2.0, `giao_dien/`, SHA-256 khớp jsDelivr, logo TradingView giữ nguyên để ghi công): phóng to bằng lăn chuột /
   chụm 2 ngón, kéo xem nến cũ, con trỏ và vùng xem của CW và CS đi cùng nhau; nến khớp lẻ vẫn vẽ mờ, dòng tóm tắt và bảng dữ liệu
-  giữ nguyên. Trang ETF, phái sinh vẫn vẽ SVG cho tới khi người dùng xem thử và đồng ý đổi. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
+  giữ nguyên. 05/11/2026 người dùng xem thử rồi đổi luôn trang chi tiết ETF và phái sinh (chỉ số 2 số lẻ, HĐ tương lai 1 số lẻ);
+  sửa lỗi nến dồn sát mép phải khi ô biểu đồ lúc tải trang rộng 0 (tab nền, khung đang ẩn): vừa khít lại mỗi lần ô có bề rộng.
+  Bản vẽ SVG cũ (`bieu_do_nen(ve="svg")`) không còn trang nào dùng. Chưa kiểm: T theo ngày lịch quanh Tết, r 4% dùng như lãi
   liên tục, lãi khóa chưa khóa hết phần (1 − B/iNAV)·(S_T − S).
